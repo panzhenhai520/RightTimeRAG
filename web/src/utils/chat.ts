@@ -81,15 +81,101 @@ export const preprocessLaTeX = (content: string) => {
 export function replaceThinkToSection(text: string = '') {
   const pattern = /<think>([\s\S]*?)<\/think>/g;
 
-  const result = text.replace(pattern, '<details class="think"><summary>Thinking...</summary>$1</details>');
+  const result = text.replace(
+    pattern,
+    '<details class="think"><summary>Thinking...</summary>$1</details>',
+  );
 
   return result;
+}
+
+export function parseThinkAndAnswer(text: string = '') {
+  return parseTaggedContent(text, 'think');
+}
+
+export function parseRetrievingAndAnswer(text: string = '') {
+  return parseTaggedContent(text, 'retrieving');
+}
+
+function parseTaggedContent(
+  text: string = '',
+  tagName: 'think' | 'retrieving',
+) {
+  const normalizedText = text || '';
+  const tagPattern = new RegExp(`<\\/?${tagName}>`, 'g');
+  const matches = Array.from(normalizedText.matchAll(tagPattern));
+
+  if (matches.length === 0) {
+    return {
+      thinking: '',
+      answer: normalizedText,
+      hasThinking: false,
+      thinkingComplete: false,
+    };
+  }
+
+  const thinkingParts: string[] = [];
+  const answerParts: string[] = [];
+  let cursor = 0;
+  let inThinking = false;
+  let hasThinking = false;
+
+  for (const match of matches) {
+    const tag = match[0];
+    const index = match.index ?? 0;
+    const chunk = normalizedText.slice(cursor, index);
+
+    if (inThinking) {
+      thinkingParts.push(chunk);
+    } else {
+      answerParts.push(chunk);
+    }
+
+    if (tag === `<${tagName}>`) {
+      inThinking = true;
+      hasThinking = true;
+    } else {
+      inThinking = false;
+    }
+
+    cursor = index + tag.length;
+  }
+
+  const tail = normalizedText.slice(cursor);
+  if (inThinking) {
+    thinkingParts.push(tail);
+  } else {
+    answerParts.push(tail);
+  }
+
+  return {
+    thinking: thinkingParts
+      .join('')
+      .replace(tagPattern, '')
+      .replace(/<br\s*\/?>/gi, '\n'),
+    answer: answerParts.join('').replace(tagPattern, ''),
+    hasThinking,
+    thinkingComplete: !inThinking,
+  };
+}
+
+export function getThinkingPreview(text: string = '', maxLines = 1) {
+  return text
+    .replace(/<br\s*\/?>/gi, '\n')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(-maxLines)
+    .join('\n');
 }
 
 export function replaceRetrievingToSection(text: string = '') {
   const pattern = /<retrieving>([\s\S]*?)<\/retrieving>/g;
 
-  const result = text.replace(pattern, '<details class="retrieving"><summary>Retrieving...</summary>$1</details>');
+  const result = text.replace(
+    pattern,
+    '<details class="retrieving"><summary>Retrieving...</summary>$1</details>',
+  );
 
   return result;
 }

@@ -21,10 +21,21 @@ import { INodeEvent, MessageEventType } from '@/hooks/use-send-message';
 import { cn } from '@/lib/utils';
 import { AgentChatContext } from '@/pages/agent/context';
 import { WorkFlowTimeline } from '@/pages/agent/log-sheet/workflow-timeline';
+import {
+  getThinkingPreview,
+  parseRetrievingAndAnswer,
+  parseThinkAndAnswer,
+} from '@/utils/chat';
 import { citationMarkerReg } from '@/utils/citation-utils';
 import { getDirAttribute } from '@/utils/text-direction';
 import { isEmpty } from 'lodash';
-import { Atom, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Atom,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+} from 'lucide-react';
 import { DocumentDownloadButton } from '../document-download-button';
 import MarkdownContent from '../next-markdown-content';
 import { RAGFlowAvatar } from '../ragflow-avatar';
@@ -84,6 +95,8 @@ function MessageItem({
   const isAssistant = item.role === MessageType.Assistant;
   const isUser = item.role === MessageType.User;
   const [showThinking, setShowThinking] = useState(false);
+  const [showReasoning, setShowReasoning] = useState(false);
+  const [showRetrieving, setShowRetrieving] = useState(false);
   const { setLastSendLoadingFunc } = useContext(AgentChatContext);
 
   useEffect(() => {
@@ -103,6 +116,44 @@ function MessageItem({
     [item.downloads],
   );
   const messageContent = item.content;
+  const parsedContent = useMemo(
+    () => parseThinkAndAnswer(messageContent),
+    [messageContent],
+  );
+  const parsedRetrievingContent = useMemo(
+    () => parseRetrievingAndAnswer(parsedContent.answer),
+    [parsedContent.answer],
+  );
+  const thinkingPreview = useMemo(
+    () => getThinkingPreview(parsedContent.thinking),
+    [parsedContent.thinking],
+  );
+  const retrievingPreview = useMemo(
+    () => getThinkingPreview(parsedRetrievingContent.thinking),
+    [parsedRetrievingContent.thinking],
+  );
+  const shouldShowRetrieving =
+    isAssistant && (loading || parsedRetrievingContent.hasThinking);
+  const isRetrievingRunning =
+    loading && !parsedRetrievingContent.thinkingComplete;
+  const shouldShowRetrievingBody =
+    !!parsedRetrievingContent.thinking && (loading || showRetrieving);
+  const displayedRetrieving = loading
+    ? retrievingPreview
+    : showRetrieving
+      ? parsedRetrievingContent.thinking
+      : retrievingPreview;
+  const shouldShowThinking =
+    isAssistant && (loading || parsedContent.hasThinking);
+  const isThinkingRunning = loading && !parsedContent.thinkingComplete;
+  const answerContent = parsedRetrievingContent.answer;
+  const shouldShowReasoningBody =
+    !!parsedContent.thinking && (loading || showReasoning);
+  const displayedReasoning = loading
+    ? thinkingPreview
+    : showReasoning
+      ? parsedContent.thinking
+      : thinkingPreview;
 
   const handleRegenerateMessage = useCallback(() => {
     regenerateMessage?.(item);
@@ -113,6 +164,13 @@ function MessageItem({
       setCurrentMessageId(item.id);
     }
   }, [item.id, setCurrentMessageId]);
+
+  useEffect(() => {
+    if (!loading && answerContent) {
+      setShowReasoning(false);
+      setShowRetrieving(false);
+    }
+  }, [answerContent, loading]);
 
   const startedNodeList = useCallback(
     (item: IMessage) => {
@@ -125,7 +183,7 @@ function MessageItem({
   );
 
   const renderContent = useCallback(() => {
-    if (!messageContent && !(item.data || (sendLoading && !isShare))) {
+    if (!answerContent && !(item.data || (sendLoading && !isShare))) {
       return null;
     }
 
@@ -137,16 +195,16 @@ function MessageItem({
           [styles.messageUserText]: !isAssistant,
           'bg-bg-card': !isAssistant,
         })}
-        dir={getDirAttribute(messageContent.replace(citationMarkerReg, ''))}
+        dir={getDirAttribute(answerContent.replace(citationMarkerReg, ''))}
       >
         {item.data ? (
           children
-        ) : sendLoading && isEmpty(messageContent) ? (
+        ) : sendLoading && isEmpty(answerContent) ? (
           <>{!isShare && 'running...'}</>
         ) : (
           <MarkdownContent
             loading={loading}
-            content={messageContent}
+            content={answerContent}
             reference={reference}
             clickDocumentButton={clickDocumentButton}
           ></MarkdownContent>
@@ -156,11 +214,11 @@ function MessageItem({
   }, [
     children,
     clickDocumentButton,
+    answerContent,
     isAssistant,
     isShare,
     item.data,
     loading,
-    messageContent,
     reference,
     sendLoading,
     theme,
@@ -224,7 +282,7 @@ function MessageItem({
                     {isShare && !sendLoading && !isEmpty(item.content) && (
                       <AssistantGroupButton
                         messageId={item.id}
-                        content={messageContent}
+                        content={answerContent}
                         prompt={item.prompt}
                         showLikeButton={showLikeButton}
                         audioBinary={item.audio_binary}
@@ -237,7 +295,7 @@ function MessageItem({
                     {!isShare && (
                       <AssistantGroupButton
                         messageId={item.id}
-                        content={messageContent}
+                        content={answerContent}
                         prompt={item.prompt}
                         showLikeButton={showLikeButton}
                         audioBinary={item.audio_binary}
@@ -277,12 +335,74 @@ function MessageItem({
                 </div>
               )}
 
+            {shouldShowRetrieving && (
+              <div className={styles.thinkingPanel}>
+                <button
+                  type="button"
+                  className={styles.thinkingHeader}
+                  onClick={() => setShowRetrieving((visible) => !visible)}
+                >
+                  {isRetrievingRunning ? (
+                    <Loader2
+                      className={cn(styles.thinkingIcon, 'animate-spin')}
+                    />
+                  ) : (
+                    <CheckCircle2 className={styles.thinkingIcon} />
+                  )}
+                  <span>
+                    {isRetrievingRunning ? 'Retrieving...' : 'Retrieved'}
+                  </span>
+                  {parsedRetrievingContent.thinking &&
+                    (showRetrieving ? (
+                      <ChevronUp className={styles.thinkingChevron} />
+                    ) : (
+                      <ChevronDown className={styles.thinkingChevron} />
+                    ))}
+                </button>
+                {shouldShowRetrievingBody && (
+                  <div className={styles.thinkingText}>
+                    {displayedRetrieving}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {shouldShowThinking && (
+              <div className={styles.thinkingPanel}>
+                <button
+                  type="button"
+                  className={styles.thinkingHeader}
+                  onClick={() => setShowReasoning((visible) => !visible)}
+                >
+                  {isThinkingRunning ? (
+                    <Loader2
+                      className={cn(styles.thinkingIcon, 'animate-spin')}
+                    />
+                  ) : (
+                    <CheckCircle2 className={styles.thinkingIcon} />
+                  )}
+                  <span>{isThinkingRunning ? 'Thinking...' : 'Thought'}</span>
+                  {parsedContent.thinking &&
+                    (showReasoning ? (
+                      <ChevronUp className={styles.thinkingChevron} />
+                    ) : (
+                      <ChevronDown className={styles.thinkingChevron} />
+                    ))}
+                </button>
+                {shouldShowReasoningBody && (
+                  <div className={styles.thinkingText}>
+                    {displayedReasoning}
+                  </div>
+                )}
+              </div>
+            )}
+
             {renderContent()}
 
             {isAssistant && (
               <ReferenceImageList
                 referenceChunks={reference?.chunks}
-                messageContent={messageContent}
+                messageContent={answerContent}
               ></ReferenceImageList>
             )}
 

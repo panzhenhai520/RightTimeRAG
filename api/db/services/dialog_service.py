@@ -546,9 +546,41 @@ def repair_bad_citation_formats(answer: str, kbinfos: dict, idx: set):
     return answer, idx
 
 
+ERROR_HISTORY_PATTERNS = (
+    "**ERROR**:",
+    "ERROR:",
+    "ApiError(",
+    "Traceback (most recent call last)",
+    "search_phase_execution_exception",
+    "CUDA error",
+    "invalid_request_error",
+)
+
+
+def _is_error_history_message(message: dict) -> bool:
+    if message.get("role") != "assistant":
+        return False
+    content = message.get("content") or ""
+    if not isinstance(content, str):
+        content = str(content)
+    return any(pattern in content for pattern in ERROR_HISTORY_PATTERNS)
+
+
+def _sanitize_chat_history(messages: list[dict]) -> list[dict]:
+    """Drop generated error responses before rewrite, retrieval, and prompting."""
+    sanitized = [m for m in messages if not _is_error_history_message(m)]
+    if sanitized and sanitized[-1].get("role") == "user":
+        return sanitized
+    latest_user = next((m for m in reversed(messages) if m.get("role") == "user"), None)
+    if latest_user:
+        sanitized.append(latest_user)
+    return sanitized or messages
+
+
 async def async_chat(dialog, messages, stream=True, **kwargs):
     logging.debug("Begin async_chat")
     assert messages[-1]["role"] == "user", "The last content of this conversation is not from user."
+    messages = _sanitize_chat_history(messages)
     use_web_search = _should_use_web_search(dialog.prompt_config, kwargs.get("internet"))
     logging.debug("web_search kb=%s tavily=%s internet=%r enabled=%s", bool(dialog.kb_ids), bool(dialog.prompt_config.get("tavily_api_key")), kwargs.get("internet"), use_web_search)
     if not dialog.kb_ids and not use_web_search:

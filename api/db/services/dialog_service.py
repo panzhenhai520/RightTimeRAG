@@ -637,6 +637,12 @@ CONTEXT_DEPENDENT_PATTERNS = (
 )
 
 MAX_RETRIEVAL_QUERY_CHARS = 512
+DEFAULT_MODEL_CONTEXT_TOKENS = 8192
+DEEPSEEK_V4_CONTEXT_TOKENS = 131072
+MIN_OUTPUT_TOKENS = 1
+DEFAULT_OUTPUT_TOKENS = 512
+MAX_KNOWLEDGE_CONTEXT_RATIO = 0.70
+MAX_PROMPT_CONTEXT_RATIO = 0.95
 
 
 def _normalize_route_text(text: str) -> str:
@@ -675,6 +681,46 @@ def _build_retrieval_query(question: str) -> str:
     return normalized[:MAX_RETRIEVAL_QUERY_CHARS]
 
 
+def _safe_positive_int(value, default: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+def _resolve_model_context_tokens(llm_model_config: dict | None, dialog) -> int:
+    configured_tokens = _safe_positive_int((llm_model_config or {}).get("max_tokens"), DEFAULT_MODEL_CONTEXT_TOKENS)
+    llm_name = " ".join(
+        str(v or "")
+        for v in (
+            getattr(dialog, "llm_id", ""),
+            (llm_model_config or {}).get("llm_name"),
+            (llm_model_config or {}).get("model_name"),
+        )
+    ).lower()
+    if "deepseek-v4" in llm_name or "deepseek v4" in llm_name:
+        configured_tokens = max(configured_tokens, DEEPSEEK_V4_CONTEXT_TOKENS)
+    return configured_tokens
+
+
+def _resolve_output_tokens(llm_setting: dict | None) -> int:
+    return _safe_positive_int((llm_setting or {}).get("max_tokens"), DEFAULT_OUTPUT_TOKENS)
+
+
+def _resolve_context_budgets(llm_model_config: dict | None, dialog) -> dict[str, int]:
+    model_context_tokens = _resolve_model_context_tokens(llm_model_config, dialog)
+    output_tokens = min(_resolve_output_tokens(getattr(dialog, "llm_setting", None)), max(MIN_OUTPUT_TOKENS, model_context_tokens - MIN_OUTPUT_TOKENS))
+    prompt_tokens = max(MIN_OUTPUT_TOKENS, model_context_tokens - output_tokens)
+    return {
+        "model": model_context_tokens,
+        "output": output_tokens,
+        "prompt": prompt_tokens,
+        "knowledge": max(MIN_OUTPUT_TOKENS, int(prompt_tokens * MAX_KNOWLEDGE_CONTEXT_RATIO)),
+        "fit": max(MIN_OUTPUT_TOKENS, int(prompt_tokens * MAX_PROMPT_CONTEXT_RATIO)),
+    }
+
+
 async def async_chat(dialog, messages, stream=True, **kwargs):
     logging.debug("Begin async_chat")
     assert messages[-1]["role"] == "user", "The last content of this conversation is not from user."
@@ -701,7 +747,17 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         llm_model_config = TenantLLMService.get_model_config(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
 
     factory = llm_model_config.get("llm_factory", "") if llm_model_config else ""
-    max_tokens = llm_model_config.get("max_tokens", 8192)
+    context_budget = _resolve_context_budgets(llm_model_config, dialog)
+    max_tokens = context_budget["model"]
+    logging.debug(
+        "ContextBudget model=%s prompt=%s knowledge=%s fit=%s output=%s llm_id=%s",
+        context_budget["model"],
+        context_budget["prompt"],
+        context_budget["knowledge"],
+        context_budget["fit"],
+        context_budget["output"],
+        dialog.llm_id,
+    )
 
     check_llm_ts = timer()
 
@@ -894,7 +950,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         )
         _enrich_chunks_with_document_metadata(kbinfos.get("chunks", []), metadata_fields)
 
-    knowledges = kb_prompt(kbinfos, max_tokens)
+    knowledges = kb_prompt(kbinfos, context_budget["knowledge"])
     logging.debug("{}->{}".format(" ".join(questions), "\n->".join(knowledges)))
 
     retrieval_ts = timer()
@@ -907,20 +963,31 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     gen_conf = deepcopy(dialog.llm_setting or {})
     if prompt_config.get("reasoning", False) or kwargs.get("reasoning"):
         gen_conf["reasoning"] = True
+    if "max_tokens" in gen_conf:
+        gen_conf["max_tokens"] = context_budget["output"]
 
     msg = [{"role": "system", "content": prompt_config["system"].format(**kwargs) + attachments_}]
     prompt4citation = ""
     if knowledges and (prompt_config.get("quote", True) and kwargs.get("quote", True)):
         prompt4citation = citation_prompt()
     msg.extend([{"role": m["role"], "content": re.sub(r"##\d+\$\$", "", m["content"])} for m in messages if m["role"] != "system"])
-    used_token_count, msg = message_fit_in(msg, int(max_tokens * 0.95))
+    original_message_count = len(msg)
+    used_token_count, msg = message_fit_in(msg, context_budget["fit"])
+    if len(msg) < original_message_count:
+        logging.info(
+            "ContextBudget trimmed chat history from %s to %s messages under fit_budget=%s",
+            original_message_count,
+            len(msg),
+            context_budget["fit"],
+        )
     if llm_type == "chat" and image_attachments:
         convert_last_user_msg_to_multimodal(msg, image_attachments, factory)
     assert len(msg) >= 2, f"message_fit_in has bug: {msg}"
     prompt = msg[0]["content"]
 
     if "max_tokens" in gen_conf:
-        gen_conf["max_tokens"] = min(gen_conf["max_tokens"], max_tokens - used_token_count)
+        available_output_tokens = max(MIN_OUTPUT_TOKENS, max_tokens - used_token_count)
+        gen_conf["max_tokens"] = max(MIN_OUTPUT_TOKENS, min(int(gen_conf["max_tokens"]), available_output_tokens))
 
     async def decorate_answer(answer):
         nonlocal embd_mdl, prompt_config, knowledges, kwargs, kbinfos, prompt, retrieval_ts, questions, langfuse_generation

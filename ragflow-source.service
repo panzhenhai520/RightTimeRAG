@@ -1,0 +1,17 @@
+[Unit]
+Description=RAGFlow Source Backend
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=xsuper
+WorkingDirectory=/home/xsuper/app/newapp/ragflow
+Environment="PYTHONPATH=/home/xsuper/app/newapp/ragflow"
+ExecStart=/home/xsuper/app/newapp/ragflow/.venv/bin/python api/ragflow_server.py
+Restart=always
+RestartSec=5s
+StandardOutput=append:/home/xsuper/app/newapp/ragflow/logs/ragflow_server.log
+StandardError=append:/home/xsuper/app/newapp/ragflow/logs/ragflow_server.log
+
+[Install]
+WantedBy=multi-user.target

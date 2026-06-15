@@ -292,6 +292,10 @@ class DialogService(CommonService):
 
 async def async_chat_solo(dialog, messages, stream=True, **kwargs):
     llm_type = TenantLLMService.llm_id2llm_type(dialog.llm_id)
+    pure_llm_route = kwargs.get("_pure_llm_route", False)
+    if pure_llm_route:
+        latest_user = next((m for m in reversed(messages) if m.get("role") == "user"), messages[-1])
+        messages = [latest_user]
     attachments = ""
     image_attachments = []
     image_files = []
@@ -312,7 +316,11 @@ async def async_chat_solo(dialog, messages, stream=True, **kwargs):
     chat_mdl = LLMBundle(dialog.tenant_id, model_config)
     factory = model_config.get("llm_factory", "") if model_config else ""
 
-    prompt_config = dialog.prompt_config
+    prompt_config = deepcopy(dialog.prompt_config or {})
+    if pure_llm_route:
+        prompt_config["system"] = PURE_LLM_SYSTEM_PROMPT
+        prompt_config["quote"] = False
+        prompt_config["reasoning"] = False
     tts_mdl = None
     if prompt_config.get("tts"):
         default_tts_model = get_tenant_default_model_by_type(dialog.tenant_id, LLMType.TTS)
@@ -323,7 +331,10 @@ async def async_chat_solo(dialog, messages, stream=True, **kwargs):
     if llm_type == "chat" and image_attachments:
         convert_last_user_msg_to_multimodal(msg, image_attachments, factory)
     gen_conf = deepcopy(dialog.llm_setting or {})
-    if dialog.prompt_config.get("reasoning", False) or kwargs.get("reasoning"):
+    if pure_llm_route:
+        gen_conf["reasoning"] = False
+        gen_conf["reasoning_effort"] = "none"
+    elif dialog.prompt_config.get("reasoning", False) or kwargs.get("reasoning"):
         gen_conf["reasoning"] = True
     if stream:
         if llm_type == "chat":
@@ -575,6 +586,8 @@ ERROR_HISTORY_PATTERNS = (
     "search_phase_execution_exception",
     "CUDA error",
     "invalid_request_error",
+    "知识库中未找到您要的答案",
+    "知识库内容为空",
 )
 THINK_BLOCK_PATTERN = re.compile(r"<think>[\s\S]*?</think>", flags=re.IGNORECASE)
 
@@ -675,6 +688,13 @@ MAX_MEMORY_RESULTS = 5
 MAX_MEMORY_GROUPS = 4
 MAX_KNOWLEDGE_CONTEXT_RATIO = 0.70
 MAX_PROMPT_CONTEXT_RATIO = 0.95
+PURE_LLM_SYSTEM_PROMPT = """你是 Panython / RightTime 本地部署的 DeepSeek V4 Flash 智能助手。
+
+当前请求已被判定为普通聊天或模型自身相关问题，不要检索知识库，不要引用 PDF、文档、Fig. 或来源片段。
+请直接、简洁地回答用户当前问题。回答身份、模型、能力、上下文等问题时，应说明你是本地部署的 DeepSeek V4 Flash 服务；不要声称自己是 Kimi、OpenAI、ChatGPT 或其他模型。
+
+You are the locally deployed DeepSeek V4 Flash assistant served by Panython / RightTime.
+For general chat or model-self questions, answer directly without knowledge-base citations or document references."""
 
 
 def _normalize_route_text(text: str) -> str:
@@ -813,7 +833,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     pure_llm_route, route_reason = _should_route_to_pure_llm(latest_question, kwargs)
     if dialog.kb_ids and pure_llm_route and not use_web_search:
         logging.info("QueryPlanner route=pure_llm reason=%s question=%s", route_reason, latest_question[:120])
-        async for ans in async_chat_solo(dialog, messages, stream, **kwargs):
+        async for ans in async_chat_solo(dialog, messages, stream, _pure_llm_route=True, **kwargs):
             yield ans
         return
     if not dialog.kb_ids and not use_web_search:

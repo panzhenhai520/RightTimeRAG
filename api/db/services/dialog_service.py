@@ -618,6 +618,26 @@ EXPLICIT_KB_INTENT_PATTERNS = (
     "刚才",
 )
 
+CONTEXT_DEPENDENT_PATTERNS = (
+    "它",
+    "他",
+    "她",
+    "这个",
+    "那个",
+    "这些",
+    "那些",
+    "上述",
+    "上面",
+    "前面",
+    "刚才",
+    "其中",
+    "该报告",
+    "这个报告",
+    "继续",
+)
+
+MAX_RETRIEVAL_QUERY_CHARS = 512
+
 
 def _normalize_route_text(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip().lower())
@@ -641,6 +661,18 @@ def _should_route_to_pure_llm(latest_question: str, kwargs: dict) -> tuple[bool,
         return True, "general_chat"
 
     return False, "default_kb_route"
+
+
+def _question_depends_on_history(latest_question: str) -> bool:
+    normalized = _normalize_route_text(latest_question)
+    return any(pattern in normalized for pattern in CONTEXT_DEPENDENT_PATTERNS)
+
+
+def _build_retrieval_query(question: str) -> str:
+    normalized = re.sub(r"\s+", " ", (question or "").strip())
+    if len(normalized) <= MAX_RETRIEVAL_QUERY_CHARS:
+        return normalized
+    return normalized[:MAX_RETRIEVAL_QUERY_CHARS]
 
 
 async def async_chat(dialog, messages, stream=True, **kwargs):
@@ -750,7 +782,9 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         if p["key"] not in kwargs:
             prompt_config["system"] = prompt_config["system"].replace("{%s}" % p["key"], " ")
 
-    if len(questions) > 1 and prompt_config.get("refine_multiturn"):
+    latest_user_question = questions[-1] if questions else latest_question
+    depends_on_history = _question_depends_on_history(latest_user_question)
+    if len(questions) > 1 and prompt_config.get("refine_multiturn") and depends_on_history:
         questions = [await full_question(dialog.tenant_id, dialog.llm_id, messages)]
     else:
         questions = questions[-1:]
@@ -771,6 +805,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
 
     if prompt_config.get("keyword", False):
         questions[-1] = questions[-1] + "," + await keyword_extraction(chat_mdl, questions[-1])
+    retrieval_query = _build_retrieval_query(questions[-1])
     refine_question_ts = timer()
 
     thought = ""
@@ -821,7 +856,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         else:
             if embd_mdl:
                 kbinfos = await retriever.retrieval(
-                    " ".join(questions),
+                    retrieval_query,
                     embd_mdl,
                     tenant_ids,
                     dialog.kb_ids,
@@ -833,21 +868,21 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                     top=dialog.top_k,
                     aggs=True,
                     rerank_mdl=rerank_mdl,
-                    rank_feature=label_question(" ".join(questions), kbs),
+                    rank_feature=label_question(retrieval_query, kbs),
                 )
                 if prompt_config.get("toc_enhance"):
-                    cks = await retriever.retrieval_by_toc(" ".join(questions), kbinfos["chunks"], tenant_ids, chat_mdl, dialog.top_n)
+                    cks = await retriever.retrieval_by_toc(retrieval_query, kbinfos["chunks"], tenant_ids, chat_mdl, dialog.top_n)
                     if cks:
                         kbinfos["chunks"] = cks
                 kbinfos["chunks"] = retriever.retrieval_by_children(kbinfos["chunks"], tenant_ids)
             if use_web_search:
                 tav = Tavily(prompt_config["tavily_api_key"])
-                tav_res = tav.retrieve_chunks(" ".join(questions))
+                tav_res = tav.retrieve_chunks(retrieval_query)
                 kbinfos["chunks"].extend(tav_res["chunks"])
                 kbinfos["doc_aggs"].extend(tav_res["doc_aggs"])
             if prompt_config.get("use_kg"):
                 default_chat_model = get_tenant_default_model_by_type(dialog.tenant_id, LLMType.CHAT)
-                ck = await settings.kg_retriever.retrieval(" ".join(questions), tenant_ids, dialog.kb_ids, embd_mdl, LLMBundle(dialog.tenant_id, default_chat_model))
+                ck = await settings.kg_retriever.retrieval(retrieval_query, tenant_ids, dialog.kb_ids, embd_mdl, LLMBundle(dialog.tenant_id, default_chat_model))
                 if ck["content_with_weight"]:
                     kbinfos["chunks"].insert(0, ck)
 

@@ -34,20 +34,23 @@ from api.db.services.doc_metadata_service import DocMetadataService
 from api.db.services.knowledgebase_service import KnowledgebaseService
 from api.db.services.langfuse_service import TenantLangfuseService
 from api.db.services.llm_service import LLMBundle
+from api.db.services.memory_service import MemoryService
 from common.metadata_utils import apply_meta_data_filter
 from api.utils.reference_metadata_utils import (
     enrich_chunks_with_document_metadata,
     resolve_reference_metadata_preferences,
 )
 from api.db.services.tenant_llm_service import TenantLLMService
+from api.db.joint_services.memory_message_service import query_message
 from api.db.joint_services.tenant_model_service import get_model_config_by_id, get_model_config_by_type_and_name, get_tenant_default_model_by_type
+from common.misc_utils import thread_pool_exec
 from common.time_utils import current_timestamp, datetime_format
 from common.text_utils import normalize_arabic_digits
 from rag.graphrag.general.mind_map_extractor import MindMapExtractor
 from rag.advanced_rag import DeepResearcher
 from rag.app.tag import label_question
 from rag.nlp.search import index_name
-from rag.prompts.generator import chunks_format, citation_prompt, cross_languages, full_question, kb_prompt, keyword_extraction, message_fit_in, PROMPT_JINJA_ENV, ASK_SUMMARY
+from rag.prompts.generator import chunks_format, citation_prompt, cross_languages, full_question, kb_prompt, keyword_extraction, message_fit_in, memory_prompt, PROMPT_JINJA_ENV, ASK_SUMMARY
 from common.token_utils import num_tokens_from_string
 from rag.utils.tavily_conn import Tavily
 from rag.utils.tts_cache import synthesize_with_cache
@@ -649,6 +652,9 @@ DEFAULT_MODEL_CONTEXT_TOKENS = 8192
 DEEPSEEK_V4_CONTEXT_TOKENS = 131072
 MIN_OUTPUT_TOKENS = 1
 DEFAULT_OUTPUT_TOKENS = 512
+MEMORY_CONTEXT_TOKENS = 2048
+MAX_MEMORY_RESULTS = 5
+MAX_MEMORY_GROUPS = 4
 MAX_KNOWLEDGE_CONTEXT_RATIO = 0.70
 MAX_PROMPT_CONTEXT_RATIO = 0.95
 
@@ -727,6 +733,56 @@ def _resolve_context_budgets(llm_model_config: dict | None, dialog) -> dict[str,
         "knowledge": max(MIN_OUTPUT_TOKENS, int(prompt_tokens * MAX_KNOWLEDGE_CONTEXT_RATIO)),
         "fit": max(MIN_OUTPUT_TOKENS, int(prompt_tokens * MAX_PROMPT_CONTEXT_RATIO)),
     }
+
+
+def _group_accessible_memories_for_query(tenant_id: str) -> list[list[str]]:
+    memories, _ = MemoryService.get_by_filter({"accessible_user_id": tenant_id}, "", page=1, page_size=50)
+    grouped: dict[tuple[str, str], list[str]] = {}
+    for memory in memories:
+        key = (str(memory.get("tenant_embd_id") or ""), str(memory.get("embd_id") or ""))
+        grouped.setdefault(key, []).append(memory["id"])
+    return list(grouped.values())[:MAX_MEMORY_GROUPS]
+
+
+async def _retrieve_memory_context(tenant_id: str, query: str, token_budget: int = MEMORY_CONTEXT_TOKENS) -> list[str]:
+    if not query:
+        return []
+    try:
+        memory_groups = await thread_pool_exec(_group_accessible_memories_for_query, tenant_id)
+    except Exception as exc:  # noqa: BLE001 - memory should not break chat
+        logging.warning("MemoryContext failed to list accessible memories: %s", exc)
+        return []
+    if not memory_groups:
+        return []
+
+    memory_messages = []
+    for memory_ids in memory_groups:
+        try:
+            matches = await thread_pool_exec(
+                query_message,
+                {"memory_id": memory_ids},
+                {
+                    "query": query,
+                    "similarity_threshold": 0.2,
+                    "keywords_similarity_weight": 0.3,
+                    "top_n": MAX_MEMORY_RESULTS,
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 - degrade if a memory index is absent or incompatible
+            logging.warning("MemoryContext query failed for memories=%s: %s", memory_ids, exc)
+            continue
+        for message in matches or []:
+            content = message.get("content") if isinstance(message, dict) else None
+            if content:
+                memory_messages.append({"content": str(content)})
+            if len(memory_messages) >= MAX_MEMORY_RESULTS:
+                break
+        if len(memory_messages) >= MAX_MEMORY_RESULTS:
+            break
+
+    if not memory_messages:
+        return []
+    return memory_prompt(memory_messages, token_budget)
 
 
 async def async_chat(dialog, messages, stream=True, **kwargs):
@@ -960,6 +1016,13 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
 
     knowledges = kb_prompt(kbinfos, context_budget["knowledge"])
     logging.debug("{}->{}".format(" ".join(questions), "\n->".join(knowledges)))
+    memory_context = await _retrieve_memory_context(
+        dialog.tenant_id,
+        retrieval_query,
+        min(MEMORY_CONTEXT_TOKENS, max(MIN_OUTPUT_TOKENS, context_budget["prompt"] // 10)),
+    )
+    if memory_context:
+        logging.debug("MemoryContext injected %d snippets for tenant=%s", len(memory_context), dialog.tenant_id)
 
     retrieval_ts = timer()
     if not knowledges and prompt_config.get("empty_response"):
@@ -974,7 +1037,11 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     if "max_tokens" in gen_conf:
         gen_conf["max_tokens"] = context_budget["output"]
 
-    msg = [{"role": "system", "content": prompt_config["system"].format(**kwargs) + attachments_}]
+    memory_context_text = ""
+    if memory_context:
+        memory_context_text = "\n\n### Conversation memory:\n" + "\n".join(f"- {m}" for m in memory_context)
+
+    msg = [{"role": "system", "content": prompt_config["system"].format(**kwargs) + memory_context_text + attachments_}]
     prompt4citation = ""
     if knowledges and (prompt_config.get("quote", True) and kwargs.get("quote", True)):
         prompt4citation = citation_prompt()

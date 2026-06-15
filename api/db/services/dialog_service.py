@@ -920,16 +920,17 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
 
             answer, idx = repair_bad_citation_formats(answer, kbinfos, idx)
 
-            idx = set([kbinfos["chunks"][int(i)]["doc_id"] for i in idx])
-            recall_docs = [d for d in kbinfos["doc_aggs"] if d["doc_id"] in idx]
-            if not recall_docs:
-                recall_docs = kbinfos["doc_aggs"]
-            kbinfos["doc_aggs"] = recall_docs
-
-            refs = deepcopy(kbinfos)
-            for c in refs["chunks"]:
-                if c.get("vector"):
-                    del c["vector"]
+            cited_chunk_indexes = {int(i) for i in idx if int(i) < len(kbinfos["chunks"])}
+            cited_doc_ids = {kbinfos["chunks"][i]["doc_id"] for i in cited_chunk_indexes}
+            if cited_doc_ids:
+                refs = deepcopy(kbinfos)
+                refs["chunks"] = [ck for ck in refs["chunks"] if ck.get("doc_id") in cited_doc_ids]
+                refs["doc_aggs"] = [d for d in refs["doc_aggs"] if d.get("doc_id") in cited_doc_ids]
+                for c in refs["chunks"]:
+                    if c.get("vector"):
+                        del c["vector"]
+            else:
+                refs = {"chunks": [], "doc_aggs": []}
 
         if answer.lower().find("invalid key") >= 0 or answer.lower().find("invalid api") >= 0:
             answer += " Please set LLM API-Key in 'User Setting -> Model providers -> API-Key'"

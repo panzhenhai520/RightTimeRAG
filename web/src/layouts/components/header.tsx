@@ -63,9 +63,9 @@ export function Header({
           aria-current={pathname === Routes.Root ? 'page' : undefined}
         >
           <img
-            src="/shihe-doctor-icon.svg"
+            src="/righttime-logo.png"
             alt="时和博士图标"
-            className="size-10 rounded-full"
+            className="size-10 rounded-full object-contain"
           />
         </Link>
       </div>

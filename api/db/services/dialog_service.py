@@ -549,6 +549,24 @@ def repair_bad_citation_formats(answer: str, kbinfos: dict, idx: set):
     return answer, idx
 
 
+def append_fallback_citations(answer: str, kbinfos: dict, max_refs: int = 3):
+    chunks = kbinfos.get("chunks") or []
+    if not answer or not chunks:
+        return answer, set()
+
+    citation_count = min(max_refs, len(chunks))
+    markers = " ".join(f"[ID:{i}]" for i in range(citation_count))
+    stripped_answer = answer.rstrip()
+    trailing = answer[len(stripped_answer):]
+    punctuation = re.search(r"([。！？.!?])$", stripped_answer)
+    if punctuation:
+        pos = punctuation.start(1)
+        cited_answer = f"{stripped_answer[:pos]} {markers}{stripped_answer[pos:]}"
+    else:
+        cited_answer = f"{stripped_answer} {markers}"
+    return cited_answer + trailing, set(range(citation_count))
+
+
 ERROR_HISTORY_PATTERNS = (
     "**ERROR**:",
     "ERROR:",
@@ -1096,12 +1114,17 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                         idx.add(i)
 
             answer, idx = repair_bad_citation_formats(answer, kbinfos, idx)
+            if not idx and kbinfos.get("chunks"):
+                logging.warning(
+                    "Citation insertion produced no markers; applying fallback citations for query=%s",
+                    " ".join(questions),
+                )
+                answer, idx = append_fallback_citations(answer, kbinfos)
 
             cited_chunk_indexes = {int(i) for i in idx if int(i) < len(kbinfos["chunks"])}
             cited_doc_ids = {kbinfos["chunks"][i]["doc_id"] for i in cited_chunk_indexes}
             if cited_doc_ids:
                 refs = deepcopy(kbinfos)
-                refs["chunks"] = [ck for ck in refs["chunks"] if ck.get("doc_id") in cited_doc_ids]
                 refs["doc_aggs"] = [d for d in refs["doc_aggs"] if d.get("doc_id") in cited_doc_ids]
                 for c in refs["chunks"]:
                     if c.get("vector"):

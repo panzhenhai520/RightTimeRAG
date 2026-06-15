@@ -1,6 +1,7 @@
 import Image from '@/components/image';
 import SvgIcon from '@/components/svg-icon';
 
+import { MarkdownRemarkPlugins } from '@/constants/markdown-remark-plugins';
 import {
   useFetchDocumentThumbnailsByIds,
   useGetDocumentUrl,
@@ -36,7 +37,6 @@ import {
 } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
-import { MarkdownRemarkPlugins } from '@/constants/markdown-remark-plugins';
 import { visitParents } from 'unist-util-visit-parents';
 import styles from './floating-chat-widget-markdown.module.less';
 import { useIsDarkTheme } from './theme-provider';
@@ -66,7 +66,11 @@ const FloatingChatWidgetMarkdown = ({
   const contentWithCursor = useMemo(() => {
     const text = content === '' ? t('chat.searching') : content;
     const nextText = replaceTextByOldReg(text);
-    return pipe(replaceThinkToSection, replaceRetrievingToSection, preprocessLaTeX)(nextText);
+    const replaceThink = (value: string) =>
+      replaceThinkToSection(value, t('chat.processShow'));
+    const replaceRetrieving = (value: string) =>
+      replaceRetrievingToSection(value, t('chat.processShow'));
+    return pipe(replaceThink, replaceRetrieving, preprocessLaTeX)(nextText);
   }, [content, t]);
 
   useEffect(() => {

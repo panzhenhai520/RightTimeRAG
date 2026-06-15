@@ -342,7 +342,10 @@ export function MultipleChatBox({
   );
 
   const handleAddToMemory = useCallback(async () => {
-    if (!conversation.dialog_id || !conversationId) return;
+    if (!conversation.dialog_id || !conversationId) {
+      toast.info(t('chat.addToMemoryPreparing'));
+      return;
+    }
     setAddToMemoryLoading(true);
     try {
       const { data } = await request.post(api.memorizeChat, {
@@ -350,7 +353,7 @@ export function MultipleChatBox({
         session_id: conversationId,
       });
       if (data?.code === 0) {
-        toast.success(t('chat.addToMemory'));
+        toast.success(t('chat.addToMemorySuccess'));
       } else {
         toast.error(data?.message || 'Failed to add memo');
       }

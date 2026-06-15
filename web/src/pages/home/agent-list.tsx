@@ -1,11 +1,7 @@
 import { HomeCard } from '@/components/home-card';
-import { MoreButton } from '@/components/more-button';
-import { RenameDialog } from '@/components/rename-dialog';
 import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { useFetchAgentListByPage } from '@/hooks/use-agent-request';
-import { useEffect } from 'react';
-import { AgentDropdown } from '../agents/agent-dropdown';
-import { useRenameAgent } from '../agents/use-rename-agent';
+import { useEffect, useMemo } from 'react';
 
 export function Agents({
   setListLength,
@@ -15,46 +11,27 @@ export function Agents({
   setLoading?: (loading: boolean) => void;
 }) {
   const { data, loading } = useFetchAgentListByPage();
-  const { navigateToAgent } = useNavigatePage();
-  const {
-    agentRenameLoading,
-    initialAgentName,
-    onAgentRenameOk,
-    agentRenameVisible,
-    hideAgentRenameModal,
-    showAgentRenameModal,
-  } = useRenameAgent();
+  const { navigateToAgentExplore } = useNavigatePage();
+  const publishedAgents = useMemo(
+    () => data.filter((agent) => agent.release || agent.release_time),
+    [data],
+  );
 
   useEffect(() => {
-    setListLength(data?.length || 0);
+    setListLength(publishedAgents.length);
     setLoading?.(loading || false);
-  }, [data, setListLength, loading, setLoading]);
+  }, [publishedAgents.length, setListLength, loading, setLoading]);
 
   return (
     <>
-      {data.slice(0, 10).map((x) => (
+      {publishedAgents.slice(0, 10).map((x) => (
         <HomeCard
           key={x.id}
           data={{ name: x.title, ...x } as any}
-          onClick={navigateToAgent(x.id)}
-          moreDropdown={
-            <AgentDropdown
-              showAgentRenameModal={showAgentRenameModal}
-              agent={x}
-            >
-              <MoreButton></MoreButton>
-            </AgentDropdown>
-          }
+          onClick={navigateToAgentExplore(x.id)}
+          moreDropdown={null}
         ></HomeCard>
       ))}
-      {agentRenameVisible && (
-        <RenameDialog
-          hideModal={hideAgentRenameModal}
-          onOk={onAgentRenameOk}
-          initialName={initialAgentName}
-          loading={agentRenameLoading}
-        ></RenameDialog>
-      )}
     </>
   );
 }

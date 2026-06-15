@@ -1,5 +1,6 @@
 import Image from '@/components/image';
 import SvgIcon from '@/components/svg-icon';
+import { MarkdownRemarkPlugins } from '@/constants/markdown-remark-plugins';
 import { IReference, IReferenceChunk } from '@/interfaces/database/chat';
 import { citationMarkerReg } from '@/utils/citation-utils';
 import { getExtension } from '@/utils/document-util';
@@ -10,7 +11,6 @@ import Markdown from 'react-markdown';
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
-import { MarkdownRemarkPlugins } from '@/constants/markdown-remark-plugins';
 import { visitParents } from 'unist-util-visit-parents';
 
 import { useTranslation } from 'react-i18next';
@@ -19,7 +19,6 @@ import 'katex/dist/katex.min.css'; // `rehype-katex` does not import the CSS for
 
 import { useFetchDocumentThumbnailsByIds } from '@/hooks/use-document-request';
 import {
-  currentReg,
   parseCitationIndex,
   preprocessLaTeX,
   replaceRetrievingToSection,
@@ -72,7 +71,11 @@ const MarkdownContent = ({
       text = t('chat.searching');
     }
     const nextText = replaceTextByOldReg(text);
-    return pipe(replaceThinkToSection, replaceRetrievingToSection, preprocessLaTeX)(nextText);
+    const replaceThink = (value: string) =>
+      replaceThinkToSection(value, t('chat.processShow'));
+    const replaceRetrieving = (value: string) =>
+      replaceRetrievingToSection(value, t('chat.processShow'));
+    return pipe(replaceThink, replaceRetrieving, preprocessLaTeX)(nextText);
   }, [content, t]);
 
   useEffect(() => {
@@ -233,22 +236,27 @@ const MarkdownContent = ({
 
   const renderReference = useCallback(
     (text: string) => {
-      const replacedText = reactStringReplace(text, currentReg, (match, i) => {
-        const chunkIndex = getChunkIndex(match);
+      const citationRenderReg = new RegExp(citationMarkerReg.source, 'g');
+      const replacedText = reactStringReplace(
+        text,
+        citationRenderReg,
+        (match, i) => {
+          const chunkIndex = getChunkIndex(match);
 
-        return (
-          <HoverCard key={i}>
-            <HoverCardTrigger>
-              <bdi className="text-text-secondary bg-bg-card rounded-2xl px-1 mx-1 text-nowrap inline-block">
-                Fig. {chunkIndex + 1}
-              </bdi>
-            </HoverCardTrigger>
-            <HoverCardContent className="max-w-3xl">
-              {getPopoverContent(chunkIndex)}
-            </HoverCardContent>
-          </HoverCard>
-        );
-      });
+          return (
+            <HoverCard key={i}>
+              <HoverCardTrigger>
+                <bdi className="text-text-secondary bg-bg-card rounded-2xl px-1 mx-1 text-nowrap inline-block">
+                  Fig. {chunkIndex + 1}
+                </bdi>
+              </HoverCardTrigger>
+              <HoverCardContent className="max-w-3xl">
+                {getPopoverContent(chunkIndex)}
+              </HoverCardContent>
+            </HoverCard>
+          );
+        },
+      );
 
       return replacedText;
     },

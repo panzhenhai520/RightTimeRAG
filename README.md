@@ -1,7 +1,5 @@
 <div align="center">
-<a href="https://cloud.ragflow.io/">
 <img src="web/src/assets/logo-with-text.svg" width="520" alt="ragflow logo">
-</a>
 </div>
 
 <p align="center">
@@ -21,9 +19,7 @@
     <a href="https://x.com/intent/follow?screen_name=infiniflowai" target="_blank">
         <img src="https://img.shields.io/twitter/follow/infiniflow?logo=X&color=%20%23f5f5f5" alt="follow on X(Twitter)">
     </a>
-    <a href="https://cloud.ragflow.io" target="_blank">
-        <img alt="Static Badge" src="https://img.shields.io/badge/Get-Started-4e6b99">
-    </a>
+    <img alt="Static Badge" src="https://img.shields.io/badge/Get-Started-4e6b99">
     <a href="https://hub.docker.com/r/infiniflow/ragflow" target="_blank">
         <img src="https://img.shields.io/docker/pulls/infiniflow/ragflow?label=Docker%20Pulls&color=0db7ed&logo=docker&logoColor=white&style=flat-square" alt="docker pull infiniflow/ragflow:v0.25.6">
     </a>

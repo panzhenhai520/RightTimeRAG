@@ -74,7 +74,21 @@ export enum Routes {
   AdminWhitelist = `${Admin}/whitelist`,
   AdminRoles = `${Admin}/roles`,
   AdminMonitoring = `${Admin}/monitoring`,
+  DevSettingPanython = '/dev_seting/panython',
 }
+
+export const DEV_FEATURE_SESSION_KEY = 'panython.devFeatureAccess';
+
+const requireDevFeatureAccess = () => {
+  if (
+    typeof window !== 'undefined' &&
+    window.sessionStorage.getItem(DEV_FEATURE_SESSION_KEY) === '1'
+  ) {
+    return null;
+  }
+
+  return redirect(Routes.DevSettingPanython);
+};
 
 const defaultRouteFallback = (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
@@ -209,6 +223,10 @@ const routeConfigOptions = [
         Component: () => import('@/pages/next-chats'),
       },
       {
+        path: Routes.DevSettingPanython,
+        Component: () => import('@/pages/dev-setting-panython'),
+      },
+      {
         path: Routes.Searches,
         Component: () => import('@/pages/next-searches'),
       },
@@ -219,19 +237,23 @@ const routeConfigOptions = [
       },
       {
         path: Routes.Agents,
+        loader: requireDevFeatureAccess,
         Component: () => import('@/pages/agents'),
       },
       {
         path: Routes.AgentTemplates,
         layout: false,
+        loader: requireDevFeatureAccess,
         Component: () => import('@/pages/agents/agent-templates'),
       },
       {
         path: Routes.Memories,
+        loader: requireDevFeatureAccess,
         Component: () => import('@/pages/memories'),
       },
       {
         path: `${Routes.Memory}`,
+        loader: requireDevFeatureAccess,
         Component: () => import('@/pages/memory'),
         children: [
           {
@@ -246,10 +268,12 @@ const routeConfigOptions = [
       },
       {
         path: Routes.Files,
+        loader: requireDevFeatureAccess,
         Component: () => import('@/pages/files'),
       },
       {
         path: Routes.Skills,
+        loader: requireDevFeatureAccess,
         Component: () => import('@/pages/skills'),
       },
       {
@@ -292,6 +316,7 @@ const routeConfigOptions = [
 
           {
             path: `${Routes.UserSetting}${Routes.DataSource}`,
+            loader: requireDevFeatureAccess,
             Component: () => import('@/pages/user-setting/data-source'),
           },
         ],
@@ -299,6 +324,7 @@ const routeConfigOptions = [
       {
         path: `${Routes.UserSetting}${Routes.DataSource}${Routes.DataSourceDetailPage}`,
         layout: false,
+        loader: requireDevFeatureAccess,
         Component: () =>
           import('@/pages/user-setting/data-source/data-source-detail-page'),
       },

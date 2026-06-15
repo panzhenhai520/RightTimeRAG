@@ -5,9 +5,11 @@ import { Authorization } from '@/constants/authorization';
 import { cn } from '@/lib/utils';
 import api from '@/utils/api';
 import { getAuthorization } from '@/utils/authorization-util';
+import { t } from 'i18next';
 import { chain, sum } from 'lodash';
 import { Loader2, Mic, Square } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Input } from './input';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 
@@ -275,11 +277,13 @@ export const AudioButton = ({
       if (code === 0 && data && data.text) {
         setTranscript(data.text);
         onOk?.(data.text);
+      } else {
+        toast.warning(t('chat.voiceNoText'));
       }
       setPopoverOpen(false);
     } catch (error) {
       console.error('Failed to process audio:', error);
-      // setTranscript(t('voiceRecorder.processingError'));
+      toast.error(t('chat.voiceError'));
     } finally {
       setIsProcessing(false);
     }
@@ -287,19 +291,22 @@ export const AudioButton = ({
 
   //  Start recording
   const startRecording = () => {
-    recorderControls.startRecording();
-    setIsRecording(true);
-    // setShowInputBox(true);
-    setPopoverOpen(true);
-    setRecordingTime(0);
+    try {
+      recorderControls.startRecording();
+      setIsRecording(true);
+      setPopoverOpen(true);
+      setRecordingTime(0);
 
-    // Start timing
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      intervalRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    } catch (error) {
+      console.error('Unable to start recording:', error);
+      toast.error(t('chat.voiceError'));
     }
-    intervalRef.current = setInterval(() => {
-      setRecordingTime((prev) => prev + 1);
-    }, 1000);
   };
 
   // Stop recording
@@ -412,13 +419,27 @@ export const AudioButton = ({
             isRecording &&
               'animate-pulse !bg-state-success/20 text-state-success rounded-full',
           )}
+          title={
+            isProcessing
+              ? t('chat.voiceProcessing')
+              : isRecording
+                ? t('chat.voiceRecording')
+                : t('chat.voiceStart')
+          }
+          aria-label={
+            isProcessing
+              ? t('chat.voiceProcessing')
+              : isRecording
+                ? t('chat.voiceRecording')
+                : t('chat.voiceStart')
+          }
           disabled={isProcessing}
           data-testid={testId}
         >
           {isProcessing ? (
             <Loader2 size={16} className=" animate-spin" />
           ) : isRecording ? (
-            <></>
+            <Square size={12} />
           ) : (
             // <Mic size={16} className="text-text-primary" />
             // <Square size={12} className="text-text-primary" />

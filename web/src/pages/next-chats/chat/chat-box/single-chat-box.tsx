@@ -84,7 +84,10 @@ export function SingleChatBox({
   }, [conversation?.messages, setDerivedMessages]);
 
   const handleAddToMemory = useCallback(async () => {
-    if (!currentDialog.id || !conversationId) return;
+    if (!currentDialog.id || !conversationId) {
+      toast.info(t('chat.addToMemoryPreparing'));
+      return;
+    }
     setAddToMemoryLoading(true);
     try {
       const { data } = await request.post(api.memorizeChat, {
@@ -92,7 +95,7 @@ export function SingleChatBox({
         session_id: conversationId,
       });
       if (data?.code === 0) {
-        toast.success(t('chat.addToMemory'));
+        toast.success(t('chat.addToMemorySuccess'));
       } else {
         toast.error(data?.message || 'Failed to add memo');
       }

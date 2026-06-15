@@ -30,13 +30,6 @@ const menuItems = [
     name: 'header.search',
     /* icon: Search, */ 'data-testid': 'nav-search',
   },
-  {
-    path: Routes.Agents,
-    name: 'header.flow',
-    /* icon: Cpu, */ 'data-testid': 'nav-agent',
-  },
-  { path: Routes.Memories, name: 'header.memories' /* icon: Cpu, */ },
-  { path: Routes.Files, name: 'header.fileManager' /* icon: File, */ },
 ];
 
 const GlobalNavbar = supportsCssAnchor
@@ -77,7 +70,7 @@ const GlobalNavbar = supportsCssAnchor
                     className={cn(
                       'h-10 px-6 text-base inline-flex items-center justify-center',
                       'hover:text-current focus-visible:text-current rounded-full transition-all',
-                      isActive && '!text-bg-base',
+                      isActive && '!text-white',
                     )}
                     aria-current={isActive ? 'page' : undefined}
                   >
@@ -90,7 +83,7 @@ const GlobalNavbar = supportsCssAnchor
 
             <li
               className={cn(
-                'absolute -z-[1] bg-text-primary border-b-2 border-b-accent-primary rounded-full opacity-0',
+                'absolute -z-[1] bg-[#6f3f2f] border-b-2 border-b-[#b87546] rounded-full opacity-0',
                 'transition-all',
                 hasAnyActive && 'opacity-100',
               )}
@@ -136,7 +129,7 @@ const GlobalNavbar = supportsCssAnchor
                       'h-10 px-6 text-base inline-flex items-center justify-center',
                       'hover:text-current focus-visible:text-current rounded-full transition-all',
                       isActive &&
-                        '!text-bg-base bg-text-primary border-b-2 border-b-accent-primary',
+                        '!text-white bg-[#6f3f2f] border-b-2 border-b-[#b87546]',
                     )}
                     aria-label={t(name)}
                     aria-current={isActive ? 'page' : undefined}

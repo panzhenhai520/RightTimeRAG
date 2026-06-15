@@ -284,21 +284,6 @@ export function NextMessageInput({
               </FileUploadTrigger>
             )}
 
-            {onAddToMemory && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="border-0 h-7 text-sm bg-bg-card"
-                onClick={onAddToMemory}
-                disabled={addToMemoryLoading || sendLoading}
-                data-testid="chat-detail-add-memory"
-              >
-                <BookMarked />
-                <span>{t('chat.addToMemory')}</span>
-              </Button>
-            )}
-
             {showReasoning && (
               <Button
                 type="button"
@@ -311,7 +296,7 @@ export function NextMessageInput({
                 data-testid="chat-detail-thinking-toggle"
               >
                 <Atom />
-                <span>Thinking</span>
+                <span>{t('chat.deepThinking')}</span>
               </Button>
             )}
 
@@ -324,6 +309,22 @@ export function NextMessageInput({
               triggerTestId="chat-detail-kb-select"
               optionTestIdPrefix="chat-detail-kb-option"
             />
+
+            {onAddToMemory && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 border-[#8b4c36]/25 bg-[#8b4c36]/8 px-2 text-sm text-[#6f3f2f] hover:bg-[#8b4c36]/14"
+                onClick={onAddToMemory}
+                disabled={addToMemoryLoading || sendLoading}
+                title={t('chat.addToMemory')}
+                data-testid="chat-detail-add-memory"
+              >
+                <BookMarked />
+                <span>{t('chat.addToMemory')}</span>
+              </Button>
+            )}
 
             {showInternet && (
               <Button

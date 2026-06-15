@@ -14,6 +14,19 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
 import { Modal } from './ui/modal/modal';
 
+const presetAvatarPaths = [
+  '/robot-icons/robot_01_male_engineer_blue_transparent.png',
+  '/robot-icons/robot_02_female_assistant_rose_transparent.png',
+  '/robot-icons/robot_03_male_doctor_green_transparent.png',
+  '/robot-icons/robot_04_female_scientist_violet_transparent.png',
+  '/robot-icons/robot_05_male_pilot_orange_transparent.png',
+  '/robot-icons/robot_06_female_artist_coral_transparent.png',
+  '/robot-icons/robot_07_male_security_navy_transparent.png',
+  '/robot-icons/robot_08_female_teacher_yellow_transparent.png',
+  '/robot-icons/robot_09_male_gamer_cyan_transparent.png',
+  '/robot-icons/robot_10_female_explorer_mint_transparent.png',
+];
+
 type AvatarUploadProps = {
   value?: string;
   onChange?: (value: string) => void;
@@ -68,6 +81,14 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
       setAvatarBase64Str('');
       onChange?.('');
     }, [onChange]);
+
+    const handleSelectPresetAvatar = useCallback(
+      (avatarPath: string) => {
+        setAvatarBase64Str(avatarPath);
+        onChange?.(avatarPath);
+      },
+      [onChange],
+    );
 
     const handleCrop = useCallback(() => {
       if (!imageRef.current || !canvasRef.current) return;
@@ -246,79 +267,110 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
     }, [value]);
 
     return (
-      <div className="flex justify-start items-end space-x-2">
-        <div className="relative group">
-          <input
-            placeholder=""
-            type="file"
-            title=""
-            accept="image/*"
-            className="peer/input size-0 absolute top-0 left-0 opacity-0 pointer-events-none"
-            onChange={handleChange}
-            ref={combineRefs(ref, innerInputRef)}
-            data-testid={uploadInputTestId}
-            tabIndex={-1}
-          />
+      <div className="flex flex-col gap-3">
+        <div className="flex justify-start items-end space-x-2">
+          <div className="relative group">
+            <input
+              placeholder=""
+              type="file"
+              title=""
+              accept="image/*"
+              className="peer/input size-0 absolute top-0 left-0 opacity-0 pointer-events-none"
+              onChange={handleChange}
+              ref={combineRefs(ref, innerInputRef)}
+              data-testid={uploadInputTestId}
+              tabIndex={-1}
+            />
 
-          {!avatarBase64Str ? (
-            <Button
-              variant="dashed"
-              size="icon"
-              className="size-16 flex flex-col items-center gap-1 !bg-transparent"
-              type="button"
-              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                e.stopPropagation();
-                innerInputRef.current?.click();
-              }}
-            >
-              <LucidePlus className="size-4" />
-              <span>{t('common.upload')}</span>
-            </Button>
-          ) : (
-            <div className="size-16 relative grid place-content-center">
+            {!avatarBase64Str ? (
               <Button
-                variant="transparent"
+                variant="dashed"
                 size="icon"
+                className="size-16 flex flex-col items-center gap-1 !bg-transparent"
                 type="button"
-                className="group/button size-full p-0 transition-all relative gap-0 overflow-hidden"
                 onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                   e.stopPropagation();
                   innerInputRef.current?.click();
                 }}
               >
-                <Avatar className="size-full rounded-none">
-                  <AvatarImage className="block" src={avatarBase64Str} alt="" />
-                  <AvatarFallback />
-                </Avatar>
-
-                <div
-                  className="
-                  absolute inset-0 flex items-center justify-center
-                  bg-black/40 opacity-0 transition-opacity
-                  group-hover/button:opacity-100 group-focus-visible/button:opacity-100"
+                <LucidePlus className="size-4" />
+                <span>{t('common.upload')}</span>
+              </Button>
+            ) : (
+              <div className="size-16 relative grid place-content-center">
+                <Button
+                  variant="transparent"
+                  size="icon"
+                  type="button"
+                  className="group/button size-full p-0 transition-all relative gap-0 overflow-hidden"
+                  onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                    e.stopPropagation();
+                    innerInputRef.current?.click();
+                  }}
                 >
-                  <LucidePencil className="size-5 opacity-75" />
-                </div>
-              </Button>
+                  <Avatar className="size-full rounded-none">
+                    <AvatarImage
+                      className="block"
+                      src={avatarBase64Str}
+                      alt=""
+                    />
+                    <AvatarFallback />
+                  </Avatar>
 
-              <Button
-                onClick={handleRemove}
-                size="icon"
-                className="border-background focus-visible:border-background absolute -top-2 -right-2 size-6 rounded-full border-2 shadow-none z-10"
-                aria-label="Remove image"
+                  <div
+                    className="
+                    absolute inset-0 flex items-center justify-center
+                    bg-black/40 opacity-0 transition-opacity
+                    group-hover/button:opacity-100 group-focus-visible/button:opacity-100"
+                  >
+                    <LucidePencil className="size-5 opacity-75" />
+                  </div>
+                </Button>
+
+                <Button
+                  onClick={handleRemove}
+                  size="icon"
+                  className="border-background focus-visible:border-background absolute -top-2 -right-2 size-6 rounded-full border-2 shadow-none z-10"
+                  aria-label="Remove image"
+                  type="button"
+                  data-testid={removeButtonTestId}
+                >
+                  <LucideX className="size-3" />
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="ms-1 text-xs text-text-secondary">
+            {tips ?? t('knowledgeConfiguration.photoTip')}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-10 gap-2">
+          {presetAvatarPaths.map((avatarPath) => {
+            const isSelected = avatarBase64Str === avatarPath;
+            return (
+              <button
+                key={avatarPath}
                 type="button"
-                data-testid={removeButtonTestId}
+                className={`
+                  size-10 rounded-md border bg-bg-card p-1 transition
+                  hover:border-[#8b4c36] focus-visible:outline-none focus-visible:ring-2
+                  focus-visible:ring-[#8b4c36]
+                  ${isSelected ? 'border-[#8b4c36] ring-2 ring-[#8b4c36]/30' : 'border-border'}
+                `}
+                onClick={() => handleSelectPresetAvatar(avatarPath)}
               >
-                <LucideX className="size-3" />
-              </Button>
-            </div>
-          )}
+                <img
+                  src={avatarPath}
+                  alt=""
+                  className="size-full object-contain"
+                  loading="lazy"
+                />
+              </button>
+            );
+          })}
         </div>
-
-        <div className="ms-1 text-xs text-text-secondary">
-          {tips ?? t('knowledgeConfiguration.photoTip')}
-        </div>
-
         {/* Crop Modal */}
         <Modal
           open={isCropModalOpen}

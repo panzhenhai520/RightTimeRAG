@@ -10,21 +10,18 @@ import { useNavigate } from 'react-router';
 import { Agents } from './agent-list';
 import { SeeAllAppCard } from './application-card';
 import { ChatList } from './chat-list';
-import { MemoryList } from './memory-list';
 import { SearchList } from './search-list';
 
 const IconMap = {
   [Routes.Chats]: 'chats',
   [Routes.Searches]: 'searches',
   [Routes.Agents]: 'agents',
-  [Routes.Memories]: 'memory',
 };
 
 const EmptyTypeMap = {
   [Routes.Chats]: EmptyCardType.Chat,
   [Routes.Searches]: EmptyCardType.Search,
   [Routes.Agents]: EmptyCardType.Agent,
-  [Routes.Memories]: EmptyCardType.Memory,
 };
 
 export function Applications() {
@@ -50,7 +47,6 @@ export function Applications() {
       { value: Routes.Chats, label: t('header.chat') },
       { value: Routes.Searches, label: t('header.search') },
       { value: Routes.Agents, label: t('header.flow') },
-      { value: Routes.Memories, label: t('header.memories') },
     ],
     [t],
   );
@@ -103,18 +99,12 @@ export function Applications() {
             setLoading={(loading: boolean) => setLoading(loading)}
           />
         )}
-        {val === Routes.Memories && (
-          <MemoryList
-            setListLength={(length: number) => setListLength(length)}
-            setLoading={(loading: boolean) => setLoading(loading)}
-          />
-        )}
-        {listLength > 0 && (
+        {listLength > 0 && val !== Routes.Agents && (
           <SeeAllAppCard click={() => handleNavigate({ isCreate: false })} />
         )}
       </CardSineLineContainer>
 
-      {listLength <= 0 && !loading && (
+      {listLength <= 0 && !loading && val !== Routes.Agents && (
         <EmptyAppCard
           type={EmptyTypeMap[val as keyof typeof EmptyTypeMap]}
           onClick={() => handleNavigate({ isCreate: true })}

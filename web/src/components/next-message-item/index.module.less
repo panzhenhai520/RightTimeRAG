@@ -164,6 +164,46 @@
     color: rgb(130, 130, 140);
   }
 
+  .processStageList {
+    display: grid;
+    gap: 6px;
+    margin: 2px 0 8px;
+    padding: 0;
+    list-style: none;
+  }
+
+  .processStage {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    min-width: 240px;
+  }
+
+  .processStageDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(25, 140, 110, 0.38);
+  }
+
+  .processStageDotRunning {
+    background: rgb(34, 114, 255);
+    box-shadow: 0 0 0 4px rgba(34, 114, 255, 0.14);
+  }
+
+  .processStageLabel {
+    overflow: hidden;
+    color: rgb(75, 75, 88);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .processStageStatus {
+    color: rgb(130, 130, 145);
+    font-size: 12px;
+  }
+
   .thumbnailImg {
     max-width: 20px;
   }

@@ -18,7 +18,6 @@ import { useTranslation } from 'react-i18next';
 import 'katex/dist/katex.min.css'; // `rehype-katex` does not import the CSS for you
 
 import {
-  currentReg,
   parseCitationIndex,
   preprocessLaTeX,
   replaceRetrievingToSection,
@@ -178,11 +177,11 @@ function MarkdownContent({
       text = t('chat.searching');
     }
     const nextText = replaceTextByOldReg(text);
-    return pipe(
-      replaceThinkToSection,
-      replaceRetrievingToSection,
-      preprocessLaTeX,
-    )(nextText);
+    const replaceThink = (value: string) =>
+      replaceThinkToSection(value, t('chat.processShow'));
+    const replaceRetrieving = (value: string) =>
+      replaceRetrievingToSection(value, t('chat.processShow'));
+    return pipe(replaceThink, replaceRetrieving, preprocessLaTeX)(nextText);
   }, [content, t]);
 
   useEffect(() => {
@@ -330,22 +329,27 @@ function MarkdownContent({
 
   const renderReference = useCallback(
     (text: string) => {
-      const replacedText = reactStringReplace(text, currentReg, (match, i) => {
-        const chunkIndex = getChunkIndex(match);
+      const citationRenderReg = new RegExp(citationMarkerReg.source, 'g');
+      const replacedText = reactStringReplace(
+        text,
+        citationRenderReg,
+        (match, i) => {
+          const chunkIndex = getChunkIndex(match);
 
-        return (
-          <HoverCard key={i}>
-            <HoverCardTrigger>
-              <bdi className="text-text-secondary bg-bg-card rounded-2xl px-1 mx-1 text-nowrap inline-block">
-                Fig. {chunkIndex + 1}
-              </bdi>
-            </HoverCardTrigger>
-            <HoverCardContent className="max-w-3xl">
-              {renderPopoverContent(chunkIndex)}
-            </HoverCardContent>
-          </HoverCard>
-        );
-      });
+          return (
+            <HoverCard key={i}>
+              <HoverCardTrigger>
+                <bdi className="text-text-secondary bg-bg-card rounded-2xl px-1 mx-1 text-nowrap inline-block">
+                  Fig. {chunkIndex + 1}
+                </bdi>
+              </HoverCardTrigger>
+              <HoverCardContent className="max-w-3xl">
+                {renderPopoverContent(chunkIndex)}
+              </HoverCardContent>
+            </HoverCard>
+          );
+        },
+      );
 
       return replacedText;
     },

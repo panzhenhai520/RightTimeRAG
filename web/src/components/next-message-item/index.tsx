@@ -36,6 +36,7 @@ import {
   ChevronUp,
   Loader2,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { DocumentDownloadButton } from '../document-download-button';
 import MarkdownContent from '../next-markdown-content';
 import { RAGFlowAvatar } from '../ragflow-avatar';
@@ -91,12 +92,12 @@ function MessageItem({
   showLog,
   isShare,
 }: IProps) {
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const isAssistant = item.role === MessageType.Assistant;
   const isUser = item.role === MessageType.User;
   const [showThinking, setShowThinking] = useState(false);
   const [showReasoning, setShowReasoning] = useState(false);
-  const [showRetrieving, setShowRetrieving] = useState(false);
   const { setLastSendLoadingFunc } = useContext(AgentChatContext);
 
   useEffect(() => {
@@ -138,36 +139,93 @@ function MessageItem({
     () => parseRetrievingAndAnswer(parsedContent.answer),
     [parsedContent.answer],
   );
+  const combinedThinking = useMemo(
+    () =>
+      [parsedContent.thinking, parsedRetrievingContent.thinking]
+        .filter(Boolean)
+        .join('\n\n'),
+    [parsedContent.thinking, parsedRetrievingContent.thinking],
+  );
   const thinkingPreview = useMemo(
-    () => getThinkingPreview(parsedContent.thinking),
-    [parsedContent.thinking],
+    () => getThinkingPreview(combinedThinking, 2),
+    [combinedThinking],
   );
-  const retrievingPreview = useMemo(
-    () => getThinkingPreview(parsedRetrievingContent.thinking),
-    [parsedRetrievingContent.thinking],
-  );
-  const shouldShowRetrieving =
-    isAssistant && (loading || parsedRetrievingContent.hasThinking);
-  const isRetrievingRunning =
-    loading && !parsedRetrievingContent.thinkingComplete;
-  const shouldShowRetrievingBody =
-    !!parsedRetrievingContent.thinking && (loading || showRetrieving);
-  const displayedRetrieving = loading
-    ? retrievingPreview
-    : showRetrieving
-      ? parsedRetrievingContent.thinking
-      : retrievingPreview;
   const shouldShowThinking =
-    isAssistant && (loading || parsedContent.hasThinking);
-  const isThinkingRunning = loading && !parsedContent.thinkingComplete;
+    isAssistant &&
+    (loading ||
+      parsedContent.hasThinking ||
+      parsedRetrievingContent.hasThinking);
+  const isThinkingRunning =
+    loading &&
+    (!parsedContent.thinkingComplete ||
+      !parsedRetrievingContent.thinkingComplete);
   const answerContent = parsedRetrievingContent.answer;
   const shouldShowReasoningBody =
-    !!parsedContent.thinking && (loading || showReasoning);
+    loading || (!!combinedThinking && showReasoning);
   const displayedReasoning = loading
     ? thinkingPreview
     : showReasoning
-      ? parsedContent.thinking
+      ? combinedThinking
       : thinkingPreview;
+  const reasoningPanelTitle = isThinkingRunning
+    ? t('chat.processRunning')
+    : showReasoning
+      ? t('chat.processHide')
+      : t('chat.processShow');
+  const processStages = useMemo(() => {
+    const hasRetrieval =
+      parsedRetrievingContent.hasThinking || hasReferenceChunks;
+    const hasReasoning = parsedContent.hasThinking;
+    const hasAnswer = !isEmpty(answerContent);
+    const currentKey = hasAnswer
+      ? 'compose'
+      : hasReasoning
+        ? 'reason'
+        : hasRetrieval
+          ? 'retrieve'
+          : 'analyze';
+    const stages = [
+      { key: 'analyze', label: t('chat.processAnalyze'), visible: true },
+      {
+        key: 'retrieve',
+        label: t('chat.processRetrieve'),
+        visible: loading || hasRetrieval,
+      },
+      {
+        key: 'reason',
+        label: t('chat.processReason'),
+        visible: loading || hasReasoning,
+      },
+      {
+        key: 'compose',
+        label: t('chat.processCompose'),
+        visible: loading || hasAnswer,
+      },
+    ];
+    const currentIndex = stages.findIndex((stage) => stage.key === currentKey);
+
+    return stages
+      .filter((stage) => stage.visible)
+      .map((stage, index) => {
+        const isCurrent = loading && stage.key === currentKey;
+        return {
+          ...stage,
+          status: isCurrent
+            ? t('chat.processInProgress')
+            : !loading || index < currentIndex
+              ? t('chat.processDone')
+              : t('chat.processPending'),
+          running: isCurrent,
+        };
+      });
+  }, [
+    answerContent,
+    hasReferenceChunks,
+    loading,
+    parsedContent.hasThinking,
+    parsedRetrievingContent.hasThinking,
+    t,
+  ]);
 
   const handleRegenerateMessage = useCallback(() => {
     regenerateMessage?.(item);
@@ -182,7 +240,6 @@ function MessageItem({
   useEffect(() => {
     if (!loading && answerContent) {
       setShowReasoning(false);
-      setShowRetrieving(false);
     }
   }, [answerContent, loading]);
 
@@ -285,7 +342,7 @@ function MessageItem({
                         className={startedNodeList(item) ? 'animate-spin' : ''}
                       />
                     </div>
-                    Thinking
+                    {t('chat.processTimeline')}
                     {showThinking ? <ChevronUp /> : <ChevronDown />}
                   </div>
                 </Button>
@@ -349,38 +406,6 @@ function MessageItem({
                 </div>
               )}
 
-            {shouldShowRetrieving && (
-              <div className={styles.thinkingPanel}>
-                <button
-                  type="button"
-                  className={styles.thinkingHeader}
-                  onClick={() => setShowRetrieving((visible) => !visible)}
-                >
-                  {isRetrievingRunning ? (
-                    <Loader2
-                      className={cn(styles.thinkingIcon, 'animate-spin')}
-                    />
-                  ) : (
-                    <CheckCircle2 className={styles.thinkingIcon} />
-                  )}
-                  <span>
-                    {isRetrievingRunning ? 'Retrieving...' : 'Retrieved'}
-                  </span>
-                  {parsedRetrievingContent.thinking &&
-                    (showRetrieving ? (
-                      <ChevronUp className={styles.thinkingChevron} />
-                    ) : (
-                      <ChevronDown className={styles.thinkingChevron} />
-                    ))}
-                </button>
-                {shouldShowRetrievingBody && (
-                  <div className={styles.thinkingText}>
-                    {displayedRetrieving}
-                  </div>
-                )}
-              </div>
-            )}
-
             {shouldShowThinking && (
               <div className={styles.thinkingPanel}>
                 <button
@@ -395,8 +420,8 @@ function MessageItem({
                   ) : (
                     <CheckCircle2 className={styles.thinkingIcon} />
                   )}
-                  <span>{isThinkingRunning ? 'Thinking...' : 'Thought'}</span>
-                  {parsedContent.thinking &&
+                  <span>{reasoningPanelTitle}</span>
+                  {combinedThinking &&
                     (showReasoning ? (
                       <ChevronUp className={styles.thinkingChevron} />
                     ) : (
@@ -405,6 +430,25 @@ function MessageItem({
                 </button>
                 {shouldShowReasoningBody && (
                   <div className={styles.thinkingText}>
+                    {loading && (
+                      <ol className={styles.processStageList}>
+                        {processStages.map((stage) => (
+                          <li key={stage.key} className={styles.processStage}>
+                            <span
+                              className={cn(styles.processStageDot, {
+                                [styles.processStageDotRunning]: stage.running,
+                              })}
+                            />
+                            <span className={styles.processStageLabel}>
+                              {stage.label}
+                            </span>
+                            <span className={styles.processStageStatus}>
+                              {stage.status}
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
                     {displayedReasoning}
                   </div>
                 )}

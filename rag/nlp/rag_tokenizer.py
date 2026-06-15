@@ -14,7 +14,19 @@
 #  limitations under the License.
 #
 
+import os
+
 import infinity.rag_tokenizer
+import nltk
+
+from common.file_utils import get_project_base_directory
+
+
+project_nltk_data = get_project_base_directory("nltk_data")
+if os.path.isdir(project_nltk_data) and project_nltk_data not in nltk.data.path:
+    nltk.data.path.append(project_nltk_data)
+
+
 class RagTokenizer(infinity.rag_tokenizer.RagTokenizer):
 
     def tokenize(self, line: str) -> str:

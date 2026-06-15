@@ -34,7 +34,11 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  ClipboardList,
+  FileSearch,
   Loader2,
+  PenLine,
+  SearchCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DocumentDownloadButton } from '../document-download-button';
@@ -185,27 +189,34 @@ function MessageItem({
           ? 'retrieve'
           : 'analyze';
     const stages = [
-      { key: 'analyze', label: t('chat.processAnalyze'), visible: true },
+      {
+        key: 'analyze',
+        label: t('chat.processAnalyze'),
+        visible: true,
+        icon: ClipboardList,
+      },
       {
         key: 'retrieve',
         label: t('chat.processRetrieve'),
         visible: loading || hasRetrieval,
+        icon: FileSearch,
       },
       {
         key: 'reason',
         label: t('chat.processReason'),
         visible: loading || hasReasoning,
+        icon: SearchCheck,
       },
       {
         key: 'compose',
         label: t('chat.processCompose'),
         visible: loading || hasAnswer,
+        icon: PenLine,
       },
     ];
     const currentIndex = stages.findIndex((stage) => stage.key === currentKey);
 
     return stages
-      .filter((stage) => stage.visible)
       .map((stage, index) => {
         const isCurrent = loading && stage.key === currentKey;
         return {
@@ -216,8 +227,10 @@ function MessageItem({
               ? t('chat.processDone')
               : t('chat.processPending'),
           running: isCurrent,
+          done: !loading || index < currentIndex,
         };
-      });
+      })
+      .filter((stage) => stage.visible);
   }, [
     answerContent,
     hasReferenceChunks,
@@ -432,21 +445,33 @@ function MessageItem({
                   <div className={styles.thinkingText}>
                     {loading && (
                       <ol className={styles.processStageList}>
-                        {processStages.map((stage) => (
-                          <li key={stage.key} className={styles.processStage}>
-                            <span
-                              className={cn(styles.processStageDot, {
-                                [styles.processStageDotRunning]: stage.running,
+                        {processStages.map((stage) => {
+                          const StageIcon = stage.icon;
+
+                          return (
+                            <li
+                              key={stage.key}
+                              className={cn(styles.processStage, {
+                                [styles.processStageRunning]: stage.running,
+                                [styles.processStageDone]: stage.done,
                               })}
-                            />
-                            <span className={styles.processStageLabel}>
-                              {stage.label}
-                            </span>
-                            <span className={styles.processStageStatus}>
-                              {stage.status}
-                            </span>
-                          </li>
-                        ))}
+                            >
+                              <span className={styles.processStageIcon}>
+                                {stage.running ? (
+                                  <Loader2 className="animate-spin" />
+                                ) : (
+                                  <StageIcon />
+                                )}
+                              </span>
+                              <span className={styles.processStageLabel}>
+                                {stage.label}
+                              </span>
+                              <span className={styles.processStageStatus}>
+                                {stage.status}
+                              </span>
+                            </li>
+                          );
+                        })}
                       </ol>
                     )}
                     {displayedReasoning}

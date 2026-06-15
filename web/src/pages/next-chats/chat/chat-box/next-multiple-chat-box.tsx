@@ -28,7 +28,9 @@ import {
 import { useFindLlmByUuid } from '@/hooks/use-llm-request';
 import { useFetchUserInfo } from '@/hooks/use-user-setting-request';
 import { IClientConversation } from '@/interfaces/database/chat';
+import api from '@/utils/api';
 import { buildMessageUuidWithRole } from '@/utils/chat';
+import request from '@/utils/next-request';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { t } from 'i18next';
 import { isEmpty, omit, trim } from 'lodash';
@@ -43,6 +45,7 @@ import {
 } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useParams } from 'react-router';
+import { toast } from 'sonner';
 import { z } from 'zod';
 import {
   useGetSendButtonDisabled,
@@ -157,7 +160,7 @@ const ChatCard = forwardRef(function ChatCard(
         },
       },
     });
-  }, [currentDialog, dialogId, form, patchChat]);
+  }, [currentDialog, dialogId, findLlmByUuid, form, patchChat]);
 
   useImperativeHandle(
     ref,
@@ -306,6 +309,7 @@ export function MultipleChatBox({
   const { handleUploadFile, isUploading, files, clearFiles, removeFile } =
     useUploadFile();
   const sendDisabled = useSendButtonDisabled(value);
+  const [addToMemoryLoading, setAddToMemoryLoading] = useState(false);
 
   const boxesRef = useRef<Record<string, HandlePressEnterType>>({});
 
@@ -336,6 +340,24 @@ export function MultipleChatBox({
     },
     [createConversationBeforeSendMessage, value],
   );
+
+  const handleAddToMemory = useCallback(async () => {
+    if (!conversation.dialog_id || !conversationId) return;
+    setAddToMemoryLoading(true);
+    try {
+      const { data } = await request.post(api.memorizeChat, {
+        chat_id: conversation.dialog_id,
+        session_id: conversationId,
+      });
+      if (data?.code === 0) {
+        toast.success(t('chat.addToMemory'));
+      } else {
+        toast.error(data?.message || 'Failed to add memo');
+      }
+    } finally {
+      setAddToMemoryLoading(false);
+    }
+  }, [conversation.dialog_id, conversationId]);
 
   return (
     <section className="flex flex-1 min-h-0 flex-col px-5">
@@ -382,6 +404,8 @@ export function MultipleChatBox({
           showInternet={showInternet}
           removeFile={removeFile}
           isUploading={isUploading}
+          onAddToMemory={handleAddToMemory}
+          addToMemoryLoading={addToMemoryLoading}
         />
       </div>
       {visible && (

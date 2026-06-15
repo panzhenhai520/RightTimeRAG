@@ -34,8 +34,10 @@ from api.db.services.conversation_service import ConversationService, structure_
 from api.db.services.dialog_service import DialogService, async_chat, gen_mindmap
 from api.db.services.knowledgebase_service import KnowledgebaseService
 from api.db.services.llm_service import LLMBundle
+from api.db.services.memory_service import MemoryService
 from api.db.services.search_service import SearchService
 from api.db.services.tenant_llm_service import TenantLLMService
+from api.db.joint_services.memory_message_service import queue_save_to_memory_task
 from api.db.services.user_service import TenantService, UserTenantService
 from api.utils.api_utils import (
     check_duplicate_ids,
@@ -81,6 +83,7 @@ _DEFAULT_DIRECT_CHAT_PROMPT_CONFIG = {
 _DEFAULT_RERANK_MODELS = {"BAAI/bge-reranker-v2-m3", "maidalun1020/bce-reranker-base_v1"}
 _READONLY_FIELDS = {"id", "tenant_id", "created_by", "create_time", "create_date", "update_time", "update_date"}
 _PERSISTED_FIELDS = set(DialogService.model._meta.fields)
+_CHAT_MEMO_MEMORY_TYPES = ["raw", "semantic", "episodic"]
 
 
 def _build_chat_response(chat):
@@ -105,6 +108,25 @@ def _resolve_kb_names(kb_ids):
 
 def _has_knowledge_placeholder(prompt_config):
     return "{knowledge}" in (prompt_config or {}).get("system", "")
+
+
+def _chat_memo_name(chat_id: str, session_id: str) -> str:
+    return f"chat-memo-{chat_id}-{session_id}"[:128]
+
+
+def _format_conversation_transcript(messages: list[dict]) -> str:
+    lines = []
+    for message in messages or []:
+        role = message.get("role")
+        if role not in {"user", "assistant"}:
+            continue
+        content = message.get("content") or ""
+        if not isinstance(content, str):
+            content = json.dumps(content, ensure_ascii=False)
+        content = re.sub(r"<think>[\s\S]*?</think>", "", content, flags=re.IGNORECASE).strip()
+        if content:
+            lines.append(f"{role}: {content}")
+    return "\n\n".join(lines)
 
 
 def _validate_name(name, *, required=True):
@@ -1251,5 +1273,65 @@ async def session_completion(chat_id_in_arg=""):
                 await thread_pool_exec(ConversationService.update_by_id, conv.id, conv.to_dict())
             break
         return get_json_result(data=answer)
+    except Exception as ex:
+        return server_error_response(ex)
+
+
+@manager.route("/chat/memorize", methods=["POST"])  # noqa: F821
+@login_required
+@validate_request("chat_id", "session_id")
+async def memorize_chat_session():
+    req = await get_request_json()
+    chat_id = req["chat_id"]
+    session_id = req["session_id"]
+
+    try:
+        if not await _ensure_owned_chat(chat_id):
+            return get_json_result(data=False, message="No authorization.", code=RetCode.AUTHENTICATION_ERROR)
+
+        ok, conv = await thread_pool_exec(ConversationService.get_by_id, session_id)
+        if not ok or conv.dialog_id != chat_id:
+            return get_data_error_result(message="Session does not belong to this chat!")
+
+        transcript = _format_conversation_transcript(conv.message)
+        if not transcript:
+            return get_data_error_result(message="No conversation messages to memorize.")
+
+        memory_name = _chat_memo_name(chat_id, session_id)
+        existing = await thread_pool_exec(MemoryService.query, tenant_id=current_user.id, name=memory_name)
+        created = False
+        if existing:
+            memory = existing[0]
+        else:
+            embd_config = await thread_pool_exec(get_tenant_default_model_by_type, current_user.id, LLMType.EMBEDDING)
+            chat_config = await thread_pool_exec(get_tenant_default_model_by_type, current_user.id, LLMType.CHAT)
+            success, memory = await thread_pool_exec(
+                MemoryService.create_memory,
+                current_user.id,
+                memory_name,
+                _CHAT_MEMO_MEMORY_TYPES,
+                embd_config["llm_name"],
+                embd_config.get("id"),
+                chat_config["llm_name"],
+                chat_config.get("id"),
+            )
+            if not success:
+                return get_data_error_result(message=str(memory))
+            created = True
+
+        success, msg = await queue_save_to_memory_task(
+            [memory.id],
+            {
+                "user_id": current_user.id,
+                "agent_id": chat_id,
+                "session_id": session_id,
+                "user_input": transcript,
+                "agent_response": "",
+            },
+        )
+        if not success:
+            return get_json_result(code=RetCode.SERVER_ERROR, message=msg)
+
+        return get_json_result(data={"memory_id": memory.id, "created": created}, message=msg)
     except Exception as ex:
         return server_error_response(ex)

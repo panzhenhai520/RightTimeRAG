@@ -996,6 +996,7 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
       setAnOpenerInitial: `Hi! I'm your assistant. What can I do for you?`,
       setAnOpenerTip: 'Set an opening greeting for users.',
       knowledgeBases: 'Datasets',
+      addToMemory: 'Add memo',
       knowledgeBasesPlaceholder: 'Select value',
       knowledgeBasesMessage: 'Please select',
       knowledgeBasesTip:

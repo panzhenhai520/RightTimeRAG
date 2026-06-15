@@ -54,6 +54,7 @@ export default {
   llmTools: `${restAPIv1}/plugin/tools`,
 
   chatsTranscriptions: `${restAPIv1}/chat/audio/transcription`,
+  memorizeChat: `${restAPIv1}/chat/memorize`,
 
   // knowledge base
 

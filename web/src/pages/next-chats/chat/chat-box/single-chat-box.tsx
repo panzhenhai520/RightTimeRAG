@@ -6,8 +6,12 @@ import { MessageType } from '@/constants/chat';
 import { useFetchChat, useGetChatSearchParams } from '@/hooks/use-chat-request';
 import { useFetchUserInfo } from '@/hooks/use-user-setting-request';
 import { IClientConversation } from '@/interfaces/database/chat';
+import api from '@/utils/api';
 import { buildMessageUuidWithRole } from '@/utils/chat';
-import { useEffect } from 'react';
+import request from '@/utils/next-request';
+import { t } from 'i18next';
+import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import {
   useGetSendButtonDisabled,
   useSendButtonDisabled,
@@ -50,6 +54,7 @@ export function SingleChatBox({
   const { conversationId } = useGetChatSearchParams();
   const disabled = useGetSendButtonDisabled();
   const sendDisabled = useSendButtonDisabled(value);
+  const [addToMemoryLoading, setAddToMemoryLoading] = useState(false);
   const { visible, hideModal, documentId, selectedChunk, clickDocumentButton } =
     useClickDrawer();
 
@@ -77,6 +82,24 @@ export function SingleChatBox({
       });
     }
   }, [conversation?.messages, setDerivedMessages]);
+
+  const handleAddToMemory = useCallback(async () => {
+    if (!currentDialog.id || !conversationId) return;
+    setAddToMemoryLoading(true);
+    try {
+      const { data } = await request.post(api.memorizeChat, {
+        chat_id: currentDialog.id,
+        session_id: conversationId,
+      });
+      if (data?.code === 0) {
+        toast.success(t('chat.addToMemory'));
+      } else {
+        toast.error(data?.message || 'Failed to add memo');
+      }
+    } finally {
+      setAddToMemoryLoading(false);
+    }
+  }, [conversationId, currentDialog.id]);
 
   useEffect(() => {
     // Clear the message list after deleting the conversation.
@@ -139,6 +162,8 @@ export function SingleChatBox({
           onUpload={handleUploadFile}
           isUploading={isUploading}
           removeFile={removeFile}
+          onAddToMemory={handleAddToMemory}
+          addToMemoryLoading={addToMemoryLoading}
           showReasoning
           showInternet={showInternet}
         />

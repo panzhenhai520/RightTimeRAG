@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { t } from 'i18next';
 import {
   Atom,
+  BookMarked,
   CircleStop,
   Globe,
   Paperclip,
@@ -58,10 +59,12 @@ interface NextMessageInputProps {
   onInputChange: React.ChangeEventHandler<HTMLTextAreaElement>;
   createConversationBeforeUploadDocument?(message: string): Promise<any>;
   stopOutputMessage?(): void;
+  onAddToMemory?(): void;
   onUpload?: NonNullable<FileUploadProps['onUpload']>;
   removeFile?(file: File): void;
   showReasoning?: boolean;
   showInternet?: boolean;
+  addToMemoryLoading?: boolean;
   resize?: 'none' | 'vertical' | 'horizontal' | 'both';
 }
 
@@ -75,10 +78,12 @@ export function NextMessageInput({
   onUpload,
   onInputChange,
   stopOutputMessage,
+  onAddToMemory,
   onPressEnter,
   removeFile,
   showReasoning = false,
   showInternet = false,
+  addToMemoryLoading = false,
 }: NextMessageInputProps) {
   const [files, setFiles] = React.useState<File[]>([]);
   const [audioInputValue, setAudioInputValue] = React.useState<string | null>(
@@ -277,6 +282,21 @@ export function NextMessageInput({
                   <span className="sr-only">Attach file</span>
                 </Button>
               </FileUploadTrigger>
+            )}
+
+            {onAddToMemory && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="border-0 h-7 text-sm bg-bg-card"
+                onClick={onAddToMemory}
+                disabled={addToMemoryLoading || sendLoading}
+                data-testid="chat-detail-add-memory"
+              >
+                <BookMarked />
+                <span>{t('chat.addToMemory')}</span>
+              </Button>
             )}
 
             {showReasoning && (

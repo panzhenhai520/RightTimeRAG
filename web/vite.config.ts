@@ -59,17 +59,17 @@ export default defineConfig(({ mode }) => {
   const proxySchemes = {
     python: {
       '/api/v1/admin': {
-        target: 'http://127.0.0.1:9381/',
+        target: 'http://127.0.0.1:9389/',
         changeOrigin: true,
         ws: true,
       },
       '/api': {
-        target: 'http://127.0.0.1:9380/',
+        target: 'http://127.0.0.1:9388/',
         changeOrigin: true,
         ws: true,
       },
       '/v1': {
-        target: 'http://127.0.0.1:9380/',
+        target: 'http://127.0.0.1:9388/',
         changeOrigin: true,
         ws: true,
       },
@@ -83,7 +83,7 @@ export default defineConfig(({ mode }) => {
         },
       '^(/api/v1/admin/sandbox)|^(/api/v1/admin/roles)|^(/api/v1/admin/roles/owner/permission)|^(/api/v1/admin/roles_with_permission)|^(/api/v1/admin/whitelist)|^(/api/v1/admin/variables)':
         {
-          target: 'http://127.0.0.1:9381/',
+          target: 'http://127.0.0.1:9389/',
           changeOrigin: true,
           ws: true,
         },
@@ -93,7 +93,7 @@ export default defineConfig(({ mode }) => {
         ws: true,
       },
       '/api/v1/users/me/models': {
-        target: 'http://127.0.0.1:9380/',
+        target: 'http://127.0.0.1:9388/',
         changeOrigin: true,
         ws: true,
       },
@@ -104,12 +104,12 @@ export default defineConfig(({ mode }) => {
           ws: true,
         },
       '/api': {
-        target: 'http://127.0.0.1:9380/',
+        target: 'http://127.0.0.1:9388/',
         changeOrigin: true,
         ws: true,
       },
       '/v1': {
-        target: 'http://127.0.0.1:9380/',
+        target: 'http://127.0.0.1:9388/',
         changeOrigin: true,
         ws: true,
       },

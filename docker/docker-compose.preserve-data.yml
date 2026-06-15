@@ -1,0 +1,21 @@
+services:
+  es01:
+    volumes:
+      - /home/xsuper/app/newapp/data/esdata01:/usr/share/elasticsearch/data
+
+  opensearch01:
+    volumes:
+      - /home/xsuper/app/newapp/data/osdata01:/usr/share/opensearch/data
+
+  mysql:
+    volumes:
+      - /home/xsuper/app/newapp/data/mysql_data:/var/lib/mysql
+      - ./init.sql:/data/application/init.sql
+
+  minio:
+    volumes:
+      - /home/xsuper/app/newapp/data/minio_data:/data
+
+  redis:
+    volumes:
+      - /home/xsuper/app/newapp/data/redis_data:/data

@@ -98,12 +98,12 @@ export default {
       action: 'Acción',
       parsingStatus: 'Estado de análisis',
       parsingStatusTip:
-        'El tiempo de procesamiento de documentos varía según varios factores. Activar funciones como Knowledge Graph, RAPTOR, extracción automática de preguntas o de palabras clave aumentará significativamente el tiempo de procesamiento. Si la barra de progreso se detiene, consulte estas dos preguntas frecuentes: https://ragflow.io/docs/dev/faq#why-does-my-document-parsing-stall-at-under-one-percent.',
+        'El tiempo de procesamiento de documentos varía según varios factores. Activar funciones como Knowledge Graph, RAPTOR, extracción automática de preguntas o de palabras clave aumentará significativamente el tiempo de procesamiento. Si la barra de progreso se detiene, consulte estas dos preguntas frecuentes: https://Panython.io/docs/dev/faq#why-does-my-document-parsing-stall-at-under-one-percent.',
       processBeginAt: 'Proceso iniciado en',
       processDuration: 'Duración del proceso',
       progressMsg: 'Mensaje de progreso',
       testingDescription:
-        '¡Último paso! Después del éxito, deja el resto al AI de RAGFlow. Por favor, tenga en cuenta que los cambios realizados aquí no se guardan automáticamente. Si ajusta la configuración predeterminada aquí, como el peso de similitud de palabras clave, asegúrese de actualizar la configuración relacionada de manera sincronizada en la configuración del asistente de chat o en la configuración del operador de recuperación.',
+        '¡Último paso! Después del éxito, deja el resto al AI de Panython. Por favor, tenga en cuenta que los cambios realizados aquí no se guardan automáticamente. Si ajusta la configuración predeterminada aquí, como el peso de similitud de palabras clave, asegúrese de actualizar la configuración relacionada de manera sincronizada en la configuración del asistente de chat o en la configuración del operador de recuperación.',
       similarityThreshold: 'Umbral de similitud',
       similarityThresholdTip:
         'Usamos una puntuación de similitud híbrida para evaluar la distancia entre dos líneas de texto. Se pondera la similitud de palabras clave y la similitud coseno de vectores. Si la similitud entre la consulta y el fragmento es menor que este umbral, el fragmento será filtrado. Por defecto, el umbral se establece en 0.2. Eso significa que solo se recuperarán los fragmentos con una puntuación de similitud híbrida de 20 o más.',
@@ -135,7 +135,7 @@ export default {
       toMessage: 'Falta el número de página final (excluido)',
       layoutRecognize: 'Reconocimiento de disposición',
       layoutRecognizeTip:
-        'Usa modelos visuales para el análisis de disposición y así identificar mejor la estructura del documento, encontrar dónde están los títulos, bloques de texto, imágenes y tablas. Sin esta función, solo se obtendrá el texto plano del PDF. Para más información, consulte https://ragflow.io/docs/dev/select_pdf_parser.',
+        'Usa modelos visuales para el análisis de disposición y así identificar mejor la estructura del documento, encontrar dónde están los títulos, bloques de texto, imágenes y tablas. Sin esta función, solo se obtendrá el texto plano del PDF. Para más información, consulte https://Panython.io/docs/dev/select_pdf_parser.',
       taskPageSize: 'Tamaño de la tarea por página',
       taskPageSizeMessage:
         '¡Por favor ingresa el tamaño de la tarea por página!',
@@ -153,12 +153,12 @@ export default {
       cancel: 'Cancelar',
       rerankModel: 'Modelo de reordenamiento',
       rerankPlaceholder: 'Por favor selecciona',
-      rerankTip: `Opcional. Si se deja vacío, RAGFlow utilizará una combinación de similitud ponderada de palabras clave y similitud ponderada del coseno vectorial; si se selecciona un modelo de reordenamiento, una puntuación ponderada de reordenamiento reemplazará la similitud ponderada del coseno vectorial. Tenga en cuenta que usar un modelo de reordenamiento aumentará significativamente el tiempo de respuesta del sistema. Si desea usar un modelo de reordenamiento, asegúrese de usar un reranker SaaS; si prefiere un modelo de reordenamiento desplegado localmente, asegúrese de iniciar RAGFlow con docker-compose-gpu.yml.`,
+      rerankTip: `Opcional. Si se deja vacío, Panython utilizará una combinación de similitud ponderada de palabras clave y similitud ponderada del coseno vectorial; si se selecciona un modelo de reordenamiento, una puntuación ponderada de reordenamiento reemplazará la similitud ponderada del coseno vectorial. Tenga en cuenta que usar un modelo de reordenamiento aumentará significativamente el tiempo de respuesta del sistema. Si desea usar un modelo de reordenamiento, asegúrese de usar un reranker SaaS; si prefiere un modelo de reordenamiento desplegado localmente, asegúrese de iniciar Panython con docker-compose-gpu.yml.`,
       topK: 'Top-K',
       topKTip: `Utilizado junto con el Rerank model, esta configuración define el número de fragmentos de texto que se enviarán al modelo reranking especificado.`,
       delimiter: `Delimitadores para segmentación de texto`,
       html4excel: 'Excel a HTML',
-      html4excelTip: `Usar junto con el método de fragmentación General. Cuando está desactivado, los archivos de hoja de cálculo (XLSX, XLS (Excel 97-2003)) se analizan línea por línea como pares clave-valor. Cuando está activado, los archivos de hoja de cálculo se convierten en tablas HTML. Si la tabla original tiene más de 12 filas, el sistema la dividirá automáticamente en varias tablas HTML cada 12 filas. Para más información, consulte https://ragflow.io/docs/dev/enable_excel2html.`,
+      html4excelTip: `Usar junto con el método de fragmentación General. Cuando está desactivado, los archivos de hoja de cálculo (XLSX, XLS (Excel 97-2003)) se analizan línea por línea como pares clave-valor. Cuando está activado, los archivos de hoja de cálculo se convierten en tablas HTML. Si la tabla original tiene más de 12 filas, el sistema la dividirá automáticamente en varias tablas HTML cada 12 filas. Para más información, consulte https://Panython.io/docs/dev/enable_excel2html.`,
     },
 
     knowledgeConfiguration: {
@@ -221,7 +221,7 @@ export default {
       topN: 'Top N',
       topNTip: `No todos los fragmentos cuya puntuación de similitud esté por encima del "umbral de similitud" serán enviados a los LLMs. Los LLMs solo pueden ver estos "Top N" fragmentos.`,
       variable: 'Variable',
-      variableTip: `Usados junto con las API de gestión de asistentes de chat de RAGFlow, las variables pueden ayudar a desarrollar estrategias de prompt del sistema más flexibles. Las variables definidas serán utilizadas por el 'Prompt del sistema' como parte de los prompts para el LLM. {knowledge} es una variable especial reservada que representa partes recuperadas de base(s) de conocimiento especificada(s), y todas las variables deben estar rodeadas por llaves {} en el 'Prompt del sistema'. Consulte https://ragflow.io/docs/dev/set_chat_variables para obtener más detalles.`,
+      variableTip: `Usados junto con las API de gestión de asistentes de chat de Panython, las variables pueden ayudar a desarrollar estrategias de prompt del sistema más flexibles. Las variables definidas serán utilizadas por el 'Prompt del sistema' como parte de los prompts para el LLM. {knowledge} es una variable especial reservada que representa partes recuperadas de base(s) de conocimiento especificada(s), y todas las variables deben estar rodeadas por llaves {} en el 'Prompt del sistema'. Consulte https://Panython.io/docs/dev/set_chat_variables para obtener más detalles.`,
       add: 'Agregar',
       key: 'Clave',
       optional: 'Opcional',
@@ -377,19 +377,19 @@ export default {
         'El modelo LLM de chat predeterminado que todas las nuevas bases de conocimiento utilizarán.',
       embeddingModel: 'Modelo de embeddings',
       embeddingModelTip:
-        'El modelo de incrustación predeterminado para cada nueva base de conocimiento creada. Si no puedes encontrar un modelo de incrustación en el menú desplegable, verifica si estás utilizando la edición slim de RAGFlow (que no incluye modelos de incrustación) o consulta https://ragflow.io/docs/dev/supported_models para comprobar si tu proveedor de modelos admite este modelo.',
+        'El modelo de incrustación predeterminado para cada nueva base de conocimiento creada. Si no puedes encontrar un modelo de incrustación en el menú desplegable, verifica si estás utilizando la edición slim de Panython (que no incluye modelos de incrustación) o consulta https://Panython.io/docs/dev/supported_models para comprobar si tu proveedor de modelos admite este modelo.',
       img2txtModel: 'Modelo de img2txt',
       img2txtModelTip:
-        'El modelo predeterminado img2txt para cada base de conocimiento recién creada. Describe una imagen o video. Si no puedes encontrar un modelo en el menú desplegable, consulta https://ragflow.io/docs/dev/supported_models para ver si tu proveedor de modelos admite este modelo.',
+        'El modelo predeterminado img2txt para cada base de conocimiento recién creada. Describe una imagen o video. Si no puedes encontrar un modelo en el menú desplegable, consulta https://Panython.io/docs/dev/supported_models para ver si tu proveedor de modelos admite este modelo.',
       sequence2txtModel: 'Modelo de secuencia a texto',
       sequence2txtModelTip:
-        'El modelo ASR predeterminado que todas las nuevas bases de conocimiento utilizarán. Usa este modelo para transcribir voces a texto correspondiente. Si no puedes encontrar un modelo en el menú desplegable, consulta https://ragflow.io/docs/dev/supported_models para ver si tu proveedor de modelos admite este modelo.',
+        'El modelo ASR predeterminado que todas las nuevas bases de conocimiento utilizarán. Usa este modelo para transcribir voces a texto correspondiente. Si no puedes encontrar un modelo en el menú desplegable, consulta https://Panython.io/docs/dev/supported_models para ver si tu proveedor de modelos admite este modelo.',
       rerankModel: 'Modelo de reordenamiento',
       rerankModelTip:
-        'El modelo de rerank predeterminado para reranking de fragmentos. Si no encuentra un modelo en el menú desplegable, consulte https://ragflow.io/docs/dev/supported_models para comprobar si su proveedor de modelos es compatible con este modelo.',
+        'El modelo de rerank predeterminado para reranking de fragmentos. Si no encuentra un modelo en el menú desplegable, consulte https://Panython.io/docs/dev/supported_models para comprobar si su proveedor de modelos es compatible con este modelo.',
       ttsModel: 'Modelo TTS',
       ttsModelTip:
-        'El modelo de text-to-speech predeterminado. Si no encuentra un modelo en el menú desplegable, consulte https://ragflow.io/docs/dev/supported_models para comprobar si su proveedor de modelos es compatible con este modelo.',
+        'El modelo de text-to-speech predeterminado. Si no encuentra un modelo en el menú desplegable, consulte https://Panython.io/docs/dev/supported_models para comprobar si su proveedor de modelos es compatible con este modelo.',
       workspace: 'Espacio de trabajo',
       upgrade: 'Actualizar',
       addLlmTitle: 'Agregar LLM',
@@ -528,13 +528,13 @@ export default {
       directory: 'Directorio',
       uploadTitle: 'Haz clic o arrastra el archivo a esta área para subir',
       uploadDescription:
-        'RAGFlow admite la carga de archivos de forma individual o por lotes. Para un RAGFlow desplegado localmente: el límite total de tamaño de archivo por carga es de 1 GB, con un límite de carga por lote de 32 archivos. No hay límite en el número total de archivos por cuenta. Para cloud.ragflow.io: el límite total de tamaño de archivo por carga es de 10 MB, con cada archivo no excediendo los 10 MB y un máximo de 128 archivos por cuenta.',
+        'Panython admite la carga de archivos de forma individual o por lotes. Para un Panython desplegado localmente: el límite total de tamaño de archivo por carga es de 1 GB, con un límite de carga por lote de 32 archivos. No hay límite en el número total de archivos por cuenta. Para cloud.Panython.io: el límite total de tamaño de archivo por carga es de 10 MB, con cada archivo no excediendo los 10 MB y un máximo de 128 archivos por cuenta.',
       local: 'Subidas locales',
       s3: 'Subidas a S3',
       preview: 'Vista previa',
       fileError: 'Error en el archivo',
       uploadLimit:
-        'RAGFlow admite la carga de archivos de forma individual o por lotes. Para un RAGFlow desplegado localmente: el límite total de tamaño de archivo por carga es de 1 GB, con un límite de carga por lote de 32 archivos. No hay límite en el número total de archivos por cuenta. Para cloud.ragflow.io: el límite total de tamaño de archivo por carga es de 10 MB, con cada archivo no excediendo los 10 MB y un máximo de 128 archivos por cuenta.',
+        'Panython admite la carga de archivos de forma individual o por lotes. Para un Panython desplegado localmente: el límite total de tamaño de archivo por carga es de 1 GB, con un límite de carga por lote de 32 archivos. No hay límite en el número total de archivos por cuenta. Para cloud.Panython.io: el límite total de tamaño de archivo por carga es de 10 MB, con cada archivo no excediendo los 10 MB y un máximo de 128 archivos por cuenta.',
       destinationFolder: 'Carpeta de destino',
     },
     flow: {

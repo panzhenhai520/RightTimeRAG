@@ -103,12 +103,12 @@ export default {
       action: 'Aksi',
       parsingStatus: 'Status Parsing',
       parsingStatusTip:
-        'Waktu pemrosesan dokumen bervariasi tergantung beberapa faktor. Mengaktifkan fitur seperti Knowledge Graph, RAPTOR, Ekstraksi Pertanyaan Otomatis, atau Ekstraksi Kata Kunci Otomatis akan secara signifikan menambah waktu pemrosesan. Jika bilah kemajuan macet, silakan lihat dua FAQ berikut: https://ragflow.io/docs/dev/faq#why-does-my-document-parsing-stall-at-under-one-percent.',
+        'Waktu pemrosesan dokumen bervariasi tergantung beberapa faktor. Mengaktifkan fitur seperti Knowledge Graph, RAPTOR, Ekstraksi Pertanyaan Otomatis, atau Ekstraksi Kata Kunci Otomatis akan secara signifikan menambah waktu pemrosesan. Jika bilah kemajuan macet, silakan lihat dua FAQ berikut: https://Panython.io/docs/dev/faq#why-does-my-document-parsing-stall-at-under-one-percent.',
       processBeginAt: 'Proses Dimulai Pada',
       processDuration: 'Durasi Proses',
       progressMsg: 'Pesan Kemajuan',
       testingDescription:
-        'Lakukan tes pengambilan untuk memeriksa apakah RAGFlow dapat memulihkan konten yang diinginkan untuk LLM. ',
+        'Lakukan tes pengambilan untuk memeriksa apakah Panython dapat memulihkan konten yang diinginkan untuk LLM. ',
       similarityThreshold: 'Similarity threshold',
       similarityThresholdTip:
         'Kami menggunakan skor kesamaan hibrida untuk mengevaluasi jarak antara dua baris teks. Ini adalah kesamaan kata kunci berbobot dan kesamaan kosinus vektor. Jika kesamaan antara kueri dan potongan kurang dari ambang ini, potongan akan disaring. Secara default, ambang batas diatur ke 0,2. Itu berarti hanya potongan dengan skor kemiripan hibrida 20 atau lebih tinggi yang akan diambil.',
@@ -140,7 +140,7 @@ export default {
       toMessage: 'Nomor halaman akhir hilang (tidak termasuk)',
       layoutRecognize: 'Pengenalan tata letak',
       layoutRecognizeTip:
-        'Gunakan model visual untuk analisis tata letak untuk lebih mengidentifikasi struktur dokumen, menemukan di mana judul, blok teks, gambar, and tabel berada. Tanpa fitur ini, hanya teks biasa dari PDF yang dapat diperoleh. Untuk informasi lebih lanjut, lihat https://ragflow.io/docs/dev/select_pdf_parser.',
+        'Gunakan model visual untuk analisis tata letak untuk lebih mengidentifikasi struktur dokumen, menemukan di mana judul, blok teks, gambar, and tabel berada. Tanpa fitur ini, hanya teks biasa dari PDF yang dapat diperoleh. Untuk informasi lebih lanjut, lihat https://Panython.io/docs/dev/select_pdf_parser.',
       taskPageSize: 'Ukuran halaman tugas',
       taskPageSizeMessage: 'Silakan masukkan ukuran halaman tugas Anda!',
       taskPageSizeTip: `Jika menggunakan pengenalan tata letak, file PDF akan dibagi menjadi kelompok berturut-turut. Analisis tata letak akan dilakukan secara paralel antar kelompok untuk meningkatkan kecepatan pemrosesan. 'Ukuran halaman tugas' menentukan ukuran kelompok. Semakin besar ukuran halaman, semakin kecil kemungkinan teks berkelanjutan antara halaman dibagi menjadi potongan yang berbeda.`,
@@ -151,18 +151,18 @@ export default {
       changeSpecificCategory: 'Ubah kategori spesifik',
       uploadTitle: 'Klik atau seret file ke area ini untuk mengunggah',
       uploadDescription:
-        'RAGFlow mendukung pengunggahan file secara tunggal atau batch. Untuk RAGFlow yang dideploy secara lokal: batas ukuran total file per unggahan adalah 1GB, dengan batas unggahan batch sebanyak 32 file. Tidak ada batasan jumlah total file per akun. Untuk cloud.ragflow.io: batas ukuran total file per unggahan adalah 10MB, dengan setiap file tidak melebihi 10MB dan maksimum 128 file per akun.',
+        'Panython mendukung pengunggahan file secara tunggal atau batch. Untuk Panython yang dideploy secara lokal: batas ukuran total file per unggahan adalah 1GB, dengan batas unggahan batch sebanyak 32 file. Tidak ada batasan jumlah total file per akun. Untuk cloud.Panython.io: batas ukuran total file per unggahan adalah 10MB, dengan setiap file tidak melebihi 10MB dan maksimum 128 file per akun.',
       chunk: 'Potongan',
       bulk: 'Massal',
       cancel: 'Batal',
       rerankModel: 'Model Rerank',
       rerankPlaceholder: 'Silakan pilih',
-      rerankTip: `Opsional. Jika dikosongkan, RAGFlow akan menggunakan kombinasi kesamaan kata kunci berbobot dan kesamaan kosinus vektor berbobot; jika model rerank dipilih, skor reranking berbobot akan menggantikan kesamaan kosinus vektor berbobot. Harap diperhatikan bahwa menggunakan model rerank akan secara signifikan meningkatkan waktu respons sistem. Jika Anda ingin menggunakan model rerank, pastikan menggunakan SaaS reranker; jika Anda lebih memilih model rerank yang dijalankan secara lokal, pastikan memulai RAGFlow dengan docker-compose-gpu.yml.`,
+      rerankTip: `Opsional. Jika dikosongkan, Panython akan menggunakan kombinasi kesamaan kata kunci berbobot dan kesamaan kosinus vektor berbobot; jika model rerank dipilih, skor reranking berbobot akan menggantikan kesamaan kosinus vektor berbobot. Harap diperhatikan bahwa menggunakan model rerank akan secara signifikan meningkatkan waktu respons sistem. Jika Anda ingin menggunakan model rerank, pastikan menggunakan SaaS reranker; jika Anda lebih memilih model rerank yang dijalankan secara lokal, pastikan memulai Panython dengan docker-compose-gpu.yml.`,
       topK: 'Top-K',
       topKTip: `Digunakan bersama dengan Rerank model, pengaturan ini menentukan jumlah potongan teks yang akan dikirim ke model reranking yang ditentukan.`,
       delimiter: `Pemisah untuk segmentasi teks`,
       html4excel: 'Excel ke HTML',
-      html4excelTip: `Gunakan bersama dengan metode pemotongan General. Ketika dinonaktifkan, file spreadsheet (XLSX, XLS (Excel 97-2003)) akan dianalisis baris demi baris menjadi pasangan kunci-nilai. Ketika diaktifkan, file spreadsheet akan dianalisis menjadi tabel HTML. Jika tabel asli memiliki lebih dari 12 baris, sistem akan secara otomatis membagi menjadi beberapa tabel HTML setiap 12 baris. Untuk informasi lebih lanjut, lihat https://ragflow.io/docs/dev/enable_excel2html.`,
+      html4excelTip: `Gunakan bersama dengan metode pemotongan General. Ketika dinonaktifkan, file spreadsheet (XLSX, XLS (Excel 97-2003)) akan dianalisis baris demi baris menjadi pasangan kunci-nilai. Ketika diaktifkan, file spreadsheet akan dianalisis menjadi tabel HTML. Jika tabel asli memiliki lebih dari 12 baris, sistem akan secara otomatis membagi menjadi beberapa tabel HTML setiap 12 baris. Untuk informasi lebih lanjut, lihat https://Panython.io/docs/dev/enable_excel2html.`,
     },
     knowledgeConfiguration: {
       imageTableContextWindow: 'Jendela konteks gambar & tabel',
@@ -296,7 +296,7 @@ export default {
      Perhatikan jenis entitas yang perlu Anda tentukan.</p>`,
       useRaptor: 'Gunakan RAPTOR untuk meningkatkan pengambilan',
       useRaptorTip:
-        'Aktifkan RAPTOR untuk tugas tanya jawab multi-langkah. Lihat https://ragflow.io/docs/dev/enable_raptor untuk informasi lebih lanjut.',
+        'Aktifkan RAPTOR untuk tugas tanya jawab multi-langkah. Lihat https://Panython.io/docs/dev/enable_raptor untuk informasi lebih lanjut.',
       prompt: 'Prompt',
       promptTip:
         'Gunakan prompt sistem untuk menjelaskan tugas untuk LLM, tentukan bagaimana harus merespons, dan menguraikan persyaratan lainnya. Prompt sistem sering digunakan bersama dengan kunci (variabel), yang berfungsi sebagai berbagai input data untuk LLM. Gunakan garis miring `/` atau tombol (x) untuk menampilkan kunci yang digunakan.',
@@ -392,7 +392,7 @@ export default {
       topN: 'Top N',
       topNTip: `Tidak semua potongan yang skor kesamaannya di atas 'ambang kesamaan' akan diberikan ke LLM. LLM hanya dapat melihat potongan 'Top N' ini.`,
       variable: 'Variabel',
-      variableTip: `Digunakan bersama dengan API manajemen asisten obrolan RAGFlow, variabel dapat membantu mengembangkan strategi prompt sistem yang lebih fleksibel. Variabel yang didefinisikan akan digunakan oleh 'Prompt Sistem' sebagai bagian dari prompt untuk LLM. {knowledge} adalah variabel khusus yang dicadangkan, mewakili bagian-bagian yang diperoleh dari basis pengetahuan yang ditentukan, dan semua variabel harus dikelilingi oleh kurung kurawal {} dalam 'Prompt Sistem'. Lihat https://ragflow.io/docs/dev/set_chat_variables untuk detail lebih lanjut.`,
+      variableTip: `Digunakan bersama dengan API manajemen asisten obrolan Panython, variabel dapat membantu mengembangkan strategi prompt sistem yang lebih fleksibel. Variabel yang didefinisikan akan digunakan oleh 'Prompt Sistem' sebagai bagian dari prompt untuk LLM. {knowledge} adalah variabel khusus yang dicadangkan, mewakili bagian-bagian yang diperoleh dari basis pengetahuan yang ditentukan, dan semua variabel harus dikelilingi oleh kurung kurawal {} dalam 'Prompt Sistem'. Lihat https://Panython.io/docs/dev/set_chat_variables untuk detail lebih lanjut.`,
       add: 'Tambah',
       key: 'Kunci',
       optional: 'Opsional',
@@ -549,18 +549,18 @@ export default {
         'Model LLM obrolan default yang akan digunakan semua basis pengetahuan baru yang dibuat.',
       embeddingModel: 'Model Embedding',
       embeddingModelTip:
-        'Model embedding default untuk setiap basis pengetahuan baru yang dibuat. Jika Anda tidak dapat menemukan model embedding dari dropdown, periksa apakah Anda menggunakan RAGFlow slim edition (yang tidak menyertakan model embedding) atau periksa https://ragflow.io/docs/dev/supported_models untuk melihat apakah penyedia model Anda mendukung model ini.',
+        'Model embedding default untuk setiap basis pengetahuan baru yang dibuat. Jika Anda tidak dapat menemukan model embedding dari dropdown, periksa apakah Anda menggunakan Panython slim edition (yang tidak menyertakan model embedding) atau periksa https://Panython.io/docs/dev/supported_models untuk melihat apakah penyedia model Anda mendukung model ini.',
       img2txtModel: 'Model Img2txt',
       img2txtModelTip:
-        'Model img2txt default untuk setiap basis pengetahuan yang baru dibuat. Model ini menggambarkan gambar atau video. Jika Anda tidak dapat menemukan model dari menu dropdown, periksa https://ragflow.io/docs/dev/supported_models untuk melihat apakah penyedia model Anda mendukung model ini.',
+        'Model img2txt default untuk setiap basis pengetahuan yang baru dibuat. Model ini menggambarkan gambar atau video. Jika Anda tidak dapat menemukan model dari menu dropdown, periksa https://Panython.io/docs/dev/supported_models untuk melihat apakah penyedia model Anda mendukung model ini.',
       sequence2txtModel: 'Model Speech2txt',
       sequence2txtModelTip:
-        'Model ASR default yang akan digunakan semua basis pengetahuan baru yang dibuat. Gunakan model ini untuk menerjemahkan suara ke teks yang sesuai. Jika Anda tidak dapat menemukan model dari menu dropdown, periksa https://ragflow.io/docs/dev/supported_models untuk melihat apakah penyedia model Anda mendukung model ini.',
+        'Model ASR default yang akan digunakan semua basis pengetahuan baru yang dibuat. Gunakan model ini untuk menerjemahkan suara ke teks yang sesuai. Jika Anda tidak dapat menemukan model dari menu dropdown, periksa https://Panython.io/docs/dev/supported_models untuk melihat apakah penyedia model Anda mendukung model ini.',
       rerankModel: 'Model Rerank',
-      rerankModelTip: `Model rerank default untuk reranking potongan teks. Jika Anda tidak dapat menemukan model dari dropdown, periksa https://ragflow.io/docs/dev/supported_models untuk melihat apakah penyedia model Anda mendukung model ini.`,
+      rerankModelTip: `Model rerank default untuk reranking potongan teks. Jika Anda tidak dapat menemukan model dari dropdown, periksa https://Panython.io/docs/dev/supported_models untuk melihat apakah penyedia model Anda mendukung model ini.`,
       ttsModel: 'Model TTS',
       ttsModelTip:
-        'Model text-to-speech default. Jika Anda tidak dapat menemukan model dari dropdown, periksa https://ragflow.io/docs/dev/supported_models untuk melihat apakah penyedia model Anda mendukung model ini.',
+        'Model text-to-speech default. Jika Anda tidak dapat menemukan model dari dropdown, periksa https://Panython.io/docs/dev/supported_models untuk melihat apakah penyedia model Anda mendukung model ini.',
       workspace: 'Ruang Kerja',
       upgrade: 'Tingkatkan',
       addLlmTitle: 'Tambahkan LLM',
@@ -737,7 +737,7 @@ export default {
       directory: 'Direktori',
       uploadTitle: 'Klik atau seret file ke area ini untuk mengunggah',
       uploadDescription:
-        'RAGFlow mendukung pengunggahan file secara tunggal atau batch. Untuk RAGFlow yang dideploy secara lokal: batas ukuran total file per unggahan adalah 1GB, dengan batas unggahan batch sebanyak 32 file. Tidak ada batasan jumlah total file per akun. Untuk cloud.ragflow.io: batas ukuran total file per unggahan adalah 10MB, dengan setiap file tidak melebihi 10MB dan maksimum 128 file per akun.',
+        'Panython mendukung pengunggahan file secara tunggal atau batch. Untuk Panython yang dideploy secara lokal: batas ukuran total file per unggahan adalah 1GB, dengan batas unggahan batch sebanyak 32 file. Tidak ada batasan jumlah total file per akun. Untuk cloud.Panython.io: batas ukuran total file per unggahan adalah 10MB, dengan setiap file tidak melebihi 10MB dan maksimum 128 file per akun.',
       local: 'Unggahan lokal',
       s3: 'Unggahan S3',
       preview: 'Pratinjau',

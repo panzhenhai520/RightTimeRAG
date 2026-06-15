@@ -1,15 +1,15 @@
 ragflow:
   host: 0.0.0.0
-  http_port: 9380
+  http_port: 9388
 admin:
   host: 0.0.0.0
-  http_port: 9381
+  http_port: 9389
 mysql:
   name: 'rag_flow'
   user: 'root'
   password: 'infini_rag_flow'
   host: 'localhost'
-  port: 3306
+  port: 5455
   max_connections: 900
   stale_timeout: 300
   max_allowed_packet: 1073741824
@@ -20,7 +20,7 @@ minio:
   bucket: ''
   prefix_path: ''
 es:
-  hosts: 'http://localhost:1200'
+  hosts: 'http://localhost:12000'
   username: 'elastic'
   password: 'infini_rag_flow'
 os:

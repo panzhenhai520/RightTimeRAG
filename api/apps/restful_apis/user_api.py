@@ -97,15 +97,17 @@ async def login():
         logging.warning("Login failed: invalid or empty JSON body")
         return get_json_result(data=False, code=RetCode.AUTHENTICATION_ERROR, message="Unauthorized!")
 
-    email = json_body.get("email", "")
+    login_name = json_body.get("email", "").strip()
 
-    users = UserService.query(email=email)
+    users = UserService.query(email=login_name)
     if not users:
-        logging.warning("Login failed: email not registered")
+        users = UserService.query(nickname=login_name)
+    if not users:
+        logging.warning("Login failed: account not registered")
         return get_json_result(
             data=False,
             code=RetCode.AUTHENTICATION_ERROR,
-            message=f"Email: {email} is not registered!",
+            message=f"Account: {login_name} is not registered!",
         )
 
     password = json_body.get("password")
@@ -115,7 +117,11 @@ async def login():
         logging.warning("Login failed: password decryption error")
         return get_json_result(data=False, code=RetCode.SERVER_ERROR, message="Fail to crypt password")
 
-    user = UserService.query_user(email, password)
+    user = None
+    for candidate in users:
+        if check_password_hash(candidate.password, password):
+            user = candidate
+            break
 
     if user and hasattr(user, 'is_active') and user.is_active == "0":
         logging.warning("Login failed: disabled account for user_id=%s", user.id)
@@ -846,5 +852,4 @@ async def forget_reset_password():
 
     msg = "Password reset successful. Logged in."
     return await construct_response(data=user.to_safe_dict(for_self=True), auth=user.get_id(), message=msg)
-
 

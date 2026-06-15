@@ -19,10 +19,12 @@ function BannerCard() {
 }
 
 export function Banner() {
+  const { t } = useTranslation();
+
   return (
     <section className="bg-[url('@/assets/banner.png')] bg-cover h-28 rounded-2xl  my-8 flex gap-8 justify-between">
       <div className="h-full text-3xl font-bold items-center inline-flex ml-6">
-        Welcome to RAGFlow
+        {t('homeBanner.welcomeFull')}
       </div>
       <div className="flex justify-between items-center gap-4 mr-5">
         <BannerCard></BannerCard>
@@ -40,17 +42,17 @@ export function Banner() {
 }
 
 export function NextBanner() {
-  const { t, i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   return (
     <h1
       className="text-5xl leading-normal text-left"
       dir={i18n.language?.startsWith('ar') ? 'rtl' : 'ltr'}
     >
       <span className="font-semibold text-text-primary">
-        {t('header.welcome')}{' '}
+        {t('homeBanner.welcomePrefix')}
       </span>
-      <span className="font-bold text-transparent bg-clip-text bg-gradient-to-l from-[#40EBE3] to-[#4A51FF]">
-        RAGFlow
+      <span className="font-bold text-transparent bg-clip-text bg-gradient-to-l from-[#823a53] to-[#c196a9]">
+        {t('homeBanner.productName')}
       </span>
     </h1>
   );

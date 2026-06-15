@@ -555,6 +555,7 @@ ERROR_HISTORY_PATTERNS = (
     "CUDA error",
     "invalid_request_error",
 )
+THINK_BLOCK_PATTERN = re.compile(r"<think>[\s\S]*?</think>", flags=re.IGNORECASE)
 
 
 def _is_error_history_message(message: dict) -> bool:
@@ -567,8 +568,15 @@ def _is_error_history_message(message: dict) -> bool:
 
 
 def _sanitize_chat_history(messages: list[dict]) -> list[dict]:
-    """Drop generated error responses before rewrite, retrieval, and prompting."""
-    sanitized = [m for m in messages if not _is_error_history_message(m)]
+    """Drop generated errors and strip assistant reasoning before retrieval/prompting."""
+    sanitized = []
+    for message in messages:
+        if _is_error_history_message(message):
+            continue
+        if message.get("role") == "assistant" and isinstance(message.get("content"), str):
+            message = deepcopy(message)
+            message["content"] = THINK_BLOCK_PATTERN.sub("", message["content"]).strip()
+        sanitized.append(message)
     if sanitized and sanitized[-1].get("role") == "user":
         return sanitized
     latest_user = next((m for m in reversed(messages) if m.get("role") == "user"), None)

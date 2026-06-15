@@ -577,14 +577,87 @@ def _sanitize_chat_history(messages: list[dict]) -> list[dict]:
     return sanitized or messages
 
 
+MODEL_SELF_QUESTION_PATTERNS = (
+    "你是谁",
+    "你是什么",
+    "你叫什么",
+    "你是哪个模型",
+    "什么模型",
+    "模型参数",
+    "多少参数",
+    "上下文多长",
+    "支持多长上下文",
+    "和deepseek r1",
+    "和 deepseek r1",
+    "和r1",
+    "和 r1",
+)
+
+GENERAL_CHAT_PATTERNS = (
+    "你好",
+    "您好",
+    "谢谢",
+    "讲个笑话",
+    "你能做什么",
+)
+
+EXPLICIT_KB_INTENT_PATTERNS = (
+    "根据",
+    "参考",
+    "知识库",
+    "文档",
+    "文件",
+    "pdf",
+    "报告",
+    "资料",
+    "附件",
+    "这份",
+    "这个报告",
+    "该报告",
+    "上面",
+    "刚才",
+)
+
+
+def _normalize_route_text(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").strip().lower())
+
+
+def _should_route_to_pure_llm(latest_question: str, kwargs: dict) -> tuple[bool, str]:
+    if kwargs.get("doc_ids"):
+        return False, "explicit_doc_ids"
+
+    normalized = _normalize_route_text(latest_question)
+    if not normalized:
+        return False, "empty_question"
+
+    if any(pattern in normalized for pattern in EXPLICIT_KB_INTENT_PATTERNS):
+        return False, "explicit_kb_intent"
+
+    if any(pattern in normalized for pattern in MODEL_SELF_QUESTION_PATTERNS):
+        return True, "model_self_question"
+
+    if any(pattern in normalized for pattern in GENERAL_CHAT_PATTERNS) and len(normalized) <= 24:
+        return True, "general_chat"
+
+    return False, "default_kb_route"
+
+
 async def async_chat(dialog, messages, stream=True, **kwargs):
     logging.debug("Begin async_chat")
     assert messages[-1]["role"] == "user", "The last content of this conversation is not from user."
     messages = _sanitize_chat_history(messages)
     use_web_search = _should_use_web_search(dialog.prompt_config, kwargs.get("internet"))
     logging.debug("web_search kb=%s tavily=%s internet=%r enabled=%s", bool(dialog.kb_ids), bool(dialog.prompt_config.get("tavily_api_key")), kwargs.get("internet"), use_web_search)
+    latest_question = next((m.get("content", "") for m in reversed(messages) if m.get("role") == "user"), "")
+    pure_llm_route, route_reason = _should_route_to_pure_llm(latest_question, kwargs)
+    if dialog.kb_ids and pure_llm_route and not use_web_search:
+        logging.info("QueryPlanner route=pure_llm reason=%s question=%s", route_reason, latest_question[:120])
+        async for ans in async_chat_solo(dialog, messages, stream, **kwargs):
+            yield ans
+        return
     if not dialog.kb_ids and not use_web_search:
-        async for ans in async_chat_solo(dialog, messages, stream):
+        async for ans in async_chat_solo(dialog, messages, stream, **kwargs):
             yield ans
         return
 

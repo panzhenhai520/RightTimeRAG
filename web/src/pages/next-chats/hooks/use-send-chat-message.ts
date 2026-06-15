@@ -91,6 +91,7 @@ export const useSendMessage = (controller: AbortController) => {
       messages,
       enableInternet,
       enableThinking,
+      selectedKnowledgeBaseId,
     }: {
       message: IMessage;
       currentConversationId?: string;
@@ -111,6 +112,12 @@ export const useSendMessage = (controller: AbortController) => {
           pass_all_history_messages: true,
           reasoning: enableThinking,
           internet: enableInternet,
+          selected_kb_ids:
+            selectedKnowledgeBaseId === '__none__'
+              ? []
+              : selectedKnowledgeBaseId
+                ? [selectedKnowledgeBaseId]
+                : undefined,
         },
         controller,
       );
@@ -146,6 +153,7 @@ export const useSendMessage = (controller: AbortController) => {
     async ({
       enableThinking,
       enableInternet,
+      selectedKnowledgeBaseId,
     }: NextMessageInputOnPressEnterParameter) => {
       if (trim(value) === '') return;
 
@@ -181,6 +189,7 @@ export const useSendMessage = (controller: AbortController) => {
           },
           enableInternet,
           enableThinking,
+          selectedKnowledgeBaseId,
         });
       }
 

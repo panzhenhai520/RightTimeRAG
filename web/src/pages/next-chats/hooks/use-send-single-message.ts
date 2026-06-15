@@ -59,6 +59,7 @@ export function useSendSingleMessage({
       messages,
       enableInternet,
       enableThinking,
+      selectedKnowledgeBaseId,
       ...params
     }: {
       message: IMessage;
@@ -79,6 +80,12 @@ export function useSendSingleMessage({
           ],
           reasoning: enableThinking,
           internet: enableInternet,
+          selected_kb_ids:
+            selectedKnowledgeBaseId === '__none__'
+              ? []
+              : selectedKnowledgeBaseId
+                ? [selectedKnowledgeBaseId]
+                : undefined,
           ...params,
           pass_all_history_messages: true,
         },

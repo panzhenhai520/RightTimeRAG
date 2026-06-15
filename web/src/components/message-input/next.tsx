@@ -13,7 +13,9 @@ import {
   type FileUploadProps,
 } from '@/components/file-upload';
 import { Button } from '@/components/ui/button';
+import { RAGFlowSelect, RAGFlowSelectOptionType } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useFetchKnowledgeList } from '@/hooks/use-knowledge-request';
 import { cn } from '@/lib/utils';
 import { t } from 'i18next';
 import {
@@ -26,13 +28,17 @@ import {
   X,
 } from 'lucide-react';
 import * as React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AudioButton } from '../ui/audio-button';
+
+const DEFAULT_KB_SELECTION = '__default__';
+const NO_KB_SELECTION = '__none__';
 
 export type NextMessageInputOnPressEnterParameter = {
   enableThinking: boolean;
   enableInternet: boolean;
+  selectedKnowledgeBaseId?: string;
 };
 
 interface NextMessageInputProps {
@@ -66,7 +72,6 @@ export function NextMessageInput({
   sendLoading,
   disabled,
   showUploadIcon = true,
-  resize = 'none',
   onUpload,
   onInputChange,
   stopOutputMessage,
@@ -82,6 +87,27 @@ export function NextMessageInput({
 
   const [enableThinking, setEnableThinking] = useState(false);
   const [enableInternet, setEnableInternet] = useState(false);
+  const [selectedKnowledgeBaseId, setSelectedKnowledgeBaseId] =
+    useState(DEFAULT_KB_SELECTION);
+  const { list: knowledgeBaseList } = useFetchKnowledgeList(true);
+
+  const knowledgeBaseOptions = useMemo<RAGFlowSelectOptionType[]>(
+    () => [
+      {
+        value: DEFAULT_KB_SELECTION,
+        label: `${t('chat.knowledgeBases')}: ${t('knowledgeConfiguration.default')}`,
+      },
+      {
+        value: NO_KB_SELECTION,
+        label: `${t('chat.knowledgeBases')}: ${t('datasetOverview.none')}`,
+      },
+      ...knowledgeBaseList.map((kb) => ({
+        value: kb.id,
+        label: kb.name,
+      })),
+    ],
+    [knowledgeBaseList],
+  );
 
   const handleThinkingToggle = useCallback(() => {
     setEnableThinking((prev) => !prev);
@@ -95,8 +121,18 @@ export function NextMessageInput({
     onPressEnter({
       enableThinking,
       enableInternet: showInternet ? enableInternet : false,
+      selectedKnowledgeBaseId:
+        selectedKnowledgeBaseId === DEFAULT_KB_SELECTION
+          ? undefined
+          : selectedKnowledgeBaseId,
     });
-  }, [onPressEnter, enableThinking, enableInternet, showInternet]);
+  }, [
+    onPressEnter,
+    enableThinking,
+    enableInternet,
+    showInternet,
+    selectedKnowledgeBaseId,
+  ]);
 
   useEffect(() => {
     if (audioInputValue !== null) {
@@ -258,6 +294,16 @@ export function NextMessageInput({
                 <span>Thinking</span>
               </Button>
             )}
+
+            <RAGFlowSelect
+              value={selectedKnowledgeBaseId}
+              onChange={setSelectedKnowledgeBaseId}
+              options={knowledgeBaseOptions}
+              triggerClassName="h-7 w-44 border-0 bg-bg-card text-xs"
+              contentProps={{ className: 'max-w-80' }}
+              triggerTestId="chat-detail-kb-select"
+              optionTestIdPrefix="chat-detail-kb-option"
+            />
 
             {showInternet && (
               <Button

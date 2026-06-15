@@ -2480,6 +2480,7 @@ Tokenizer 会根据所选方式将内容存储为对应的数据结构。`,
       processingSuccessTip: '处理成功的文件总数',
       processingFailedTip: '处理失败的文件总数',
       noData: '暂无日志',
+      none: '无',
     },
 
     deleteModal: {

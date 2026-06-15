@@ -1138,6 +1138,7 @@ async def session_completion(chat_id_in_arg=""):
     chat_id = chat_id or chat_id_in_arg
     session_id = req.pop("session_id", "") or req.pop("conversation_id", "") or ""
     chat_model_id = req.pop("llm_id", "")
+    selected_kb_ids = req.pop("selected_kb_ids", None)
 
     chat_model_config = {}
     for model_config in ["temperature", "top_p", "frequency_penalty", "presence_penalty", "max_tokens"]:
@@ -1202,6 +1203,15 @@ async def session_completion(chat_id_in_arg=""):
                 return get_data_error_result(message=f"Cannot use specified model {chat_model_id}.")
             dia.llm_id = chat_model_id
             dia.llm_setting = chat_model_config
+
+        if selected_kb_ids is not None:
+            if not isinstance(selected_kb_ids, list):
+                return get_data_error_result(message="`selected_kb_ids` should be a list.")
+            validated_kb_ids = await _validate_dataset_ids(selected_kb_ids, current_user.id)
+            if isinstance(validated_kb_ids, str):
+                return get_data_error_result(message=validated_kb_ids)
+            dia = deepcopy(dia)
+            dia.kb_ids = validated_kb_ids
 
         stream_mode = req.pop("stream", True)
 

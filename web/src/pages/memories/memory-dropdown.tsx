@@ -9,9 +9,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { PenLine, Trash2 } from 'lucide-react';
+import { Routes } from '@/routes';
+import { Copy, PenLine, Trash2 } from 'lucide-react';
 import { MouseEventHandler, PropsWithChildren, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { useDeleteMemory } from './hooks';
 import { IMemory } from './interface';
 
@@ -36,6 +38,19 @@ export function MemoryDropdown({
   const handleDelete: MouseEventHandler<HTMLDivElement> = useCallback(() => {
     deleteMemory({ memory_id: memory.id });
   }, [memory, deleteMemory]);
+  const handleCopyLink: MouseEventHandler<HTMLDivElement> = useCallback(
+    async (e) => {
+      e.stopPropagation();
+      const url = `${window.location.origin}${Routes.Memory}${Routes.MemoryMessage}/${memory.id}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success(t('common.copied'));
+      } catch {
+        toast.error(t('common.copyFailed'));
+      }
+    },
+    [memory.id, t],
+  );
 
   return (
     <DropdownMenu>
@@ -43,6 +58,9 @@ export function MemoryDropdown({
       <DropdownMenuContent>
         <DropdownMenuItem onClick={handleShowChatRenameModal}>
           {t('common.rename')} <PenLine />
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleCopyLink}>
+          {t('common.copy')} <Copy />
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <ConfirmDeleteDialog

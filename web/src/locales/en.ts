@@ -44,6 +44,7 @@ export default {
       languagePlaceholder: 'select your language',
       copy: 'Copy',
       copied: 'Copied',
+      copyFailed: 'Copy failed',
       viewMore: 'View more',
       viewLess: 'View less',
       comingSoon: 'Coming soon',

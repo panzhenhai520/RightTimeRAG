@@ -59,9 +59,23 @@ const MessageItem = ({
     return item?.files ?? [];
   }, [item?.files]);
 
+  const referenceChunks = useMemo(
+    () => reference?.chunks ?? [],
+    [reference?.chunks],
+  );
+  const citedDocumentIds = useMemo(
+    () =>
+      new Set(
+        referenceChunks.map((chunk) => chunk.document_id).filter(Boolean),
+      ),
+    [referenceChunks],
+  );
   const referenceDocumentList = useMemo(() => {
-    return reference?.doc_aggs ?? [];
-  }, [reference?.doc_aggs]);
+    return (reference?.doc_aggs ?? []).filter((doc) =>
+      citedDocumentIds.has(doc.doc_id),
+    );
+  }, [citedDocumentIds, reference?.doc_aggs]);
+  const hasReferenceChunks = referenceChunks.length > 0;
 
   const documentDownloadInfos = useMemo(
     () => item.downloads ?? [],
@@ -153,17 +167,19 @@ const MessageItem = ({
                 ></MarkdownContent>
               </div>
             )}
-            {isAssistant && (
+            {isAssistant && hasReferenceChunks && (
               <ReferenceImageList
                 referenceChunks={reference.chunks}
                 messageContent={messageContent}
               ></ReferenceImageList>
             )}
-            {isAssistant && referenceDocumentList.length > 0 && (
-              <ReferenceDocumentList
-                list={referenceDocumentList}
-              ></ReferenceDocumentList>
-            )}
+            {isAssistant &&
+              hasReferenceChunks &&
+              referenceDocumentList.length > 0 && (
+                <ReferenceDocumentList
+                  list={referenceDocumentList}
+                ></ReferenceDocumentList>
+              )}
             {isUser &&
               Array.isArray(uploadedFiles) &&
               uploadedFiles.length > 0 && (

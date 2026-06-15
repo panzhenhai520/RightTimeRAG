@@ -105,11 +105,25 @@ function MessageItem({
     }
   }, [loading, setLastSendLoadingFunc, item.id]);
 
+  const referenceChunks = useMemo(
+    () => Object.values(reference?.chunks ?? {}),
+    [reference?.chunks],
+  );
+  const citedDocumentIds = useMemo(
+    () =>
+      new Set(
+        referenceChunks.map((chunk) => chunk.document_id).filter(Boolean),
+      ),
+    [referenceChunks],
+  );
   const referenceDocuments = useMemo(() => {
     const docs = reference?.doc_aggs ?? {};
 
-    return Object.values(docs);
-  }, [reference?.doc_aggs]);
+    return Object.values(docs).filter((doc) =>
+      citedDocumentIds.has(doc.doc_id),
+    );
+  }, [citedDocumentIds, reference?.doc_aggs]);
+  const hasReferenceChunks = referenceChunks.length > 0;
 
   const documentDownloadInfos = useMemo(
     () => item.downloads ?? [],
@@ -399,18 +413,20 @@ function MessageItem({
 
             {renderContent()}
 
-            {isAssistant && (
+            {isAssistant && hasReferenceChunks && (
               <ReferenceImageList
                 referenceChunks={reference?.chunks}
                 messageContent={answerContent}
               ></ReferenceImageList>
             )}
 
-            {isAssistant && referenceDocuments.length > 0 && (
-              <ReferenceDocumentList
-                list={referenceDocuments}
-              ></ReferenceDocumentList>
-            )}
+            {isAssistant &&
+              hasReferenceChunks &&
+              referenceDocuments.length > 0 && (
+                <ReferenceDocumentList
+                  list={referenceDocuments}
+                ></ReferenceDocumentList>
+              )}
 
             {isUser && (
               <UploadedMessageFiles

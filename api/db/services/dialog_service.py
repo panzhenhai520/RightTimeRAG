@@ -582,6 +582,34 @@ def normalize_markdown_table_citations(answer: str):
     return "".join(normalized_lines)
 
 
+def build_compact_reference(answer: str, kbinfos: dict, idx: set):
+    chunks = kbinfos.get("chunks") or []
+    cited_chunk_indexes = [int(i) for i in sorted(idx) if 0 <= int(i) < len(chunks)]
+    if not cited_chunk_indexes:
+        return answer, {"chunks": [], "doc_aggs": []}
+
+    old_to_new = {old_index: new_index for new_index, old_index in enumerate(cited_chunk_indexes)}
+
+    def replace_marker(match: re.Match):
+        old_index = citation_match_index(match)
+        if old_index in old_to_new:
+            return f"[ID:{old_to_new[old_index]}]"
+        return match.group(0)
+
+    answer = CITATION_MARKER_PATTERN.sub(replace_marker, answer)
+    compact_chunks = [deepcopy(chunks[i]) for i in cited_chunk_indexes]
+    for chunk in compact_chunks:
+        if chunk.get("vector"):
+            del chunk["vector"]
+
+    cited_doc_ids = {chunk.get("doc_id") for chunk in compact_chunks if chunk.get("doc_id")}
+    refs = {
+        "chunks": compact_chunks,
+        "doc_aggs": [d for d in kbinfos.get("doc_aggs", []) if d.get("doc_id") in cited_doc_ids],
+    }
+    return answer, refs
+
+
 def repair_bad_citation_formats(answer: str, kbinfos: dict, idx: set):
     max_index = len(kbinfos["chunks"])
     normalized_answer = normalize_arabic_digits(answer) or ""
@@ -1243,17 +1271,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 )
                 answer, idx = append_fallback_citations(answer, kbinfos)
             answer = normalize_markdown_table_citations(answer)
-
-            cited_chunk_indexes = {int(i) for i in idx if int(i) < len(kbinfos["chunks"])}
-            cited_doc_ids = {kbinfos["chunks"][i]["doc_id"] for i in cited_chunk_indexes}
-            if cited_doc_ids:
-                refs = deepcopy(kbinfos)
-                refs["doc_aggs"] = [d for d in refs["doc_aggs"] if d.get("doc_id") in cited_doc_ids]
-                for c in refs["chunks"]:
-                    if c.get("vector"):
-                        del c["vector"]
-            else:
-                refs = {"chunks": [], "doc_aggs": []}
+            answer, refs = build_compact_reference(answer, kbinfos, idx)
 
         if answer.lower().find("invalid key") >= 0 or answer.lower().find("invalid api") >= 0:
             answer += " Please set LLM API-Key in 'User Setting -> Model providers -> API-Key'"

@@ -524,6 +524,64 @@ def citation_match_index(match: re.Match):
     return None
 
 
+TABLE_SEPARATOR_ROW_PATTERN = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$")
+
+
+def normalize_markdown_table_citations(answer: str):
+    """Move citations away from markdown table separator rows so GFM tables render."""
+    if not answer:
+        return answer
+
+    lines = answer.splitlines(keepends=True)
+    pending_markers = ""
+    normalized_lines = []
+
+    for line in lines:
+        newline = ""
+        body = line
+        if body.endswith("\r\n"):
+            body, newline = body[:-2], "\r\n"
+        elif body.endswith("\n"):
+            body, newline = body[:-1], "\n"
+
+        markers = " ".join(match.group(0) for match in CITATION_MARKER_PATTERN.finditer(body))
+        body_without_markers = CITATION_MARKER_PATTERN.sub("", body).rstrip()
+
+        if markers and TABLE_SEPARATOR_ROW_PATTERN.match(body_without_markers):
+            target_index = next(
+                (
+                    i
+                    for i in range(len(normalized_lines) - 1, -1, -1)
+                    if normalized_lines[i].strip() and not normalized_lines[i].lstrip().startswith("|")
+                ),
+                None,
+            )
+            if target_index is None:
+                pending_markers = f"{pending_markers} {markers}".strip()
+            else:
+                target_line = normalized_lines[target_index]
+                target_newline = ""
+                target_body = target_line
+                if target_body.endswith("\r\n"):
+                    target_body, target_newline = target_body[:-2], "\r\n"
+                elif target_body.endswith("\n"):
+                    target_body, target_newline = target_body[:-1], "\n"
+                normalized_lines[target_index] = f"{target_body.rstrip()} {markers}{target_newline}"
+            normalized_lines.append(body_without_markers + newline)
+            continue
+
+        if pending_markers and body.strip():
+            body = f"{body.rstrip()} {pending_markers}"
+            pending_markers = ""
+
+        normalized_lines.append(body + newline)
+
+    if pending_markers and normalized_lines:
+        normalized_lines[-1] = normalized_lines[-1].rstrip() + f" {pending_markers}"
+
+    return "".join(normalized_lines)
+
+
 def repair_bad_citation_formats(answer: str, kbinfos: dict, idx: set):
     max_index = len(kbinfos["chunks"])
     normalized_answer = normalize_arabic_digits(answer) or ""
@@ -1184,6 +1242,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                     " ".join(questions),
                 )
                 answer, idx = append_fallback_citations(answer, kbinfos)
+            answer = normalize_markdown_table_citations(answer)
 
             cited_chunk_indexes = {int(i) for i in idx if int(i) < len(kbinfos["chunks"])}
             cited_doc_ids = {kbinfos["chunks"][i]["doc_id"] for i in cited_chunk_indexes}

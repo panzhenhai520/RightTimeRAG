@@ -157,6 +157,7 @@ class Base(ABC):
         )
 
         if "max_tokens" in gen_conf:
+            gen_conf.setdefault("max_completion_tokens", gen_conf["max_tokens"])
             del gen_conf["max_tokens"]
 
         allowed_conf = {

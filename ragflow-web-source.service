@@ -1,0 +1,16 @@
+[Unit]
+Description=RAGFlow Source Frontend
+After=network.target ragflow-source.service
+
+[Service]
+Type=simple
+User=xsuper
+WorkingDirectory=/home/xsuper/app/newapp/ragflow/web
+ExecStart=/usr/bin/npm run dev -- --host 0.0.0.0
+Restart=always
+RestartSec=5s
+StandardOutput=append:/home/xsuper/app/newapp/runtime/ragflow-vite-9222.log
+StandardError=append:/home/xsuper/app/newapp/runtime/ragflow-vite-9222.log
+
+[Install]
+WantedBy=multi-user.target

@@ -154,16 +154,11 @@ function MessageItem({
     () => getThinkingPreview(combinedThinking, 2),
     [combinedThinking],
   );
-  const shouldShowThinking =
-    isAssistant &&
-    (loading ||
-      parsedContent.hasThinking ||
-      parsedRetrievingContent.hasThinking);
-  const isThinkingRunning =
-    loading &&
-    (!parsedContent.thinkingComplete ||
-      !parsedRetrievingContent.thinkingComplete);
   const answerContent = parsedRetrievingContent.answer;
+  const hasProcessSignals =
+    parsedContent.hasThinking || parsedRetrievingContent.hasThinking;
+  const shouldShowThinking = isAssistant && (loading || hasProcessSignals);
+  const isThinkingRunning = loading;
   const shouldShowReasoningBody =
     loading || (!!combinedThinking && showReasoning);
   const displayedReasoning = loading
@@ -178,7 +173,7 @@ function MessageItem({
       : t('chat.processShow');
   const processStages = useMemo(() => {
     const hasRetrieval =
-      parsedRetrievingContent.hasThinking || hasReferenceChunks;
+      loading || parsedRetrievingContent.hasThinking || hasReferenceChunks;
     const hasReasoning = parsedContent.hasThinking;
     const hasAnswer = !isEmpty(answerContent);
     const currentKey = hasAnswer

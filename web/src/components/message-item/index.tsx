@@ -10,6 +10,22 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { IRegenerateMessage, IRemoveMessageById } from '@/hooks/logic-hooks';
 import { cn } from '@/lib/utils';
+import {
+  getThinkingPreview,
+  parseRetrievingAndAnswer,
+  parseThinkAndAnswer,
+} from '@/utils/chat';
+import { isEmpty } from 'lodash';
+import {
+  CheckCircle2,
+  ChevronDown,
+  ClipboardList,
+  FileSearch,
+  Loader2,
+  PenLine,
+  SearchCheck,
+} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { DocumentDownloadButton } from '../document-download-button';
 import MarkdownContent from '../markdown-content';
 import { ReferenceDocumentList } from '../next-message-item/reference-document-list';
@@ -51,6 +67,7 @@ const MessageItem = ({
   showLoudspeaker = true,
   visibleAvatar = true,
 }: IProps) => {
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const isAssistant = item.role === MessageType.Assistant;
   const isUser = item.role === MessageType.User;
@@ -82,6 +99,92 @@ const MessageItem = ({
     [item.downloads],
   );
   const messageContent = item.content;
+  const parsedContent = useMemo(
+    () => parseThinkAndAnswer(messageContent),
+    [messageContent],
+  );
+  const parsedRetrievingContent = useMemo(
+    () => parseRetrievingAndAnswer(parsedContent.answer),
+    [parsedContent.answer],
+  );
+  const combinedThinking = useMemo(
+    () =>
+      [parsedContent.thinking, parsedRetrievingContent.thinking]
+        .filter(Boolean)
+        .join('\n\n'),
+    [parsedContent.thinking, parsedRetrievingContent.thinking],
+  );
+  const thinkingPreview = useMemo(
+    () => getThinkingPreview(combinedThinking, 2),
+    [combinedThinking],
+  );
+  const answerContent = parsedRetrievingContent.answer;
+  const hasProcessSignals =
+    parsedContent.hasThinking || parsedRetrievingContent.hasThinking;
+  const shouldShowProgress = isAssistant && (loading || hasProcessSignals);
+  const processStages = useMemo(() => {
+    const hasRetrieval =
+      loading || parsedRetrievingContent.hasThinking || hasReferenceChunks;
+    const hasReasoning = parsedContent.hasThinking;
+    const hasAnswer = !isEmpty(answerContent);
+    const currentKey = hasAnswer
+      ? 'compose'
+      : hasReasoning
+        ? 'reason'
+        : hasRetrieval
+          ? 'retrieve'
+          : 'analyze';
+    const stages = [
+      {
+        key: 'analyze',
+        label: t('chat.processAnalyze'),
+        visible: true,
+        icon: ClipboardList,
+      },
+      {
+        key: 'retrieve',
+        label: t('chat.processRetrieve'),
+        visible: loading || hasRetrieval,
+        icon: FileSearch,
+      },
+      {
+        key: 'reason',
+        label: t('chat.processReason'),
+        visible: loading || hasReasoning,
+        icon: SearchCheck,
+      },
+      {
+        key: 'compose',
+        label: t('chat.processCompose'),
+        visible: loading || hasAnswer,
+        icon: PenLine,
+      },
+    ];
+    const currentIndex = stages.findIndex((stage) => stage.key === currentKey);
+
+    return stages
+      .map((stage, index) => {
+        const isCurrent = loading && stage.key === currentKey;
+        return {
+          ...stage,
+          status: isCurrent
+            ? t('chat.processInProgress')
+            : !loading || index < currentIndex
+              ? t('chat.processDone')
+              : t('chat.processPending'),
+          running: isCurrent,
+          done: !loading || index < currentIndex,
+        };
+      })
+      .filter((stage) => stage.visible);
+  }, [
+    answerContent,
+    hasReferenceChunks,
+    loading,
+    parsedContent.hasThinking,
+    parsedRetrievingContent.hasThinking,
+    t,
+  ]);
 
   const handleRegenerateMessage = useCallback(() => {
     regenerateMessage?.(item);
@@ -146,6 +249,59 @@ const MessageItem = ({
                 regenerateMessage={regenerateMessage && handleRegenerateMessage}
                 sendLoading={sendLoading}
               ></UserGroupButton>
+            )}
+            {shouldShowProgress && (
+              <div className={styles.thinkingPanel}>
+                <div className={styles.thinkingHeader}>
+                  {loading ? (
+                    <Loader2
+                      className={cn(styles.thinkingIcon, 'animate-spin')}
+                    />
+                  ) : (
+                    <CheckCircle2 className={styles.thinkingIcon} />
+                  )}
+                  <span>
+                    {loading ? t('chat.processRunning') : t('chat.processShow')}
+                  </span>
+                  {combinedThinking && (
+                    <ChevronDown className={styles.thinkingChevron} />
+                  )}
+                </div>
+                <div className={styles.thinkingText}>
+                  {loading && (
+                    <ol className={styles.processStageList}>
+                      {processStages.map((stage) => {
+                        const StageIcon = stage.icon;
+
+                        return (
+                          <li
+                            key={stage.key}
+                            className={cn(styles.processStage, {
+                              [styles.processStageRunning]: stage.running,
+                              [styles.processStageDone]: stage.done,
+                            })}
+                          >
+                            <span className={styles.processStageIcon}>
+                              {stage.running ? (
+                                <Loader2 className="animate-spin" />
+                              ) : (
+                                <StageIcon />
+                              )}
+                            </span>
+                            <span className={styles.processStageLabel}>
+                              {stage.label}
+                            </span>
+                            <span className={styles.processStageStatus}>
+                              {stage.status}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  )}
+                  {loading ? thinkingPreview : combinedThinking}
+                </div>
+              </div>
             )}
             {/* Show message content if there's any text besides the download */}
             {messageContent && (

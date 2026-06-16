@@ -69,8 +69,134 @@
     width: 300px;
   }
 
+  .thinkingPanel {
+    width: fit-content;
+    max-width: 100%;
+    padding: 8px 10px;
+    border: 1px solid rgba(145, 145, 150, 0.16);
+    border-radius: 10px;
+    background: rgba(245, 245, 244, 0.86);
+    color: rgb(110, 110, 120);
+    text-align: start;
+    box-shadow: 0 1px 4px rgba(30, 30, 35, 0.04);
+  }
+
+  .thinkingHeader {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 12px;
+    line-height: 18px;
+    font-weight: 500;
+  }
+
+  .thinkingIcon {
+    width: 14px;
+    height: 14px;
+    color: rgb(73, 116, 104);
+  }
+
+  .thinkingChevron {
+    width: 13px;
+    height: 13px;
+    color: rgb(132, 132, 140);
+  }
+
+  .thinkingText {
+    margin-top: 8px;
+    white-space: pre-wrap;
+    color: rgb(102, 102, 112);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .processStageList {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .processStage {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+    min-height: 28px;
+    padding: 5px 8px;
+    border-radius: 8px;
+    background: rgba(235, 235, 233, 0.72);
+    color: rgb(115, 115, 124);
+    animation: stageAppear 220ms ease-out both;
+  }
+
+  .processStageRunning {
+    background: linear-gradient(
+      100deg,
+      rgba(232, 238, 235, 0.96) 0%,
+      rgba(246, 247, 245, 0.96) 46%,
+      rgba(232, 238, 235, 0.96) 100%
+    );
+    color: rgb(48, 93, 82);
+    animation:
+      stageAppear 220ms ease-out both,
+      stageShimmer 1.6s ease-in-out infinite;
+    background-size: 200% 100%;
+  }
+
+  .processStageDone {
+    color: rgb(91, 130, 118);
+  }
+
+  .processStageIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  .processStageLabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .processStageStatus {
+    color: rgb(138, 138, 146);
+    font-size: 11px;
+  }
+
   .thumbnailImg {
     max-width: 20px;
+  }
+}
+
+@keyframes stageAppear {
+  from {
+    transform: translateY(3px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes stageShimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
   }
 }
 

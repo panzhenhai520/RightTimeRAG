@@ -972,9 +972,12 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
 
     if "knowledge" in param_keys:
         logging.debug("Proceeding with retrieval")
+        deep_research_enabled = prompt_config.get("reasoning", False) or kwargs.get("reasoning")
+        if not deep_research_enabled:
+            yield {"answer": "<retrieving>", "reference": {}, "audio_binary": None, "final": False}
         tenant_ids = list(set([kb.tenant_id for kb in kbs]))
         knowledges = []
-        if prompt_config.get("reasoning", False) or kwargs.get("reasoning"):
+        if deep_research_enabled:
             reasoner = DeepResearcher(
                 chat_mdl,
                 prompt_config,
@@ -1043,6 +1046,8 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 ck = await settings.kg_retriever.retrieval(retrieval_query, tenant_ids, dialog.kb_ids, embd_mdl, LLMBundle(dialog.tenant_id, default_chat_model))
                 if ck["content_with_weight"]:
                     kbinfos["chunks"].insert(0, ck)
+        if not deep_research_enabled:
+            yield {"answer": "</retrieving>", "reference": {}, "audio_binary": None, "final": False}
 
     if include_reference_metadata:
         logging.debug(

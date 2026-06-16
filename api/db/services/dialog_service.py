@@ -510,7 +510,18 @@ BAD_CITATION_PATTERNS = [
     re.compile(r"【\s*ID\s*[: ]*\s*(\d+)\s*】"),  # 【ID: 12】
     re.compile(r"ref\s*(\d+)", flags=re.IGNORECASE),  # ref12、REF 12
 ]
-CITATION_MARKER_PATTERN = re.compile(r"\[(?:ID:)?([0-9\u0660-\u0669\u06F0-\u06F9]+)\]")
+CITATION_MARKER_PATTERN = re.compile(
+    r"(?:\[(?:ID:)?([0-9\u0660-\u0669\u06F0-\u06F9]+)\]|"
+    r"【(?:ID:)?([0-9\u0660-\u0669\u06F0-\u06F9]+)】|"
+    r"\(\s*ID\s*[: ]\s*([0-9\u0660-\u0669\u06F0-\u06F9]+)\s*\))"
+)
+
+
+def citation_match_index(match: re.Match):
+    for group in match.groups():
+        if group:
+            return int(group)
+    return None
 
 
 def repair_bad_citation_formats(answer: str, kbinfos: dict, idx: set):
@@ -969,12 +980,19 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     thought = ""
     kbinfos = {"total": 0, "chunks": [], "doc_aggs": []}
     knowledges = []
+    deep_research_enabled = False
 
     if "knowledge" in param_keys:
         logging.debug("Proceeding with retrieval")
         deep_research_enabled = prompt_config.get("reasoning", False) or kwargs.get("reasoning")
         if not deep_research_enabled:
-            yield {"answer": "<retrieving>", "reference": {}, "audio_binary": None, "final": False}
+            query_preview = retrieval_query.replace("\n", " ").strip()[:160]
+            yield {
+                "answer": f"<retrieving>Analyzing the question.\nSearching datasets for: {query_preview}\n",
+                "reference": {},
+                "audio_binary": None,
+                "final": False,
+            }
         tenant_ids = list(set([kb.tenant_id for kb in kbs]))
         knowledges = []
         if deep_research_enabled:
@@ -1036,18 +1054,39 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                     if cks:
                         kbinfos["chunks"] = cks
                 kbinfos["chunks"] = retriever.retrieval_by_children(kbinfos["chunks"], tenant_ids)
+                yield {
+                    "answer": (
+                        f"Found {len(kbinfos.get('chunks', []))} relevant passages"
+                        f" from {len(kbinfos.get('doc_aggs', []))} documents.\n"
+                    ),
+                    "reference": {},
+                    "audio_binary": None,
+                    "final": False,
+                }
             if use_web_search:
                 tav = Tavily(prompt_config["tavily_api_key"])
                 tav_res = tav.retrieve_chunks(retrieval_query)
                 kbinfos["chunks"].extend(tav_res["chunks"])
                 kbinfos["doc_aggs"].extend(tav_res["doc_aggs"])
+                yield {
+                    "answer": f"Added {len(tav_res.get('chunks', []))} web search passages.\n",
+                    "reference": {},
+                    "audio_binary": None,
+                    "final": False,
+                }
             if prompt_config.get("use_kg"):
                 default_chat_model = get_tenant_default_model_by_type(dialog.tenant_id, LLMType.CHAT)
                 ck = await settings.kg_retriever.retrieval(retrieval_query, tenant_ids, dialog.kb_ids, embd_mdl, LLMBundle(dialog.tenant_id, default_chat_model))
                 if ck["content_with_weight"]:
                     kbinfos["chunks"].insert(0, ck)
+                    yield {"answer": "Added knowledge graph context.\n", "reference": {}, "audio_binary": None, "final": False}
         if not deep_research_enabled:
-            yield {"answer": "</retrieving>", "reference": {}, "audio_binary": None, "final": False}
+            yield {
+                "answer": "Preparing retrieved evidence for answer generation.\n</retrieving>",
+                "reference": {},
+                "audio_binary": None,
+                "final": False,
+            }
 
     if include_reference_metadata:
         logging.debug(
@@ -1134,8 +1173,8 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 )
             else:
                 for match in CITATION_MARKER_PATTERN.finditer(normalized_answer):
-                    i = int(match.group(1))
-                    if i < len(kbinfos["chunks"]):
+                    i = citation_match_index(match)
+                    if i is not None and i < len(kbinfos["chunks"]):
                         idx.add(i)
 
             answer, idx = repair_bad_citation_formats(answer, kbinfos, idx)
@@ -1217,6 +1256,13 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
             langfuse_generation = None
 
     if stream:
+        if "knowledge" in param_keys and not deep_research_enabled:
+            yield {
+                "answer": "<think>Reviewing retrieved evidence and composing the answer.\n</think>",
+                "reference": {},
+                "audio_binary": None,
+                "final": False,
+            }
         if llm_type == "chat":
             stream_iter = chat_mdl.async_chat_streamly_delta(prompt + prompt4citation, msg[1:], gen_conf)
         else:

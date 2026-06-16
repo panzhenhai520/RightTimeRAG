@@ -14,11 +14,16 @@ export const normalizeCitationDigits = (text: string) => {
 
 export const parseCitationIndex = (value: string) => {
   const normalized = normalizeCitationDigits(value);
-  const markerMatch = normalized.match(/\[(?:ID:)?(\d+)\]/);
-  if (markerMatch) return Number(markerMatch[1]);
+  const markerMatch = normalized.match(
+    /(?:\[(?:ID:)?(\d+)\]|【(?:ID:)?(\d+)】|\(\s*ID\s*[: ]\s*(\d+)\s*\))/,
+  );
+  if (markerMatch) {
+    const index = markerMatch.slice(1).find(Boolean);
+    return Number(index);
+  }
   if (/^\d+$/.test(normalized)) return Number(normalized);
   return Number.NaN;
 };
 
 export const citationMarkerReg =
-  /\[(?:ID:)?([0-9\u0660-\u0669\u06F0-\u06F9]+)\]/g;
+  /(\[(?:ID:)?[0-9\u0660-\u0669\u06F0-\u06F9]+\]|【(?:ID:)?[0-9\u0660-\u0669\u06F0-\u06F9]+】|\(\s*ID\s*[: ]\s*[0-9\u0660-\u0669\u06F0-\u06F9]+\s*\))/g;

@@ -31,6 +31,11 @@ import { useTranslate } from './common-hooks';
 import { useSetPaginationParams } from './route-hook';
 import { useFetchTenantInfo, useSaveSetting } from './use-user-setting-request';
 
+const extractTaggedBlocks = (text: string, tagName: string) => {
+  const pattern = new RegExp(`<${tagName}>[\\s\\S]*?</${tagName}>`, 'g');
+  return text.match(pattern)?.join('') ?? '';
+};
+
 export function usePrevious<T>(value: T) {
   const ref = useRef<T>();
   useEffect(() => {
@@ -275,10 +280,17 @@ export const useSendMessageWithSse = () => {
                 if (typeof d !== 'boolean') {
                   setAnswer((prev) => {
                     const prevAnswer = prev.answer || '';
-                    const currentAnswer = d.final ? '' : d.answer || '';
+                    const currentAnswer = d.answer || '';
 
                     let newAnswer: string;
-                    if (prevAnswer && currentAnswer.startsWith(prevAnswer)) {
+                    if (d.final === true && currentAnswer) {
+                      newAnswer =
+                        extractTaggedBlocks(prevAnswer, 'retrieving') +
+                        currentAnswer;
+                    } else if (
+                      prevAnswer &&
+                      currentAnswer.startsWith(prevAnswer)
+                    ) {
                       newAnswer = currentAnswer;
                     } else {
                       newAnswer = prevAnswer + currentAnswer;

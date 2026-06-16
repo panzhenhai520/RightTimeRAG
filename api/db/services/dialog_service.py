@@ -598,9 +598,16 @@ def build_compact_reference(answer: str, kbinfos: dict, idx: set):
 
     answer = CITATION_MARKER_PATTERN.sub(replace_marker, answer)
     compact_chunks = [deepcopy(chunks[i]) for i in cited_chunk_indexes]
+    attach_raptor_source_chunks(compact_chunks, kbinfos.get("tenant_ids", []), kbinfos.get("kb_ids", []))
     for chunk in compact_chunks:
         if chunk.get("vector"):
             del chunk["vector"]
+        if "content" not in chunk:
+            chunk["content"] = chunk.get("content_with_weight", "")
+        chunk["document_id"] = chunk.get("document_id") or chunk.get("doc_id", "")
+        chunk["document_name"] = chunk.get("document_name") or chunk.get("docnm_kwd", "")
+        kb_id = chunk.get("kb_id")
+        chunk["dataset_id"] = chunk.get("dataset_id") or ((kb_id or [""])[0] if isinstance(kb_id, list) else kb_id or "")
 
     cited_doc_ids = {chunk.get("doc_id") for chunk in compact_chunks if chunk.get("doc_id")}
     refs = {
@@ -608,6 +615,79 @@ def build_compact_reference(answer: str, kbinfos: dict, idx: set):
         "doc_aggs": [d for d in kbinfos.get("doc_aggs", []) if d.get("doc_id") in cited_doc_ids],
     }
     return answer, refs
+
+
+def is_raptor_summary_chunk(chunk: dict):
+    return chunk.get("raptor_kwd") == "raptor" or chunk.get("raptor_layer_int") is not None
+
+
+def _evidence_terms(text: str):
+    if not text:
+        return set()
+    return set(re.findall(r"[\w\u4e00-\u9fff]{2,}", text.lower()))
+
+
+def attach_raptor_source_chunks(chunks: list[dict], tenant_ids: list[str], kb_ids: list[str], max_sources: int = 3):
+    source_cache = {}
+
+    for chunk in chunks:
+        if not is_raptor_summary_chunk(chunk):
+            chunk["is_raptor_summary"] = False
+            continue
+
+        chunk["is_raptor_summary"] = True
+        doc_id = chunk.get("doc_id")
+        if not doc_id or not tenant_ids:
+            chunk["source_chunks"] = []
+            continue
+
+        cache_key = (doc_id, tuple(kb_ids or []))
+        if cache_key not in source_cache:
+            source_cache[cache_key] = list(
+                settings.retriever.chunk_list(
+                    doc_id,
+                    tenant_ids[0],
+                    kb_ids,
+                    max_count=256,
+                    fields=[
+                        "docnm_kwd",
+                        "content_with_weight",
+                        "img_id",
+                        "position_int",
+                        "page_num_int",
+                        "top_int",
+                        "doc_id",
+                        "kb_id",
+                        "raptor_kwd",
+                        "raptor_layer_int",
+                    ],
+                    sort_by_position=True,
+                )
+            )
+
+        summary_terms = _evidence_terms(chunk.get("content_with_weight", ""))
+        candidates = []
+        for source in source_cache[cache_key]:
+            if source.get("raptor_kwd") == "raptor" or source.get("raptor_layer_int") is not None:
+                continue
+            source_terms = _evidence_terms(source.get("content_with_weight", ""))
+            score = len(summary_terms & source_terms)
+            if score <= 0:
+                continue
+            candidates.append((score, source))
+
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        chunk["source_chunks"] = [
+            {
+                "content": source.get("content_with_weight", ""),
+                "document_name": source.get("docnm_kwd", chunk.get("docnm_kwd", "")),
+                "document_id": source.get("doc_id", doc_id),
+                "image_id": source.get("img_id", ""),
+                "positions": source.get("position_int", []),
+                "page_num": source.get("page_num_int"),
+            }
+            for _, source in candidates[:max_sources]
+        ]
 
 
 def repair_bad_citation_formats(answer: str, kbinfos: dict, idx: set):
@@ -1080,6 +1160,8 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 "final": False,
             }
         tenant_ids = list(set([kb.tenant_id for kb in kbs]))
+        kbinfos["tenant_ids"] = tenant_ids
+        kbinfos["kb_ids"] = dialog.kb_ids
         knowledges = []
         if deep_research_enabled:
             reasoner = DeepResearcher(

@@ -150,7 +150,7 @@ class Dealer:
                       ["docnm_kwd", "content_ltks", "kb_id", "img_id", "title_tks", "important_kwd", "position_int",
                        "doc_id", "chunk_order_int", "page_num_int", "top_int", "create_timestamp_flt", "knowledge_graph_kwd",
                        "question_kwd", "question_tks", "doc_type_kwd",
-                       "available_int", "content_with_weight", "mom_id", PAGERANK_FLD, TAG_FLD, "row_id()"])
+                       "available_int", "content_with_weight", "mom_id", "raptor_kwd", "raptor_layer_int", "extra", PAGERANK_FLD, TAG_FLD, "row_id()"])
         kwds = set([])
 
         qst = req.get("question", "")
@@ -723,6 +723,9 @@ class Dealer:
                 "positions": position_int,
                 "doc_type_kwd": chunk.get("doc_type_kwd", ""),
                 "mom_id": chunk.get("mom_id", ""),
+                "raptor_kwd": chunk.get("raptor_kwd", ""),
+                "raptor_layer_int": chunk.get("raptor_layer_int"),
+                "extra": chunk.get("extra", {}),
                 "row_id": chunk.get("row_id()"),
             }
             if highlight and sres.highlight:
@@ -902,7 +905,10 @@ class Dealer:
                 "term_similarity": sim,
                 "vector": [0.0] * vector_size,
                 "positions": chunk.get("position_int", []),
-                "doc_type_kwd": chunk.get("doc_type_kwd", "")
+                "doc_type_kwd": chunk.get("doc_type_kwd", ""),
+                "raptor_kwd": chunk.get("raptor_kwd", ""),
+                "raptor_layer_int": chunk.get("raptor_layer_int"),
+                "extra": chunk.get("extra", {}),
             }
             for k in chunk.keys():
                 if k[-4:] == "_vec":

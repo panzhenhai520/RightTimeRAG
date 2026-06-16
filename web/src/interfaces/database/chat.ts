@@ -120,7 +120,7 @@ export interface Message {
 
 export interface IReferenceChunk {
   id: string;
-  content: null;
+  content: string;
   document_id: string;
   document_name: string;
   dataset_id: string;
@@ -131,6 +131,15 @@ export interface IReferenceChunk {
   positions: number[];
   doc_type?: string;
   document_metadata?: Record<string, any>;
+  is_raptor_summary?: boolean;
+  source_chunks?: Array<{
+    content: string;
+    document_name?: string;
+    document_id?: string;
+    image_id?: string;
+    positions?: number[];
+    page_num?: number;
+  }>;
 }
 
 export interface IReference {

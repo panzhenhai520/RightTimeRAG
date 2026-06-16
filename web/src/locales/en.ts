@@ -1017,6 +1017,8 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
       retrieved: 'Retrieved',
       thinking: 'Thinking...',
       thought: 'Thought',
+      summaryCitation: 'Summary citation',
+      relatedOriginalChunks: 'Related original chunks',
       voiceStart: 'Start voice input',
       voiceRecording: 'Recording, click to stop',
       voiceProcessing: 'Transcribing audio',

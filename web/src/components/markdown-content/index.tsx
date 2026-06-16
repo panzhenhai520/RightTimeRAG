@@ -46,6 +46,21 @@ const formatMetadataValue = (value: unknown) => {
   return String(value);
 };
 
+const EvidenceMarkdown = ({ content }: { content?: string }) => {
+  if (!content) return null;
+  return (
+    <Markdown
+      remarkPlugins={MarkdownRemarkPlugins}
+      rehypePlugins={[rehypeKatex, rehypeRaw]}
+      components={{
+        p: ({ children, ...props }: any) => <p {...props}>{children}</p>,
+      }}
+    >
+      {content}
+    </Markdown>
+  );
+};
+
 // TODO: The display of the table is inconsistent with the display previously placed in the MessageItem.
 const MarkdownContent = ({
   reference,
@@ -157,9 +172,11 @@ const MarkdownContent = ({
         documentId,
         document,
       } = getReferenceInfo(chunkIndex);
+      const isSummary = !!chunkItem?.is_raptor_summary;
+      const sourceChunks = chunkItem?.source_chunks ?? [];
 
       return (
-        <div key={chunkItem?.id} className="flex gap-2">
+        <div key={chunkItem?.id} className={styles.referencePopoverCard}>
           {imageId && (
             <HoverCard>
               <HoverCardTrigger>
@@ -176,14 +193,37 @@ const MarkdownContent = ({
               </HoverCardContent>
             </HoverCard>
           )}
-          <div className={'space-y-2 max-w-[40vw]'}>
-            <div
-              dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(chunkItem?.content ?? ''),
-              }}
-              className={classNames(styles.chunkContentText)}
-              dir="auto"
-            ></div>
+          <div className={'space-y-2 max-w-[44vw]'}>
+            <div className={styles.evidenceCardHeader}>
+              <span>Fig. {chunkIndex + 1}</span>
+              {isSummary && (
+                <span className={styles.summaryBadge}>
+                  {t('chat.summaryCitation')}
+                </span>
+              )}
+            </div>
+            <div className={classNames(styles.chunkContentText)} dir="auto">
+              <EvidenceMarkdown content={chunkItem?.content} />
+            </div>
+            {isSummary && sourceChunks.length > 0 && (
+              <section className={styles.sourceChunkList}>
+                <div className={styles.sourceChunkTitle}>
+                  {t('chat.relatedOriginalChunks')}
+                </div>
+                {sourceChunks.map((source, index) => (
+                  <article
+                    key={`${source.document_id}-${index}`}
+                    className={styles.sourceChunkCard}
+                  >
+                    <div className={styles.sourceChunkMeta}>
+                      {source.document_name || document?.doc_name}
+                      {source.page_num ? ` · p.${source.page_num}` : ''}
+                    </div>
+                    <EvidenceMarkdown content={source.content} />
+                  </article>
+                ))}
+              </section>
+            )}
             {chunkItem?.document_metadata &&
               Object.keys(chunkItem.document_metadata).length > 0 && (
                 <section className="space-y-1 border border-border-default rounded p-2">
@@ -231,7 +271,7 @@ const MarkdownContent = ({
         </div>
       );
     },
-    [getReferenceInfo, handleDocumentButtonClick],
+    [getReferenceInfo, handleDocumentButtonClick, t],
   );
 
   const renderReference = useCallback(

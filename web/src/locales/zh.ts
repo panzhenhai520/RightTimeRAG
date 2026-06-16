@@ -919,6 +919,7 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取实体和关系
       thought: 'Thought',
       summaryCitation: '引用摘要',
       relatedOriginalChunks: '关联原文片段',
+      messageRenderError: '这条历史消息包含不兼容内容，已跳过渲染。',
       voiceStart: '开始语音输入',
       voiceRecording: '正在录音，点击停止',
       voiceProcessing: '正在转写语音',

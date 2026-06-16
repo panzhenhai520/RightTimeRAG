@@ -27,6 +27,47 @@ export const getDocumentIdsFromConversionReference = (data: IConversation) => {
   return documentIds.join(',');
 };
 
+const toArray = <T>(value: T[] | Record<string, T> | undefined | null) => {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === 'object') return Object.values(value);
+  return [];
+};
+
+const normalizeReference = (reference?: Partial<IReference>) => {
+  const chunks = toArray(reference?.chunks as any).map((chunk: any) => {
+    const kbId = chunk?.kb_id;
+    return {
+      ...chunk,
+      id: chunk?.id ?? chunk?.chunk_id ?? '',
+      content:
+        typeof chunk?.content === 'string'
+          ? chunk.content
+          : typeof chunk?.content_with_weight === 'string'
+            ? chunk.content_with_weight
+            : '',
+      document_id: chunk?.document_id ?? chunk?.doc_id ?? '',
+      document_name: chunk?.document_name ?? chunk?.docnm_kwd ?? '',
+      dataset_id:
+        chunk?.dataset_id ??
+        (Array.isArray(kbId) ? (kbId[0] ?? '') : (kbId ?? '')),
+      image_id: chunk?.image_id ?? chunk?.img_id ?? '',
+      positions: Array.isArray(chunk?.positions)
+        ? chunk.positions
+        : Array.isArray(chunk?.position_int)
+          ? chunk.position_int
+          : [],
+    };
+  });
+  const docAggs = toArray(reference?.doc_aggs as any);
+
+  return {
+    ...reference,
+    chunks,
+    doc_aggs: docAggs,
+    total: reference?.total ?? chunks.length,
+  } as IReference;
+};
+
 export const buildMessageItemReference = (
   conversation: { messages: IMessage[]; reference: IReference[] },
   message: IMessage,
@@ -44,5 +85,7 @@ export const buildMessageItemReference = (
     ? message?.reference
     : (conversation?.reference ?? [])[referenceIndex];
 
-  return reference ?? { doc_aggs: [], chunks: [], total: 0 };
+  return normalizeReference(
+    reference ?? { doc_aggs: [], chunks: [], total: 0 },
+  );
 };

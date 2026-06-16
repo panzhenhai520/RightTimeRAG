@@ -1019,6 +1019,8 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
       thought: 'Thought',
       summaryCitation: 'Summary citation',
       relatedOriginalChunks: 'Related original chunks',
+      messageRenderError:
+        'This historical message contains incompatible content and was skipped.',
       voiceStart: 'Start voice input',
       voiceRecording: 'Recording, click to stop',
       voiceProcessing: 'Transcribing audio',

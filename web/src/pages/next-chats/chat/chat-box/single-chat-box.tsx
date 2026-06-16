@@ -10,7 +10,7 @@ import api from '@/utils/api';
 import { buildMessageUuidWithRole } from '@/utils/chat';
 import request from '@/utils/next-request';
 import { t } from 'i18next';
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
   useGetSendButtonDisabled,
@@ -25,6 +25,32 @@ interface IProps {
   controller: AbortController;
   stopOutputMessage(): void;
   conversation: IClientConversation;
+}
+
+class MessageRenderBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('Message render failed', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded border border-border-default bg-bg-card p-3 text-sm text-text-secondary">
+          {t('chat.messageRenderError')}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 export function SingleChatBox({
@@ -119,30 +145,31 @@ export function SingleChatBox({
       >
         <div className="w-full pr-5">
           {derivedMessages?.map((message, i) => (
-            <MessageItem
-              loading={
-                message.role === MessageType.Assistant &&
-                sendLoading &&
-                derivedMessages.length - 1 === i
-              }
-              key={buildMessageUuidWithRole(message)}
-              item={message}
-              nickname={userInfo.nickname}
-              avatar={userInfo.avatar}
-              avatarDialog={currentDialog.icon}
-              reference={buildMessageItemReference(
-                {
-                  messages: derivedMessages,
-                  reference: conversation.reference,
-                },
-                message,
-              )}
-              clickDocumentButton={clickDocumentButton}
-              index={i}
-              removeMessageById={removeMessageById}
-              regenerateMessage={regenerateMessage}
-              sendLoading={sendLoading}
-            />
+            <MessageRenderBoundary key={buildMessageUuidWithRole(message)}>
+              <MessageItem
+                loading={
+                  message.role === MessageType.Assistant &&
+                  sendLoading &&
+                  derivedMessages.length - 1 === i
+                }
+                item={message}
+                nickname={userInfo.nickname}
+                avatar={userInfo.avatar}
+                avatarDialog={currentDialog.icon}
+                reference={buildMessageItemReference(
+                  {
+                    messages: derivedMessages,
+                    reference: conversation.reference,
+                  },
+                  message,
+                )}
+                clickDocumentButton={clickDocumentButton}
+                index={i}
+                removeMessageById={removeMessageById}
+                regenerateMessage={regenerateMessage}
+                sendLoading={sendLoading}
+              />
+            </MessageRenderBoundary>
           ))}
         </div>
         <div ref={scrollRef} />

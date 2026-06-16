@@ -91,7 +91,10 @@ const MessageItem = ({
     () => item.downloads ?? [],
     [item.downloads],
   );
-  const messageContent = item.content;
+  const messageContent =
+    typeof item.content === 'string'
+      ? item.content
+      : String(item.content ?? '');
   const parsedContent = useMemo(
     () => parseThinkAndAnswer(messageContent),
     [messageContent],

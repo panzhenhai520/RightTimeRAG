@@ -26,9 +26,9 @@ export default function SearchHome({
   // const { data: userInfo } = useFetchUserInfo();
   const { t } = useTranslation();
   return (
-    <section className="relative flex w-full items-center justify-center transition-all mt-[15vh]">
+    <section className="relative mt-[15vh] flex w-full items-center justify-center transition-all">
       <div className="relative z-10 flex w-full max-w-4xl flex-col items-center justify-center px-8 pt-8">
-        <div className="sticky flex h-[220px] w-full transform justify-center rounded-2xl bg-bg-base/30 p-6 text-xl text-primary backdrop-blur">
+        <div className="sticky flex w-full transform justify-center text-xl text-primary">
           {!isSearching && <Spotlight className="z-0" />}
           <div className="flex w-full max-w-3xl flex-col items-center justify-center">
             {!isSearching && (

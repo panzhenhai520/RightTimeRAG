@@ -111,6 +111,23 @@ export default {
       dataset: 'Dataset',
       Memories: 'Memoria',
     },
+    homeDashboard: {
+      chatAssistants: 'Assistenti chat',
+      chatAssistantsDescription:
+        'Scegli un assistente configurato e inizia subito.',
+      searchTools: 'Assistenti di ricerca',
+      searchToolsDescription: 'Cerca documenti e prove con strumenti dedicati.',
+      publishedAgents: 'Agenti pubblicati',
+      publishedAgentsDescription:
+        'Esegui agenti pubblicati. Gli utenti non modificano i workflow.',
+      knowledgeAssets: 'Asset di conoscenza',
+      knowledgeAssetsDescription:
+        'Visualizza dataset disponibili, numero di documenti e aggiornamenti.',
+      recentMemos: 'Memo recenti',
+      recentMemosDescription:
+        'Consulta note e memoria a lungo termine generate dalle chat.',
+      emptySection: 'Nessun contenuto disponibile',
+    },
     memory: {
       memory: 'Memoria',
       createMemory: 'Crea memoria',
@@ -1179,6 +1196,11 @@ Quanto sopra è il contenuto che devi riassumere.`,
       id: 'ID',
       copySuccess: 'Copia riuscita',
       welcomeBack: 'Bentornato',
+      resultsSummary:
+        'Trovati {{docs}} documenti con {{chunks}} passaggi corrispondenti',
+      hitChunks: '{{count}} passaggi',
+      openDocument: 'Apri documento',
+      untitledDocument: 'Documento senza titolo',
       searchSettings: 'Impostazioni ricerca',
       name: 'Nome',
       avatar: 'Avatar',

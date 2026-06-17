@@ -8,6 +8,16 @@ import { Link } from 'react-router';
 
 const devEntries = [
   {
+    title: '新建聊天助手',
+    description: '创建并配置聊天助手、模型、提示词和关联知识库。',
+    path: `${Routes.Chats}?isCreate=true`,
+  },
+  {
+    title: '新建搜索助手',
+    description: '创建并配置搜索助手、搜索范围和结果呈现方式。',
+    path: `${Routes.Searches}?isCreate=true`,
+  },
+  {
     title: '智能体',
     description: '管理预定义智能体和流程编排。',
     path: Routes.Agents,

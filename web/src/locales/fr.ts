@@ -122,6 +122,24 @@ export default {
       dataset: 'Base de connaissances',
       memories: 'Mémoire',
     },
+    homeDashboard: {
+      chatAssistants: 'Assistants de chat',
+      chatAssistantsDescription:
+        'Choisissez un assistant configuré et commencez directement.',
+      searchTools: 'Assistants de recherche',
+      searchToolsDescription:
+        'Recherchez des documents et des preuves avec des outils dédiés.',
+      publishedAgents: 'Agents publiés',
+      publishedAgentsDescription:
+        'Exécutez les agents publiés. Les utilisateurs ne modifient pas les workflows.',
+      knowledgeAssets: 'Bases de connaissances',
+      knowledgeAssetsDescription:
+        'Consultez les bases disponibles, le nombre de documents et les mises à jour.',
+      recentMemos: 'Mémos récents',
+      recentMemosDescription:
+        'Consultez les notes et mémoires générées depuis les conversations.',
+      emptySection: 'Aucun contenu disponible pour le moment',
+    },
     skills: {
       title: 'Compétences',
       selectSpace: 'Sélectionnez un espace de compétences pour commencer',
@@ -949,7 +967,8 @@ Applicable lorsque vous avez besoin que le LLM résume le document entier.
       setAnOpenerTip: "Définissez un message d'accueil pour les utilisateurs.",
       knowledgeBases: 'Bases de connaissances',
       addToMemory: 'Ajouter au mémo',
-      addToMemorySuccess: 'Ajouté au mémo. Consultez-le dans la page des mémos.',
+      addToMemorySuccess:
+        'Ajouté au mémo. Consultez-le dans la page des mémos.',
       addToMemoryFailed: "Échec de l'ajout au mémo",
       addToMemoryPreparing:
         "Démarrez une conversation valide avant de l'ajouter au mémo.",
@@ -2801,6 +2820,11 @@ Mémoire procédurale : compétences acquises, habitudes et procédures automati
       id: 'ID',
       copySuccess: 'Copié avec succès',
       welcomeBack: 'Bon retour',
+      resultsSummary:
+        '{{docs}} documents trouvés avec {{chunks}} passages correspondants',
+      hitChunks: '{{count}} passages',
+      openDocument: 'Ouvrir le document',
+      untitledDocument: 'Document sans titre',
       searchSettings: 'Paramètres de recherche',
       name: 'Nom',
       avatar: 'Avatar',

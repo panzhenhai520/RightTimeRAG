@@ -258,7 +258,6 @@ const routeConfigOptions = [
       },
       {
         path: `${Routes.Memory}`,
-        loader: requireDevFeatureAccess,
         Component: () => import('@/pages/memory'),
         children: [
           {
@@ -267,6 +266,7 @@ const routeConfigOptions = [
           },
           {
             path: `${Routes.Memory}/${Routes.MemorySetting}/:id`,
+            loader: requireDevFeatureAccess,
             Component: () => import('@/pages/memory/memory-setting'),
           },
         ],

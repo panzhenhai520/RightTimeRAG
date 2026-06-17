@@ -131,6 +131,24 @@ export default {
       dataset: 'Dataset',
       memories: 'Memory',
     },
+    homeDashboard: {
+      chatAssistants: 'Chat assistants',
+      chatAssistantsDescription:
+        'Choose a configured professional assistant and start directly.',
+      searchTools: 'Search assistants',
+      searchToolsDescription:
+        'Use dedicated search tools to retrieve documents and evidence.',
+      publishedAgents: 'Published agents',
+      publishedAgentsDescription:
+        'Run published agents. Regular users cannot edit workflows.',
+      knowledgeAssets: 'Knowledge assets',
+      knowledgeAssetsDescription:
+        'View available datasets, document counts, and recent updates.',
+      recentMemos: 'Recent memos',
+      recentMemosDescription:
+        'Review meeting-style notes and long-term memory generated from chats.',
+      emptySection: 'No available content yet',
+    },
     skills: {
       title: 'Skills',
       selectSpace: 'Select a skill space to get started',
@@ -2816,6 +2834,11 @@ Important structured information may include: names, dates, locations, events, k
       id: 'ID',
       copySuccess: 'Copy Success',
       welcomeBack: 'Welcome back',
+      resultsSummary:
+        'Found {{docs}} documents with {{chunks}} matching passages',
+      hitChunks: '{{count}} passages',
+      openDocument: 'Open document',
+      untitledDocument: 'Untitled document',
       searchSettings: 'Search settings',
       name: 'Name',
       avatar: 'Avatar',

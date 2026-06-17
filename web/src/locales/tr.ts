@@ -121,6 +121,24 @@ export default {
       dataset: 'Dataset',
       memories: 'Bellek',
     },
+    homeDashboard: {
+      chatAssistants: 'Sohbet asistanları',
+      chatAssistantsDescription:
+        'Hazır yapılandırılmış bir asistan seçin ve doğrudan başlayın.',
+      searchTools: 'Arama asistanları',
+      searchToolsDescription:
+        'Belgeleri ve kanıtları özel arama araçlarıyla bulun.',
+      publishedAgents: 'Yayınlanmış ajanlar',
+      publishedAgentsDescription:
+        'Yayınlanmış ajanları çalıştırın. Normal kullanıcılar iş akışlarını düzenlemez.',
+      knowledgeAssets: 'Bilgi varlıkları',
+      knowledgeAssetsDescription:
+        'Kullanılabilir datasetleri, belge sayılarını ve güncellemeleri görün.',
+      recentMemos: 'Son notlar',
+      recentMemosDescription:
+        'Sohbetlerden oluşturulan notları ve uzun süreli hafızayı inceleyin.',
+      emptySection: 'Henüz kullanılabilir içerik yok',
+    },
     skills: {
       title: 'Beceriler',
       selectSpace: 'Başlamak için bir beceri alanı seçin',
@@ -2644,6 +2662,10 @@ Temel Talimatlar:
       id: 'Kimlik',
       copySuccess: 'Kopyalama Başarılı',
       welcomeBack: 'Tekrar hoş geldiniz',
+      resultsSummary: '{{docs}} belge ve {{chunks}} eşleşen bölüm bulundu',
+      hitChunks: '{{count}} bölüm',
+      openDocument: 'Belgeyi aç',
+      untitledDocument: 'Başlıksız belge',
       searchSettings: 'Arama ayarları',
       name: 'Ad',
       avatar: 'Avatar',

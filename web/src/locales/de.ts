@@ -109,6 +109,24 @@ export default {
       memories: 'Gedächtnis',
       Memories: 'Gedächtnis',
     },
+    homeDashboard: {
+      chatAssistants: 'Chat-Assistenten',
+      chatAssistantsDescription:
+        'Wählen Sie einen konfigurierten Assistenten und starten Sie direkt.',
+      searchTools: 'Suchassistenten',
+      searchToolsDescription:
+        'Durchsuchen Sie Dokumente und Nachweise mit spezialisierten Tools.',
+      publishedAgents: 'Veröffentlichte Agenten',
+      publishedAgentsDescription:
+        'Führen Sie veröffentlichte Agenten aus. Nutzer bearbeiten keine Workflows.',
+      knowledgeAssets: 'Wissensbestände',
+      knowledgeAssetsDescription:
+        'Verfügbare Wissensbestände, Dokumentzahlen und Aktualisierungen ansehen.',
+      recentMemos: 'Aktuelle Memos',
+      recentMemosDescription:
+        'Aus Gesprächen erzeugte Notizen und Langzeitgedächtnis ansehen.',
+      emptySection: 'Noch keine verfügbaren Inhalte',
+    },
     memories: {
       llmTooltip:
         'Analysiert Gesprächsinhalte, extrahiert Schlüsselinformationen und generiert strukturierte Gedächtniszusammenfassungen.',
@@ -2422,6 +2440,11 @@ Wichtige strukturierte Informationen können sein: Namen, Daten, Orte, Ereigniss
       id: 'ID',
       copySuccess: 'Kopieren erfolgreich',
       welcomeBack: 'Willkommen zurück',
+      resultsSummary:
+        '{{docs}} Dokumente mit {{chunks}} passenden Passagen gefunden',
+      hitChunks: '{{count}} Passagen',
+      openDocument: 'Dokument öffnen',
+      untitledDocument: 'Unbenanntes Dokument',
       searchSettings: 'Sucheinstellungen',
       name: 'Name',
       avatar: 'Avatar',

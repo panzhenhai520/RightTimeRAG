@@ -16,14 +16,8 @@ import { IReference } from '@/interfaces/database/chat';
 import { ITestingChunk } from '@/interfaces/database/dataset';
 import { cn } from '@/lib/utils';
 import { isEmpty } from 'lodash';
-import { Loader2, ListTree, Search, X } from 'lucide-react';
-import {
-  Dispatch,
-  SetStateAction,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { ListTree, Loader2, Search, X } from 'lucide-react';
+import { Dispatch, SetStateAction, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ISearchAppDetailProps } from '../next-searches/hooks';
 import PdfDrawer from './document-preview-modal';
@@ -44,7 +38,8 @@ const formatMetadataValue = (value: unknown) => {
 const stripMarkup = (value = '') =>
   value
     .replace(/<[^>]*>/g, ' ')
-    .replace(/[#>*_`~\[\]()]/g, ' ')
+    .replace(/[#>*_`~()]/g, ' ')
+    .replace(/\[|\]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -53,7 +48,11 @@ const escapeRegExp = (value: string) =>
 
 const getSearchTerms = (query: string) => {
   const terms = query.match(/[\p{L}\p{N}_-]+/gu) ?? [];
-  return Array.from(new Set(terms.map((term) => term.trim()).filter((term) => term.length >= 2))).slice(0, 8);
+  return Array.from(
+    new Set(
+      terms.map((term) => term.trim()).filter((term) => term.length >= 2),
+    ),
+  ).slice(0, 8);
 };
 
 const countTermHits = (content: string, terms: string[]) =>
@@ -103,37 +102,43 @@ const buildDocumentCards = (chunks: ITestingChunk[] = [], query: string) => {
     });
   });
 
-  return Array.from(groups.values()).map((group) => {
-    const ranked = group.chunks
-      .map((chunk, index) => {
-        const content = chunk.highlight || chunk.content_with_weight || '';
-        const plain = stripMarkup(content);
-        return {
-          chunk,
-          content,
-          plainLength: plain.length,
-          score:
-            countTermHits(plain, terms) * 100 +
-            (chunk.similarity ?? 0) * 10 -
-            index,
-        };
-      })
-      .sort((a, b) => b.score - a.score);
-    const substantial = ranked.filter((item) => item.plainLength >= 40);
-    const snippets = (substantial.length > 0 ? substantial : ranked).slice(0, 3);
-    const representative = snippets[0]?.chunk ?? group.chunks[0];
-    const imageChunk =
-      group.chunks.find((chunk) => chunk.image_id || chunk.img_id) ??
-      representative;
+  return Array.from(groups.values())
+    .map((group) => {
+      const ranked = group.chunks
+        .map((chunk, index) => {
+          const content = chunk.highlight || chunk.content_with_weight || '';
+          const plain = stripMarkup(content);
+          return {
+            chunk,
+            content,
+            plainLength: plain.length,
+            score:
+              countTermHits(plain, terms) * 100 +
+              (chunk.similarity ?? 0) * 10 -
+              index,
+          };
+        })
+        .sort((a, b) => b.score - a.score);
+      const substantial = ranked.filter((item) => item.plainLength >= 40);
+      const snippets = (substantial.length > 0 ? substantial : ranked).slice(
+        0,
+        3,
+      );
+      const representative = snippets[0]?.chunk ?? group.chunks[0];
+      const imageChunk =
+        group.chunks.find((chunk) => chunk.image_id || chunk.img_id) ??
+        representative;
 
-    return {
-      ...group,
-      representative,
-      imageChunk,
-      snippets,
-      terms,
-    };
-  });
+      return {
+        ...group,
+        representative,
+        imageChunk,
+        snippets,
+        terms,
+        bestScore: snippets[0]?.score ?? 0,
+      };
+    })
+    .sort((a, b) => b.bestScore - a.bestScore);
 };
 
 export default function SearchingView({
@@ -183,6 +188,7 @@ export default function SearchingView({
     () => buildDocumentCards(chunks, searchStr),
     [chunks, searchStr],
   );
+  const totalChunkCount = chunks?.length ?? 0;
   const showResultSkeleton =
     !isSearchStrEmpty &&
     documentCards.length === 0 &&
@@ -302,30 +308,36 @@ export default function SearchingView({
             )}
             <div className="mt-4">
               {showResultSkeleton && (
-                <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(340px,1fr))] gap-4">
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <article
+                <div className="space-y-4">
+                  {Array.from({ length: 8 }).map((_, index) => (
+                    <div
                       key={index}
-                      className="flex h-[360px] flex-col overflow-hidden rounded-xl bg-bg-base/90 p-5 shadow-sm ring-1 ring-accent-primary/10 dark:bg-bg-component/70"
+                      className="rounded-xl bg-bg-base/80 p-5 shadow-sm ring-1 ring-accent-primary/10 dark:bg-bg-component/65"
                     >
-                      <div className="mb-4 h-5 w-2/3 animate-pulse rounded-md bg-[rgb(var(--accent-primary)/0.18)]" />
-                      <div className="space-y-3">
-                        <div className="h-20 animate-pulse rounded-lg bg-[rgb(var(--accent-primary)/0.12)]" />
-                        <div className="h-20 animate-pulse rounded-lg bg-[rgb(var(--accent-primary)/0.10)]" />
-                        <div className="h-20 animate-pulse rounded-lg bg-[rgb(var(--accent-primary)/0.08)]" />
+                      <div className="mb-3 h-4 w-40 animate-pulse rounded-md bg-[rgb(var(--accent-primary)/0.16)]" />
+                      <div className="mb-3 h-6 w-2/3 animate-pulse rounded-md bg-[rgb(var(--accent-primary)/0.18)]" />
+                      <div className="space-y-2">
+                        <div className="h-4 animate-pulse rounded-md bg-[rgb(var(--accent-primary)/0.10)]" />
+                        <div className="h-4 w-5/6 animate-pulse rounded-md bg-[rgb(var(--accent-primary)/0.08)]" />
+                        <div className="h-4 w-3/4 animate-pulse rounded-md bg-[rgb(var(--accent-primary)/0.08)]" />
                       </div>
-                      <div className="mt-auto h-8 w-1/2 animate-pulse rounded-lg bg-[rgb(var(--accent-primary)/0.12)]" />
-                    </article>
+                    </div>
                   ))}
                 </div>
               )}
               {documentCards.length > 0 && (
-                <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(340px,1fr))] gap-4">
+                <div className="space-y-4">
+                  <div className="text-sm text-text-secondary">
+                    {t('search.resultsSummary', {
+                      docs: documentCards.length,
+                      chunks: totalChunkCount,
+                    })}
+                  </div>
                   {documentCards.map((card) => {
                     return (
                       <article
                         key={card.docId}
-                        className="flex h-[360px] cursor-pointer flex-col overflow-hidden rounded-xl bg-bg-base/90 p-5 shadow-sm ring-1 ring-border-default/25 transition-shadow hover:shadow-md dark:bg-bg-component/70"
+                        className="cursor-pointer rounded-xl bg-bg-base/80 p-5 shadow-sm ring-1 ring-border-default/15 transition hover:bg-bg-base hover:shadow-md dark:bg-bg-component/65 dark:hover:bg-bg-component"
                         onClick={() =>
                           clickDocumentButton(
                             card.representative.doc_id,
@@ -334,10 +346,38 @@ export default function SearchingView({
                         }
                         tabIndex={0}
                       >
-                        <div className="min-h-0 flex-1 overflow-hidden text-sm leading-6 text-text-primary">
-                          {(card.imageChunk.image_id || card.imageChunk.img_id) && (
+                        <div className="mb-3 flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <button
+                              type="button"
+                              className="mb-1 flex max-w-full items-center gap-2 text-left text-xs text-text-secondary hover:text-text-primary"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                clickDocumentButton(
+                                  card.representative.doc_id,
+                                  card.representative as any,
+                                );
+                              }}
+                            >
+                              <FileIcon name={card.docName}></FileIcon>
+                              <span className="truncate">{card.docName}</span>
+                            </button>
+                            <h3 className="line-clamp-2 text-lg font-semibold leading-7 text-accent-primary">
+                              {card.docName || t('search.untitledDocument')}
+                            </h3>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-accent-primary/10 px-2.5 py-1 text-xs text-accent-primary">
+                            {t('search.hitChunks', {
+                              count: card.chunks.length,
+                            })}
+                          </span>
+                        </div>
+
+                        <div className="text-sm leading-6 text-text-primary">
+                          {(card.imageChunk.image_id ||
+                            card.imageChunk.img_id) && (
                             <div
-                              className="float-left mb-3 mr-4 max-w-[42%] overflow-hidden rounded-lg bg-bg-card/50 p-1 [&_button]:block [&_img]:!max-h-32 [&_img]:!max-w-full [&_img]:rounded-md [&_img]:object-contain"
+                              className="float-left mb-2 mr-4 max-w-[112px] overflow-hidden rounded-lg bg-bg-card/50 p-1 [&_button]:block [&_img]:!max-h-24 [&_img]:!max-w-full [&_img]:rounded-md [&_img]:object-contain"
                               onClick={(event) => event.stopPropagation()}
                             >
                               <ImageWithPopover
@@ -348,7 +388,7 @@ export default function SearchingView({
                               ></ImageWithPopover>
                             </div>
                           )}
-                          <div className="space-y-3">
+                          <div className="space-y-2">
                             {card.snippets.map((snippet, snippetIndex) => (
                               <div
                                 key={snippet.chunk.chunk_id || snippetIndex}
@@ -373,10 +413,10 @@ export default function SearchingView({
                           </div>
                         </div>
 
-                        <div className="clear-both mt-4 pt-3">
+                        <div className="clear-both mt-3 flex flex-wrap items-center gap-2 pt-2">
                           {card.metadata &&
                             Object.keys(card.metadata).length > 0 && (
-                              <div className="mb-3 flex flex-wrap gap-2">
+                              <>
                                 {Object.entries(card.metadata).map(
                                   ([key, value]) => (
                                     <div
@@ -392,11 +432,11 @@ export default function SearchingView({
                                     </div>
                                   ),
                                 )}
-                              </div>
+                              </>
                             )}
                           <button
                             type="button"
-                            className="flex max-w-full items-center gap-2 rounded-lg bg-bg-card/50 px-2.5 py-1.5 text-left text-xs text-text-secondary transition hover:bg-bg-card hover:text-text-primary"
+                            className="ml-auto rounded-full px-3 py-1.5 text-xs text-text-secondary transition hover:bg-bg-card hover:text-text-primary"
                             onClick={(event) => {
                               event.stopPropagation();
                               clickDocumentButton(
@@ -405,13 +445,7 @@ export default function SearchingView({
                               );
                             }}
                           >
-                            <FileIcon name={card.docName}></FileIcon>
-                            <span className="truncate">{card.docName}</span>
-                            {card.chunks.length > 1 && (
-                              <span className="ml-1 rounded-full bg-accent-primary/10 px-2 py-0.5 text-accent-primary">
-                                {card.chunks.length}
-                              </span>
-                            )}
+                            {t('search.openDocument')}
                           </button>
                         </div>
                       </article>

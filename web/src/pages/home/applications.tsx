@@ -1,116 +1,142 @@
-import { CardSineLineContainer } from '@/components/card-singleline-container';
-import { EmptyCardType } from '@/components/empty/constant';
-import { EmptyAppCard } from '@/components/empty/empty';
 import { HomeIcon } from '@/components/svg-icon';
-import { Segmented, SegmentedValue } from '@/components/ui/segmented';
 import { Routes } from '@/routes';
-import { useCallback, useMemo, useState } from 'react';
+import { ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { Agents } from './agent-list';
 import { SeeAllAppCard } from './application-card';
 import { ChatList } from './chat-list';
+import { MemoryList } from './memory-list';
 import { SearchList } from './search-list';
 
-const IconMap = {
-  [Routes.Chats]: 'chats',
-  [Routes.Searches]: 'searches',
-  [Routes.Agents]: 'agents',
+type WorkspaceSectionProps = {
+  title: string;
+  description: string;
+  icon: string;
+  route?: Routes;
+  children: ReactNode;
+  listLength: number;
+  loading: boolean;
 };
 
-const EmptyTypeMap = {
-  [Routes.Chats]: EmptyCardType.Chat,
-  [Routes.Searches]: EmptyCardType.Search,
-  [Routes.Agents]: EmptyCardType.Agent,
-};
-
-export function Applications() {
-  const [val, setVal] = useState(Routes.Chats);
+function WorkspaceSection({
+  title,
+  description,
+  icon,
+  route,
+  children,
+  listLength,
+  loading,
+}: WorkspaceSectionProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [listLength, setListLength] = useState(0);
-  const [loading, setLoading] = useState(false);
-
-  const handleNavigate = useCallback(
-    ({ isCreate }: { isCreate?: boolean }) => {
-      if (isCreate) {
-        navigate(val + '?isCreate=true');
-      } else {
-        navigate(val);
-      }
-    },
-    [navigate, val],
-  );
-
-  const options = useMemo(
-    () => [
-      { value: Routes.Chats, label: t('header.chat') },
-      { value: Routes.Searches, label: t('header.search') },
-      { value: Routes.Agents, label: t('header.flow') },
-    ],
-    [t],
-  );
-
-  const handleChange = (path: SegmentedValue) => {
-    setVal(path as Routes);
-    setListLength(0);
-    setLoading(true);
-  };
 
   return (
-    <section className="mt-12">
-      <header className="flex justify-between items-center mb-2.5">
-        <h2 className="text-2xl font-semibold">
-          <HomeIcon
-            imgClass="me-2.5"
-            name={`${IconMap[val as keyof typeof IconMap]}`}
-            width={24}
-          />
-          {options.find((x) => x.value === val)?.label}
-        </h2>
+    <section className="rounded-xl bg-bg-base/70 p-5 shadow-sm ring-1 ring-border-default/20 dark:bg-bg-component/45">
+      <header className="mb-4 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="flex items-center text-xl font-semibold leading-7">
+            <HomeIcon imgClass="me-2.5" name={icon} width={22} />
+            {title}
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-text-secondary">
+            {description}
+          </p>
+        </div>
 
-        <Segmented
-          buttonSize="sm"
-          options={options}
-          value={val}
-          onChange={handleChange}
-          // className="bg-bg-card border border-border-button rounded-lg"
-          // activeClassName="bg-text-primary border-none rounded-lg"
-        />
+        {route && listLength > 0 && (
+          <button
+            type="button"
+            className="shrink-0 rounded-full px-3 py-1.5 text-sm text-text-secondary transition hover:bg-bg-card hover:text-text-primary"
+            onClick={() => navigate(route)}
+          >
+            {t('common.seeAll')}
+          </button>
+        )}
       </header>
 
-      {/* <div className="flex flex-wrap gap-4"> */}
-      <CardSineLineContainer>
-        {val === Routes.Agents && (
-          <Agents
-            setListLength={(length: number) => setListLength(length)}
-            setLoading={(loading: boolean) => setLoading(loading)}
-          />
-        )}
-        {val === Routes.Chats && (
-          <ChatList
-            setListLength={(length: number) => setListLength(length)}
-            setLoading={(loading: boolean) => setLoading(loading)}
-          />
-        )}
-        {val === Routes.Searches && (
-          <SearchList
-            setListLength={(length: number) => setListLength(length)}
-            setLoading={(loading: boolean) => setLoading(loading)}
-          />
-        )}
-        {listLength > 0 && val !== Routes.Agents && (
-          <SeeAllAppCard click={() => handleNavigate({ isCreate: false })} />
-        )}
-      </CardSineLineContainer>
-
-      {listLength <= 0 && !loading && val !== Routes.Agents && (
-        <EmptyAppCard
-          type={EmptyTypeMap[val as keyof typeof EmptyTypeMap]}
-          onClick={() => handleNavigate({ isCreate: true })}
-        />
+      {listLength <= 0 && !loading ? (
+        <div className="rounded-lg bg-bg-card/45 px-4 py-8 text-center text-sm text-text-secondary">
+          {t('homeDashboard.emptySection')}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {children}
+          {route && listLength > 0 && (
+            <SeeAllAppCard click={() => navigate(route)} />
+          )}
+        </div>
       )}
-      {/* </div> */}
+    </section>
+  );
+}
+
+export function Applications() {
+  const { t } = useTranslation();
+  const [chatLength, setChatLength] = useState(0);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [searchLength, setSearchLength] = useState(0);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [agentLength, setAgentLength] = useState(0);
+  const [agentLoading, setAgentLoading] = useState(false);
+  const [memoryLength, setMemoryLength] = useState(0);
+  const [memoryLoading, setMemoryLoading] = useState(false);
+
+  return (
+    <section className="mt-8 grid gap-6">
+      <WorkspaceSection
+        title={t('homeDashboard.chatAssistants')}
+        description={t('homeDashboard.chatAssistantsDescription')}
+        icon="chats"
+        route={Routes.Chats}
+        listLength={chatLength}
+        loading={chatLoading}
+      >
+        <ChatList
+          setListLength={(length: number) => setChatLength(length)}
+          setLoading={(loading: boolean) => setChatLoading(loading)}
+        />
+      </WorkspaceSection>
+
+      <WorkspaceSection
+        title={t('homeDashboard.searchTools')}
+        description={t('homeDashboard.searchToolsDescription')}
+        icon="searches"
+        route={Routes.Searches}
+        listLength={searchLength}
+        loading={searchLoading}
+      >
+        <SearchList
+          setListLength={(length: number) => setSearchLength(length)}
+          setLoading={(loading: boolean) => setSearchLoading(loading)}
+        />
+      </WorkspaceSection>
+
+      <WorkspaceSection
+        title={t('homeDashboard.publishedAgents')}
+        description={t('homeDashboard.publishedAgentsDescription')}
+        icon="agents"
+        listLength={agentLength}
+        loading={agentLoading}
+      >
+        <Agents
+          setListLength={(length: number) => setAgentLength(length)}
+          setLoading={(loading: boolean) => setAgentLoading(loading)}
+        />
+      </WorkspaceSection>
+
+      <WorkspaceSection
+        title={t('homeDashboard.recentMemos')}
+        description={t('homeDashboard.recentMemosDescription')}
+        icon="memory"
+        listLength={memoryLength}
+        loading={memoryLoading}
+      >
+        <MemoryList
+          setListLength={(length: number) => setMemoryLength(length)}
+          setLoading={(loading: boolean) => setMemoryLoading(loading)}
+        />
+      </WorkspaceSection>
     </section>
   );
 }

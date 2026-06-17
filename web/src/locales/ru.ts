@@ -116,6 +116,24 @@ export default {
       dataset: 'Датасет',
       memories: 'Память',
     },
+    homeDashboard: {
+      chatAssistants: 'Чат-ассистенты',
+      chatAssistantsDescription:
+        'Выберите настроенного профессионального ассистента и начните работу.',
+      searchTools: 'Поисковые ассистенты',
+      searchToolsDescription:
+        'Ищите документы и доказательства с помощью специальных инструментов.',
+      publishedAgents: 'Опубликованные агенты',
+      publishedAgentsDescription:
+        'Запускайте опубликованных агентов. Обычные пользователи не редактируют процессы.',
+      knowledgeAssets: 'Базы знаний',
+      knowledgeAssetsDescription:
+        'Просматривайте доступные базы, количество документов и обновления.',
+      recentMemos: 'Недавние заметки',
+      recentMemosDescription:
+        'Просматривайте заметки и долгосрочную память, созданные из диалогов.',
+      emptySection: 'Пока нет доступного содержимого',
+    },
     memories: {
       llmTooltip:
         'Анализирует содержание диалога, извлекает ключевую информацию и формирует структурированные сводки памяти.',
@@ -2504,6 +2522,11 @@ export default {
       id: 'ID',
       copySuccess: 'Успешно скопировано',
       welcomeBack: 'С возвращением',
+      resultsSummary:
+        'Найдено {{docs}} документов и {{chunks}} совпадающих фрагментов',
+      hitChunks: '{{count}} фрагментов',
+      openDocument: 'Открыть документ',
+      untitledDocument: 'Документ без названия',
       searchSettings: 'Настройки поиска',
       name: 'Название',
       avatar: 'Аватар',

@@ -142,15 +142,50 @@ export interface IReferenceChunk {
   }>;
 }
 
+export interface IEvidenceAuditItem {
+  id: number;
+  chunk_id?: string;
+  doc_id?: string;
+  doc_name?: string;
+  type: string;
+  fig_id?: number;
+  score?: number;
+  has_image?: boolean;
+  is_cited?: boolean;
+  why?: string;
+  preview?: string;
+}
+
+export interface IEvidenceAudit {
+  intent?: string;
+  query?: string;
+  rewritten_query?: string;
+  retrieval?: {
+    candidate_docs?: number;
+    candidate_chunks?: number;
+    selected_chunks?: number;
+    type_counts?: Record<string, number>;
+  };
+  evidence?: IEvidenceAuditItem[];
+  answer_basis?: Array<{
+    claim: string;
+    source_ids: number[];
+    fig_ids?: number[];
+  }>;
+  warnings?: string[];
+}
+
 export interface IReference {
   chunks: IReferenceChunk[];
   doc_aggs: Docagg[];
   total: number;
+  evidence_audit?: IEvidenceAudit;
 }
 
 export interface IReferenceObject {
   chunks: Record<string, IReferenceChunk>;
   doc_aggs: Record<string, Docagg>;
+  evidence_audit?: IEvidenceAudit;
 }
 
 export interface IAnswer {

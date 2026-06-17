@@ -100,6 +100,74 @@ export function parseRetrievingAndAnswer(text: string = '') {
   return parseTaggedContent(text, 'retrieving');
 }
 
+export function stripProcessBlocks(text: string = '') {
+  return (text || '')
+    .replace(/<retrieving>[\s\S]*?<\/retrieving>/gi, '')
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<\/?(?:retrieving|think)>/gi, '')
+    .trim();
+}
+
+export const extractTaggedBlocks = (text: string = '', tagName: string) => {
+  const pattern = new RegExp(`<${tagName}>[\\s\\S]*?</${tagName}>`, 'gi');
+  return text.match(pattern)?.join('') ?? '';
+};
+
+export const extractProcessBlocksForFinal = (
+  text: string = '',
+  tagName: string,
+) => {
+  const completed = extractTaggedBlocks(text, tagName);
+  const openTag = `<${tagName}>`;
+  const closeTag = `</${tagName}>`;
+  const lowerText = text.toLowerCase();
+  const lastOpenIndex = lowerText.lastIndexOf(openTag);
+  const lastCloseIndex = lowerText.lastIndexOf(closeTag);
+
+  if (lastOpenIndex === -1 || lastCloseIndex > lastOpenIndex) {
+    return completed;
+  }
+
+  const openBlock = text.slice(lastOpenIndex);
+  return (
+    completed +
+    (openBlock.toLowerCase().endsWith(closeTag)
+      ? openBlock
+      : `${openBlock}${closeTag}`)
+  );
+};
+
+export const stripProcessBlocksForFinal = (text: string = '') => {
+  return (text || '')
+    .replace(/<retrieving>[\s\S]*?<\/retrieving>/gi, '')
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<\/?(?:retrieving|think)>/gi, '')
+    .trimStart();
+};
+
+export const mergeFinalAnswerWithProcess = (
+  previousAnswer: string = '',
+  finalAnswer: string = '',
+) => {
+  if (!previousAnswer) return finalAnswer;
+  if (!finalAnswer) return previousAnswer;
+
+  const processPrefix =
+    extractProcessBlocksForFinal(previousAnswer, 'retrieving') +
+    extractProcessBlocksForFinal(previousAnswer, 'think');
+
+  if (!processPrefix) {
+    return finalAnswer;
+  }
+
+  const finalVisibleAnswer = stripProcessBlocksForFinal(finalAnswer);
+  if (!finalVisibleAnswer) {
+    return previousAnswer;
+  }
+
+  return processPrefix + finalVisibleAnswer;
+};
+
 function parseTaggedContent(
   text: string = '',
   tagName: 'think' | 'retrieving',

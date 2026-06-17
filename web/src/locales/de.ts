@@ -773,6 +773,13 @@ Diese Auto-Tag-Funktion verbessert den Abruf, indem sie eine weitere Schicht dom
         'Hallo! Ich bin Ihr Assistent, was kann ich für Sie tun?',
       setAnOpenerTip: 'Legen Sie einen Begrüßungstext für Benutzer fest.',
       knowledgeBases: 'Wissensdatenbanken',
+      addToMemory: 'Zu Memo hinzufügen',
+      addToMemorySuccess:
+        'Zum Memo hinzugefügt. Sie können es auf der Memo-Seite ansehen.',
+      addToMemoryFailed: 'Memo konnte nicht hinzugefügt werden',
+      addToMemoryPreparing:
+        'Starten Sie zuerst eine gültige Unterhaltung, bevor Sie sie zum Memo hinzufügen.',
+      viewMemory: 'Memo ansehen',
       knowledgeBasesMessage: 'Bitte auswählen',
       knowledgeBasesTip:
         'Wählen Sie die Wissensdatenbanken aus, die mit diesem Chat-Assistenten verknüpft werden sollen. Eine leere Wissensdatenbank wird nicht in der Dropdown-Liste angezeigt.',

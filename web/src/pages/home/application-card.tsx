@@ -20,7 +20,7 @@ export function ApplicationCard({
   moreDropdown,
 }: ApplicationCardProps) {
   return (
-    <Card className="w-[264px]" onClick={onClick} as="article">
+    <Card className="w-[264px] cursor-pointer" onClick={onClick} as="article">
       <CardContent className="p-2.5 group flex justify-between w-full">
         <div className="flex items-center gap-2.5 w-full">
           <RAGFlowAvatar

@@ -948,6 +948,18 @@ Applicable lorsque vous avez besoin que le LLM résume le document entier.
       setAnOpenerInitial: `Bonjour ! Je suis votre assistant, que puis-je faire pour vous ?`,
       setAnOpenerTip: "Définissez un message d'accueil pour les utilisateurs.",
       knowledgeBases: 'Bases de connaissances',
+      addToMemory: 'Ajouter au mémo',
+      addToMemorySuccess: 'Ajouté au mémo. Consultez-le dans la page des mémos.',
+      addToMemoryFailed: "Échec de l'ajout au mémo",
+      addToMemoryPreparing:
+        "Démarrez une conversation valide avant de l'ajouter au mémo.",
+      viewMemory: 'Voir le mémo',
+      evidenceAudit: 'Audit des preuves',
+      evidenceAuditStats:
+        '{{chunks}} segments / {{docs}} documents récupérés, {{selected}} cités',
+      evidenceAuditQuery: 'Requête reformulée',
+      evidenceAuditBasis: 'Base de réponse',
+      evidenceAuditSourceId: 'ID source',
       knowledgeBasesMessage: 'Veuillez sélectionner',
       knowledgeBasesTip:
         "Sélectionnez les bases de connaissances à associer à cet assistant de chat. Une base de connaissances vide n'apparaîtra pas dans la liste déroulante.",

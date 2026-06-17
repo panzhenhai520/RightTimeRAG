@@ -75,6 +75,7 @@ export enum Routes {
   AdminRoles = `${Admin}/roles`,
   AdminMonitoring = `${Admin}/monitoring`,
   DevSettingPanython = '/dev_seting/panython',
+  Panython = '/panython',
 }
 
 export const DEV_FEATURE_SESSION_KEY = 'panython.devFeatureAccess';
@@ -224,6 +225,10 @@ const routeConfigOptions = [
       },
       {
         path: Routes.DevSettingPanython,
+        Component: () => import('@/pages/dev-setting-panython'),
+      },
+      {
+        path: Routes.Panython,
         Component: () => import('@/pages/dev-setting-panython'),
       },
       {

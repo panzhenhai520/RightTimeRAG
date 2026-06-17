@@ -803,6 +803,13 @@ export default {
       setAnOpenerInitial: `Привет! Я ваш ассистент. Чем могу помочь?`,
       setAnOpenerTip: 'Установите приветственное сообщение для пользователей.',
       knowledgeBases: 'Базы знаний',
+      addToMemory: 'Добавить в заметку',
+      addToMemorySuccess:
+        'Добавлено в заметку. Посмотрите на странице заметок.',
+      addToMemoryFailed: 'Не удалось добавить в заметку',
+      addToMemoryPreparing:
+        'Сначала начните действительный диалог, затем добавьте его в заметку.',
+      viewMemory: 'Открыть заметку',
       knowledgeBasesPlaceholder: 'Выберите значение',
       knowledgeBasesMessage: 'Пожалуйста, выберите',
       knowledgeBasesTip:

@@ -567,6 +567,12 @@ Quanto sopra è il contenuto che devi riassumere.`,
       setAnOpenerInitial: `Ciao! Sono il tuo assistente. Cosa posso fare per te?`,
       setAnOpenerTip: 'Imposta un saluto di apertura per gli utenti.',
       knowledgeBases: 'Dataset',
+      addToMemory: 'Aggiungi al memo',
+      addToMemorySuccess: 'Aggiunto al memo. Puoi vederlo nella pagina memo.',
+      addToMemoryFailed: 'Impossibile aggiungere al memo',
+      addToMemoryPreparing:
+        'Avvia prima una conversazione valida, poi aggiungila al memo.',
+      viewMemory: 'Vedi memo',
       knowledgeBasesMessage: 'Seleziona',
       knowledgeBasesTip:
         'Seleziona i dataset da associare a questo assistente chat. Una base di conoscenza vuota non apparirà nella lista a discesa.',

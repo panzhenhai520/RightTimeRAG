@@ -30,7 +30,7 @@ export function ReferenceDocumentList({ list }: { list: Docagg[] }) {
             >
               {middleEllipsis(item.doc_name)}
             </NewDocumentLink> */}
-            <div className="text-text-sub-title-invert">
+            <div className="font-semibold text-[#5b2737] dark:text-[#d7e7f0]">
               {middleEllipsis(item.doc_name)}
             </div>
           </CardContent>

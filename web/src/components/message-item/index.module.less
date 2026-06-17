@@ -25,13 +25,15 @@
   }
   .messageText {
     .chunkText();
-    .messageTextBase();
+    padding: 0;
+    border-radius: 0;
     // background-color: #e6f4ff;
     word-break: break-word;
   }
   .messageTextDark {
     .chunkText();
-    .messageTextBase();
+    padding: 0;
+    border-radius: 0;
     padding: 0;
     word-break: break-word;
     :global(details.think) {
@@ -86,8 +88,8 @@
     padding: 0;
     background: transparent;
     color: inherit;
-    font-size: 12px;
-    line-height: 18px;
+    font-size: 14.5px;
+    line-height: 22px;
     font-weight: 500;
     cursor: pointer;
 
@@ -97,14 +99,14 @@
   }
 
   .thinkingIcon {
-    width: 14px;
-    height: 14px;
+    width: 15px;
+    height: 15px;
     color: rgb(73, 116, 104);
   }
 
   .thinkingChevron {
-    width: 14px;
-    height: 14px;
+    width: 18px;
+    height: 18px;
     color: rgb(132, 132, 140);
   }
 
@@ -114,19 +116,44 @@
     white-space: pre-wrap;
     word-break: break-word;
     color: rgb(102, 102, 112);
-    font-size: 12px;
-    line-height: 1.55;
+    font-size: 14.5px;
+    line-height: 22px;
   }
 
   .thinkingTextRunning {
+    background: transparent;
+  }
+
+  .reasoningLineList {
+    display: grid;
+    gap: 4px;
+  }
+
+  .reasoningLine {
+    position: relative;
+    width: fit-content;
+    max-width: 100%;
+    overflow: hidden;
+    border-radius: 6px;
+    padding: 1px 4px;
+  }
+
+  .reasoningLineStreaming {
     background: linear-gradient(
-      90deg,
-      rgba(73, 116, 104, 0) 0%,
-      rgba(73, 116, 104, 0.12) 48%,
-      rgba(73, 116, 104, 0) 100%
+      110deg,
+      rgb(102, 102, 112) 0%,
+      rgb(102, 102, 112) 34%,
+      rgb(255, 255, 255) 46%,
+      rgb(73, 116, 104) 54%,
+      rgb(102, 102, 112) 66%,
+      rgb(102, 102, 112) 100%
     );
-    background-size: 200% 100%;
-    animation: processTextSweep 1.8s ease-in-out infinite;
+    background-clip: text;
+    background-size: 260% 100%;
+    color: transparent;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: reasoningLineShimmer 1.25s ease-in-out infinite;
   }
 
   .thumbnailImg {
@@ -134,12 +161,12 @@
   }
 }
 
-@keyframes processTextSweep {
+@keyframes reasoningLineShimmer {
   0% {
-    background-position: 100% 0;
+    background-position: 120% 0;
   }
   100% {
-    background-position: -100% 0;
+    background-position: -120% 0;
   }
 }
 

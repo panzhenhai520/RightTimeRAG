@@ -300,7 +300,15 @@ async def cross_languages(tenant_id, llm_id, query, languages=[]):
     ans = re.sub(r"^.*</think>", "", ans, flags=re.DOTALL)
     if ans.find("**ERROR**") >= 0:
         return query
-    return "\n".join([a for a in re.sub(r"(^Output:|\n+)", "", ans, flags=re.DOTALL).split("===") if a.strip()])
+    ans = re.sub(r"(?i)\b(output|input|chinese|english|中文|英文)\s*[:：]", " ", ans)
+    ans = re.sub(r"[*`#>]+", " ", ans)
+    parts = re.split(r"\s*(?:###|===)\s*", ans)
+    cleaned = []
+    for part in parts:
+        part = re.sub(r"\s+", " ", part).strip()
+        if part:
+            cleaned.append(part)
+    return "\n".join(cleaned) if cleaned else query
 
 
 async def content_tagging(chat_mdl, content, all_tags, examples, topn=3):

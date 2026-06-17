@@ -25,7 +25,8 @@
   }
   .messageText {
     .chunkText();
-    .messageTextBase();
+    padding: 0;
+    border-radius: 0;
     word-break: break-word;
 
     // RTL Support
@@ -35,7 +36,8 @@
   }
   .messageTextDark {
     .chunkText();
-    .messageTextBase();
+    padding: 0;
+    border-radius: 0;
     word-break: break-word;
     :global(details.think) {
       color: rgb(166, 166, 166);
@@ -103,13 +105,13 @@
   .thinkingPanel {
     width: fit-content;
     max-width: 100%;
-    padding: 8px 10px;
-    border: 1px solid rgba(145, 145, 150, 0.16);
-    border-radius: 10px;
-    background: rgba(245, 245, 244, 0.86);
+    padding: 6px 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     color: rgb(110, 110, 120);
     text-align: start;
-    box-shadow: 0 1px 4px rgba(30, 30, 35, 0.04);
+    box-shadow: none;
   }
 
   .thinkingHeader {
@@ -120,8 +122,8 @@
     padding: 0;
     background: transparent;
     color: inherit;
-    font-size: 13px;
-    line-height: 20px;
+    font-size: 14.5px;
+    line-height: 22px;
     font-weight: 500;
     cursor: pointer;
 
@@ -157,13 +159,45 @@
   }
 
   .thinkingText {
-    margin-top: 8px;
+    margin-top: 10px;
     max-width: 720px;
     white-space: pre-wrap;
     word-break: break-word;
-    font-size: 13px;
-    line-height: 20px;
-    color: rgb(130, 130, 140);
+    font-size: 14.5px;
+    line-height: 22px;
+    color: rgb(106, 106, 116);
+  }
+
+  .reasoningLineList {
+    display: grid;
+    gap: 4px;
+  }
+
+  .reasoningLine {
+    position: relative;
+    width: fit-content;
+    max-width: 100%;
+    overflow: hidden;
+    border-radius: 6px;
+    padding: 1px 4px;
+  }
+
+  .reasoningLineStreaming {
+    background: linear-gradient(
+      110deg,
+      rgb(106, 106, 116) 0%,
+      rgb(106, 106, 116) 34%,
+      rgb(255, 255, 255) 46%,
+      rgb(25, 140, 110) 54%,
+      rgb(106, 106, 116) 66%,
+      rgb(106, 106, 116) 100%
+    );
+    background-clip: text;
+    background-size: 260% 100%;
+    color: transparent;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: reasoningLineShimmer 1.25s ease-in-out infinite;
   }
 
   .processStageList {
@@ -242,6 +276,15 @@
 
   .thumbnailImg {
     max-width: 20px;
+  }
+}
+
+@keyframes reasoningLineShimmer {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -120% 0;
   }
 }
 

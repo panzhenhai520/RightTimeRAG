@@ -84,6 +84,7 @@ const GlobalNavbar = supportsCssAnchor
             <li
               className={cn(
                 'absolute -z-[1] bg-[#6f3f2f] border-b-2 border-b-[#b87546] rounded-full opacity-0',
+                'dark:bg-[#476d85] dark:border-b-[#8fb3c5]',
                 'transition-all',
                 hasAnyActive && 'opacity-100',
               )}
@@ -129,7 +130,7 @@ const GlobalNavbar = supportsCssAnchor
                       'h-10 px-6 text-base inline-flex items-center justify-center',
                       'hover:text-current focus-visible:text-current rounded-full transition-all',
                       isActive &&
-                        '!text-white bg-[#6f3f2f] border-b-2 border-b-[#b87546]',
+                        '!text-white bg-[#6f3f2f] border-b-2 border-b-[#b87546] dark:bg-[#476d85] dark:border-b-[#8fb3c5]',
                     )}
                     aria-label={t(name)}
                     aria-current={isActive ? 'page' : undefined}

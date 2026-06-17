@@ -37,7 +37,6 @@ type LoginFormContentProps = {
   loading: boolean;
   onCheck: (params: any) => Promise<void>;
   changeTitle: () => void;
-  registerEnabled: boolean;
   channels: { channel: string; icon?: string; display_name: string }[];
   handleLoginWithChannel: (channel: string) => void;
   t: ReturnType<typeof useTranslation>['t'];
@@ -51,7 +50,6 @@ function LoginFormContent({
   loading,
   onCheck,
   changeTitle,
-  registerEnabled,
   channels,
   handleLoginWithChannel,
   t,
@@ -209,21 +207,6 @@ function LoginFormContent({
           </div>
         )}
 
-        {!disablePasswordLogin && title === 'login' && registerEnabled && (
-          <div className="mt-10 text-right">
-            <p className="text-text-disabled text-sm">
-              {t('signInTip')}
-              <Button
-                data-testid="auth-toggle-register"
-                variant={'transparent'}
-                onClick={changeTitle}
-                className="text-accent-primary/90 hover:text-accent-primary hover:bg-transparent font-medium border-none transition-colors duration-200"
-              >
-                {t('signUp')}
-              </Button>
-            </p>
-          </div>
-        )}
         {!disablePasswordLogin && title === 'register' && (
           <div className="mt-10 text-right">
             <p className="text-text-disabled text-sm">
@@ -363,7 +346,6 @@ const Login = () => {
                 loading={loading}
                 onCheck={onCheck}
                 changeTitle={changeTitle}
-                registerEnabled={registerEnabled}
                 channels={channels || []}
                 handleLoginWithChannel={handleLoginWithChannel}
                 t={t}

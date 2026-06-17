@@ -451,6 +451,17 @@ export default {
       setAnOpenerInitial: `你好！我是你的助理，有什麼可以幫到你的嗎？`,
       setAnOpenerTip: '您想如何歡迎您的客戶？',
       knowledgeBases: '知識庫',
+      addToMemory: '加入備忘錄',
+      addToMemorySuccess: '已加入備忘錄，可在備忘錄頁面查看',
+      addToMemoryFailed: '加入備忘錄失敗',
+      addToMemoryPreparing: '請先開始一個有效會話，再加入備忘錄',
+      viewMemory: '查看備忘錄',
+      evidenceAudit: '證據分析',
+      evidenceAuditStats:
+        '召回 {{chunks}} 個片段 / {{docs}} 個文檔，引用 {{selected}} 個',
+      evidenceAuditQuery: '檢索改寫',
+      evidenceAuditBasis: '答案依據',
+      evidenceAuditSourceId: '原始ID',
       knowledgeBasesMessage: '請選擇',
       knowledgeBasesTip:
         '選擇關聯的知識庫。新建或空的知識庫不會在下拉選單中顯示。',

@@ -117,7 +117,7 @@ const RetrievalDocuments = ({
           <Button
             onClick={handleTogglePopover}
             className={cn(
-              'flex w-full p-1 rounded-md text-base text-text-primary border min-h-10 h-auto items-center justify-between bg-inherit hover:bg-inherit [&_svg]:pointer-events-auto',
+              'flex w-full p-0 rounded-md text-base text-text-primary border-0 shadow-none min-h-8 h-auto items-center justify-between bg-transparent hover:bg-transparent [&_svg]:pointer-events-auto',
             )}
           >
             <div className="flex justify-between items-center w-full">

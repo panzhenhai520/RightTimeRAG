@@ -127,7 +127,7 @@ function EvidenceCard({ chunk, index }: EvidenceItem) {
             {t('chat.summaryCitation')}
           </span>
         )}
-        <span className="text-xs text-text-secondary">
+        <span className="text-xs font-semibold text-[#5b2737] dark:text-[#d7e7f0]">
           {chunk.document_name}
         </span>
       </div>
@@ -153,7 +153,7 @@ function EvidenceCard({ chunk, index }: EvidenceItem) {
               key={`${source.document_id}-${sourceIndex}`}
               className="rounded bg-bg-base p-2 text-xs leading-5"
             >
-              <div className="mb-1 text-text-secondary">
+              <div className="mb-1 font-semibold text-[#5b2737] dark:text-[#d7e7f0]">
                 {source.document_name || chunk.document_name}
                 {source.page_num ? ` · p.${source.page_num}` : ''}
               </div>

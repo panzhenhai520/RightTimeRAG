@@ -20,11 +20,11 @@ import { cn } from '@/lib/utils';
 import { t } from 'i18next';
 import {
   Atom,
+  ArrowUp,
   BookMarked,
   CircleStop,
   Globe,
   Paperclip,
-  Send,
   Upload,
   X,
 } from 'lucide-react';
@@ -223,9 +223,11 @@ export function NextMessageInput({
       <form
         onSubmit={onSubmit}
         className="
-          relative flex w-full flex-col gap-2.5 rounded-md
-          border-0.5 border-border-default bg-bg-card p-2 outline-none
-          has-[textarea:focus]:outline-accent-primary has-[textarea:focus]:outline-1 has-[textarea:focus]:outline-offset-2
+          relative flex w-full flex-col gap-2.5 rounded-2xl
+          border border-border-default bg-white/58 p-3 outline-none shadow-sm backdrop-blur transition-colors
+          dark:border-[#9fd0ea]/34 dark:bg-[#dceef8]/8 dark:shadow-[0_12px_34px_rgba(4,25,39,0.2)]
+          has-[textarea:focus]:border-[#895668]/55 has-[textarea:focus]:shadow-[0_0_0_3px_rgba(137,86,104,0.12)]
+          dark:has-[textarea:focus]:border-[#80bddf]/60 dark:has-[textarea:focus]:shadow-[0_0_0_3px_rgba(91,159,199,0.18)]
         "
       >
         <FileUploadList
@@ -258,7 +260,8 @@ export function NextMessageInput({
           onChange={onInputChange}
           placeholder={t('chat.messagePlaceholder')}
           className="
-            min-h-10 max-h-40 w-full p-0 overflow-auto
+            min-h-10 max-h-40 w-full p-0 overflow-auto text-[#132330] placeholder:text-[#758894]
+            dark:text-[#edf7fb] dark:placeholder:text-[#a9c4d3]
             !outline-none !border-transparent !bg-transparent !shadow-none !ring-transparent !ring-offset-transparent
           "
           disabled={isUploading || disabled || sendLoading}
@@ -274,7 +277,7 @@ export function NextMessageInput({
                   type="button"
                   size="icon-xs"
                   variant="transparent"
-                  className="rounded-sm border-0"
+                  className="rounded-full border-0 text-[#425867] hover:bg-[#e6edf1] dark:text-[#cfe6f2] dark:hover:bg-[#dceef8]/14"
                   disabled={isUploading || sendLoading}
                   data-testid="chat-detail-attach"
                 >
@@ -289,9 +292,13 @@ export function NextMessageInput({
                 type="button"
                 size="sm"
                 variant={'outline'}
-                className={cn('border-0 h-7 text-sm bg-bg-card', {
-                  'bg-text-primary text-bg-base': enableThinking,
-                })}
+                className={cn(
+                  'h-7 border-0 bg-[#8b4c36]/8 text-sm text-[#6f3f2f] hover:bg-[#8b4c36]/14 dark:bg-[#dceef8]/10 dark:text-[#d6eefb] dark:hover:bg-[#dceef8]/16',
+                  {
+                    'bg-[#79394d] text-white hover:bg-[#8f4660] dark:bg-[#2d5f80] dark:text-white dark:hover:bg-[#376f94]':
+                      enableThinking,
+                  },
+                )}
                 onClick={handleThinkingToggle}
                 data-testid="chat-detail-thinking-toggle"
               >
@@ -304,7 +311,7 @@ export function NextMessageInput({
               value={selectedKnowledgeBaseId}
               onChange={setSelectedKnowledgeBaseId}
               options={knowledgeBaseOptions}
-              triggerClassName="h-7 w-44 border-0 bg-bg-card text-xs"
+              triggerClassName="h-7 w-44 border-0 bg-[#8b4c36]/8 text-xs text-[#6f3f2f] hover:bg-[#8b4c36]/14 dark:bg-[#dceef8]/10 dark:text-[#d6eefb] dark:hover:bg-[#dceef8]/16"
               contentProps={{ className: 'max-w-80' }}
               triggerTestId="chat-detail-kb-select"
               optionTestIdPrefix="chat-detail-kb-option"
@@ -315,7 +322,7 @@ export function NextMessageInput({
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-7 border-[#8b4c36]/25 bg-[#8b4c36]/8 px-2 text-sm text-[#6f3f2f] hover:bg-[#8b4c36]/14"
+                className="h-7 border-[#8b4c36]/25 bg-[#8b4c36]/8 px-2 text-sm text-[#6f3f2f] hover:bg-[#8b4c36]/14 dark:border-[#9fd0ea]/30 dark:bg-[#dceef8]/10 dark:text-[#d6eefb] dark:hover:bg-[#dceef8]/16"
                 onClick={onAddToMemory}
                 disabled={addToMemoryLoading || sendLoading}
                 title={t('chat.addToMemory')}
@@ -344,7 +351,8 @@ export function NextMessageInput({
             <Button
               data-testid="chat-stream-status"
               onClick={stopOutputMessage}
-              size="icon-xs"
+                size="icon-xs"
+                className="rounded-full bg-[#79394d] hover:bg-[#8f4660] dark:bg-[#2d5f80] dark:hover:bg-[#376f94]"
             >
               <CircleStop />
             </Button>
@@ -358,13 +366,18 @@ export function NextMessageInput({
               />
 
               <Button
-                size="icon-xs"
+                size="icon"
+                className="
+                  size-8 rounded-full bg-[#79394d] text-white shadow-sm
+                  hover:bg-[#8f4660] disabled:bg-[#c9d3d9] disabled:text-white
+                  dark:bg-[#2d5f80] dark:hover:bg-[#376f94] dark:disabled:bg-[#486273] dark:disabled:text-[#c0d2dc]
+                "
                 disabled={
                   sendDisabled || isUploading || sendLoading || !value.trim()
                 }
                 data-testid="chat-detail-send"
               >
-                <Send />
+                <ArrowUp className="size-4 stroke-[2.4]" />
                 <span className="sr-only">Send message</span>
               </Button>
             </div>

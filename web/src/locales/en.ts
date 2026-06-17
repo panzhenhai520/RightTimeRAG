@@ -998,9 +998,11 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
       setAnOpenerTip: 'Set an opening greeting for users.',
       knowledgeBases: 'Datasets',
       addToMemory: 'Add memo',
-      addToMemorySuccess: 'Added to memo',
+      addToMemorySuccess: 'Added to memo. View it on the memo page.',
+      addToMemoryFailed: 'Failed to add memo',
       addToMemoryPreparing:
         'Start a valid conversation before adding it to memo.',
+      viewMemory: 'View memo',
       deepThinking: 'Deep thinking',
       processRunning: 'Working...',
       processShow: 'View reasoning and retrieval process',
@@ -1017,6 +1019,12 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
       retrieved: 'Retrieved',
       thinking: 'Thinking...',
       thought: 'Thought',
+      evidenceAudit: 'Evidence audit',
+      evidenceAuditStats:
+        'Retrieved {{chunks}} chunks / {{docs}} docs, cited {{selected}}',
+      evidenceAuditQuery: 'Rewritten query',
+      evidenceAuditBasis: 'Answer basis',
+      evidenceAuditSourceId: 'source ID',
       summaryCitation: 'Summary citation',
       relatedOriginalChunks: 'Related original chunks',
       messageRenderError:

@@ -18,7 +18,7 @@ const buttonVariants = cva(
         // Solid variant series:
         // Button has its own background color, may have borders
         default:
-          'bg-text-primary text-bg-base shadow-xs hover:bg-text-primary/90 focus-visible:bg-text-primary/90',
+          'bg-accent-primary text-white shadow-xs hover:bg-accent-primary/90 focus-visible:bg-accent-primary/90',
 
         secondary: `
           bg-bg-card
@@ -27,8 +27,8 @@ const buttonVariants = cva(
         `,
 
         highlighted: `
-          bg-text-primary text-bg-base border-b-4 border-b-accent-primary
-          hover:bg-text-primary/90 focus-visible:bg-text-primary/90
+          bg-accent-primary text-white border-b-4 border-b-accent-primary/70
+          hover:bg-accent-primary/90 focus-visible:bg-accent-primary/90
         `,
 
         accent: `

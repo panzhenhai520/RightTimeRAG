@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import re
+import asyncio
 import tempfile
 from copy import deepcopy
 from types import SimpleNamespace
@@ -84,6 +85,18 @@ _DEFAULT_RERANK_MODELS = {"BAAI/bge-reranker-v2-m3", "maidalun1020/bce-reranker-
 _READONLY_FIELDS = {"id", "tenant_id", "created_by", "create_time", "create_date", "update_time", "update_date"}
 _PERSISTED_FIELDS = set(DialogService.model._meta.fields)
 _CHAT_MEMO_MEMORY_TYPES = ["raw", "semantic", "episodic"]
+_CONTEXT_SPAN_ERROR_PATTERNS = (
+    "layer-slice token span exceeds context",
+    "exceeds context",
+    "context length",
+    "maximum context",
+)
+_CONTEXT_RECOVERY_WAIT_SECONDS = int(os.environ.get("RAGFLOW_CONTEXT_RECOVERY_WAIT_SECONDS", "75"))
+
+
+def _is_context_span_error(exc: Exception | str) -> bool:
+    text = str(exc).lower()
+    return any(pattern in text for pattern in _CONTEXT_SPAN_ERROR_PATTERNS)
 
 
 def _build_chat_response(chat):
@@ -1247,6 +1260,7 @@ async def session_completion(chat_id_in_arg=""):
         async def stream():
             """Yield SSE-formatted chunks from the async chat generator."""
             nonlocal dia, msg, req, conv
+            context_recovery_attempted = False
             try:
                 async for ans in async_chat(dia, msg, True, **req):
                     ans = _format_answer(ans)
@@ -1254,8 +1268,42 @@ async def session_completion(chat_id_in_arg=""):
                 if conv is not None:
                     await thread_pool_exec(ConversationService.update_by_id, conv.id, conv.to_dict())
             except Exception as ex:
+                if _is_context_span_error(ex) and not context_recovery_attempted:
+                    context_recovery_attempted = True
+                    logging.exception(
+                        "Context span error reached API stream boundary; waiting for ds4 watchdog recovery before one automatic retry"
+                    )
+                    yield "data:" + json.dumps(
+                        {
+                            "code": 0,
+                            "message": "",
+                            "data": {
+                                "answer": "<retrieving>Model KV cache recovery is in progress; retrying this request automatically.\n</retrieving>",
+                                "reference": {},
+                                "final": False,
+                            },
+                        },
+                        ensure_ascii=False,
+                    ) + "\n\n"
+                    await asyncio.sleep(max(1, _CONTEXT_RECOVERY_WAIT_SECONDS))
+                    try:
+                        async for ans in async_chat(dia, msg, True, **req):
+                            ans = _format_answer(ans)
+                            yield "data:" + json.dumps({"code": 0, "message": "", "data": ans}, ensure_ascii=False) + "\n\n"
+                        if conv is not None:
+                            await thread_pool_exec(ConversationService.update_by_id, conv.id, conv.to_dict())
+                        yield "data:" + json.dumps({"code": 0, "message": "", "data": True}, ensure_ascii=False) + "\n\n"
+                        return
+                    except Exception as retry_ex:
+                        ex = retry_ex
                 logging.exception(ex)
-                yield "data:" + json.dumps({"code": 500, "message": str(ex), "data": {"answer": "**ERROR**: " + str(ex), "reference": []}}, ensure_ascii=False) + "\n\n"
+                error_text = str(ex)
+                normalized_error = error_text
+                if error_text.upper().startswith("ERROR:"):
+                    normalized_error = error_text.split(":", 1)[1].strip()
+                if not normalized_error.startswith("**ERROR**:"):
+                    normalized_error = "**ERROR**: " + normalized_error
+                yield "data:" + json.dumps({"code": 500, "message": str(ex), "data": {"answer": normalized_error, "reference": []}}, ensure_ascii=False) + "\n\n"
             yield "data:" + json.dumps({"code": 0, "message": "", "data": True}, ensure_ascii=False) + "\n\n"
 
         if stream_mode:

@@ -15,6 +15,8 @@
 #
 import time
 import logging
+import re
+from copy import deepcopy
 from uuid import uuid4
 from common.constants import StatusEnum
 from api.db.db_models import Conversation, DB
@@ -28,6 +30,39 @@ from rag.prompts.generator import chunks_format
 
 
 logger = logging.getLogger(__name__)
+
+
+PROCESS_BLOCK_PATTERNS = {
+    "retrieving": re.compile(r"<retrieving>[\s\S]*?</retrieving>", flags=re.IGNORECASE),
+    "think": re.compile(r"<think>[\s\S]*?</think>", flags=re.IGNORECASE),
+}
+CONVERSATION_SUMMARY_KEY = "_conversation_summary"
+
+
+def preserve_process_blocks(existing_content: str, final_content: str) -> str:
+    """Keep streamed retrieval/thought blocks in persisted history without duplicating final answer."""
+    if not existing_content or not final_content:
+        return final_content
+
+    prefix = []
+    for pattern in PROCESS_BLOCK_PATTERNS.values():
+        for match in pattern.finditer(existing_content):
+            block = match.group(0)
+            if block and block not in final_content:
+                prefix.append(block)
+
+    if not prefix:
+        return final_content
+    return "".join(prefix) + final_content
+
+
+def latest_conversation_summary(reference_list):
+    if not isinstance(reference_list, list):
+        return None
+    for reference in reversed(reference_list):
+        if isinstance(reference, dict) and isinstance(reference.get(CONVERSATION_SUMMARY_KEY), dict):
+            return reference[CONVERSATION_SUMMARY_KEY]
+    return None
 
 
 class ConversationService(CommonService):
@@ -71,6 +106,7 @@ class ConversationService(CommonService):
 
 
 def structure_answer(conv, ans, message_id, session_id):
+    summary_update = ans.pop(CONVERSATION_SUMMARY_KEY, None)
     reference = ans["reference"]
     if not isinstance(reference, dict):
         reference = {}
@@ -80,6 +116,7 @@ def structure_answer(conv, ans, message_id, session_id):
     chunk_list = chunks_format(reference)
 
     reference["chunks"] = chunk_list
+    reference.pop(CONVERSATION_SUMMARY_KEY, None)
     ans["id"] = message_id
     ans["session_id"] = session_id
 
@@ -99,7 +136,9 @@ def structure_answer(conv, ans, message_id, session_id):
     else:
         if is_final:
             if ans.get("answer"):
-                conv.message[-1] = {"role": "assistant", "content": ans["answer"], "created_at": time.time(), "id": message_id}
+                persisted_answer = preserve_process_blocks(conv.message[-1].get("content", ""), ans["answer"])
+                ans["answer"] = persisted_answer
+                conv.message[-1] = {"role": "assistant", "content": persisted_answer, "created_at": time.time(), "id": message_id}
             else:
                 conv.message[-1]["created_at"] = time.time()
                 conv.message[-1]["id"] = message_id
@@ -110,7 +149,14 @@ def structure_answer(conv, ans, message_id, session_id):
     if conv.reference:
         should_update_reference = is_final or bool(reference.get("chunks")) or bool(reference.get("doc_aggs"))
         if should_update_reference:
-            conv.reference[-1] = reference
+            stored_reference = deepcopy(reference)
+            if isinstance(summary_update, dict) and summary_update.get("content"):
+                stored_reference[CONVERSATION_SUMMARY_KEY] = summary_update
+            elif not summary_update:
+                previous_summary = latest_conversation_summary(conv.reference[:-1])
+                if previous_summary:
+                    stored_reference[CONVERSATION_SUMMARY_KEY] = previous_summary
+            conv.reference[-1] = stored_reference
     return ans
 
 
@@ -182,6 +228,10 @@ async def async_completion(tenant_id, chat_id, question, name="New session", ses
     dia.kb_ids = list(set(dia.kb_ids + kb_ids))
     if not conv.reference:
         conv.reference = []
+    previous_summary = latest_conversation_summary(conv.reference)
+    if previous_summary and "_conversation_summary" not in kwargs:
+        kwargs["_conversation_summary"] = previous_summary
+    kwargs["_session_id"] = session_id
     conv.message.append({"role": "assistant", "content": "", "id": message_id})
     conv.reference.append({"chunks": [], "doc_aggs": []})
 
@@ -271,6 +321,10 @@ async def async_iframe_completion(dialog_id, question, session_id=None, stream=T
 
     if not conv.reference:
         conv.reference = []
+    previous_summary = latest_conversation_summary(conv.reference)
+    if previous_summary and "_conversation_summary" not in kwargs:
+        kwargs["_conversation_summary"] = previous_summary
+    kwargs["_session_id"] = session_id
     conv.reference.append({"chunks": [], "doc_aggs": []})
 
     if stream:

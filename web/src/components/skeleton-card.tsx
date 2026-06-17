@@ -6,11 +6,13 @@ type SkeletonCardProps = {
 };
 export function SkeletonCard(props: SkeletonCardProps) {
   const { className } = props;
+  const skeletonClass =
+    'h-8 rounded-lg bg-[rgb(var(--accent-primary)/0.16)] dark:bg-[rgb(var(--accent-primary)/0.22)]';
   return (
     <div className={cn('space-y-4', className)}>
-      <Skeleton className="h-8 w-full bg-bg-card rounded-lg" />
-      <Skeleton className="h-8 w-4/5 bg-bg-card rounded-lg" />
-      <Skeleton className="h-8 w-3/5 bg-bg-card rounded-lg" />
+      <Skeleton className={cn(skeletonClass, 'w-full')} />
+      <Skeleton className={cn(skeletonClass, 'w-4/5')} />
+      <Skeleton className={cn(skeletonClass, 'w-3/5')} />
     </div>
   );
 }

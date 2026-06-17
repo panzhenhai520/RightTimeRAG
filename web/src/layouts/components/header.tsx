@@ -14,7 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { TenantRole } from '@/pages/user-setting/constants';
 import { Routes } from '@/routes';
-import { LucideChevronDown, LucideCircleHelp } from 'lucide-react';
+import { LucideChevronDown } from 'lucide-react';
 import React, { useMemo } from 'react';
 import { Link, useLocation } from 'react-router';
 import { BellButton } from './bell-button';
@@ -22,12 +22,14 @@ import GlobalNavbar from './global-navbar';
 import ThemeButton from './theme-button';
 
 import { supportedLanguages } from '@/locales/config';
+import { useIsDarkTheme } from '@/components/theme-provider';
 
 export function Header({
   className,
   ...props
 }: React.HTMLAttributes<HTMLElement>) {
   const { pathname } = useLocation();
+  const isDarkTheme = useIsDarkTheme();
 
   const changeLanguage = useChangeLanguage();
 
@@ -62,11 +64,21 @@ export function Header({
           to={Routes.Root}
           aria-current={pathname === Routes.Root ? 'page' : undefined}
         >
-          <img
-            src="/righttime-logo.png"
-            alt="时和博士图标"
-            className="size-10 rounded-full object-contain"
-          />
+          <span
+            className={cn(
+              'flex size-10 items-center justify-center rounded-full',
+              isDarkTheme && 'shadow-sm shadow-slate-950/25',
+            )}
+          >
+            <img
+              src="/righttime-logo.png"
+              alt="时和博士图标"
+              className={cn(
+                'size-full rounded-full object-contain',
+                isDarkTheme && 'saturate-110 contrast-110 brightness-105',
+              )}
+            />
+          </span>
         </Link>
       </div>
 
@@ -95,10 +107,6 @@ export function Header({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-
-        <Button variant="ghost" size="icon" type="button">
-          <LucideCircleHelp className="size-[1em]" />
-        </Button>
 
         <ThemeButton />
 

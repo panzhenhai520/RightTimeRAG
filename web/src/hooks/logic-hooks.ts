@@ -14,7 +14,7 @@ import { IKnowledgeFile } from '@/interfaces/database/dataset';
 import { changeLanguageAsync } from '@/locales/config';
 import api from '@/utils/api';
 import { getAuthorization } from '@/utils/authorization-util';
-import { buildMessageUuid } from '@/utils/chat';
+import { buildMessageUuid, mergeFinalAnswerWithProcess } from '@/utils/chat';
 import axios from 'axios';
 import { EventSourceParserStream } from 'eventsource-parser/stream';
 import { has, isEmpty, omit } from 'lodash';
@@ -30,11 +30,6 @@ import { v4 as uuid } from 'uuid';
 import { useTranslate } from './common-hooks';
 import { useSetPaginationParams } from './route-hook';
 import { useFetchTenantInfo, useSaveSetting } from './use-user-setting-request';
-
-const extractTaggedBlocks = (text: string, tagName: string) => {
-  const pattern = new RegExp(`<${tagName}>[\\s\\S]*?</${tagName}>`, 'g');
-  return text.match(pattern)?.join('') ?? '';
-};
 
 export function usePrevious<T>(value: T) {
   const ref = useRef<T>();
@@ -284,9 +279,10 @@ export const useSendMessageWithSse = () => {
 
                     let newAnswer: string;
                     if (d.final === true && currentAnswer) {
-                      newAnswer =
-                        extractTaggedBlocks(prevAnswer, 'retrieving') +
-                        currentAnswer;
+                      newAnswer = mergeFinalAnswerWithProcess(
+                        prevAnswer,
+                        currentAnswer,
+                      );
                     } else if (
                       prevAnswer &&
                       currentAnswer.startsWith(prevAnswer)
@@ -504,11 +500,26 @@ export const useSelectDerivedMessages = () => {
   // Add the streaming message to the last item in the message list
   const addNewestAnswer = useCallback((answer: IAnswer) => {
     setDerivedMessages((pre) => {
+      const previousMessage = pre?.at(-1);
+      const previousContent = String(previousMessage?.content ?? '');
+      const incomingContent = answer.answer ?? '';
+      const shouldPreserveProcess =
+        (answer as any).final === true ||
+        (/<(?:retrieving|think)>/i.test(previousContent) &&
+          !/<(?:retrieving|think)>/i.test(incomingContent));
+      const content =
+        previousMessage?.role === MessageType.Assistant &&
+        shouldPreserveProcess
+          ? mergeFinalAnswerWithProcess(previousContent, incomingContent)
+          : answer.answer;
+
       return [
         ...(pre?.slice(0, -1) ?? []),
         {
+          ...omit(answer, ['reference', 'content']),
           role: MessageType.Assistant,
-          content: answer.answer,
+          content,
+          answer: content,
           reference: answer.reference,
           id: buildMessageUuid({
             id: answer.id,
@@ -516,7 +527,6 @@ export const useSelectDerivedMessages = () => {
           }),
           prompt: answer.prompt,
           audio_binary: answer.audio_binary,
-          ...omit(answer, 'reference'),
         },
       ];
     });
@@ -530,7 +540,23 @@ export const useSelectDerivedMessages = () => {
       if (idx !== -1) {
         return pre.map((x) => {
           if (x.id === answer.id) {
-            return { ...x, ...answer, content: answer.answer };
+            const previousContent = String(x.content ?? '');
+            const incomingContent = answer.answer ?? '';
+            const shouldPreserveProcess =
+              (answer as any).final === true ||
+              (/<(?:retrieving|think)>/i.test(previousContent) &&
+                !/<(?:retrieving|think)>/i.test(incomingContent));
+            return {
+              ...x,
+              ...omit(answer, ['reference', 'content']),
+              reference: answer.reference,
+              content: shouldPreserveProcess
+                ? mergeFinalAnswerWithProcess(previousContent, incomingContent)
+                : answer.answer,
+              answer: shouldPreserveProcess
+                ? mergeFinalAnswerWithProcess(previousContent, incomingContent)
+                : answer.answer,
+            };
           }
           return x;
         });
@@ -539,8 +565,10 @@ export const useSelectDerivedMessages = () => {
       return [
         ...(pre ?? []),
         {
+          ...omit(answer, ['reference', 'content']),
           role: MessageType.Assistant,
           content: answer.answer,
+          answer: answer.answer,
           reference: answer.reference,
           id: buildMessageUuid({
             id: answer.id,
@@ -548,7 +576,6 @@ export const useSelectDerivedMessages = () => {
           }),
           prompt: answer.prompt,
           audio_binary: answer.audio_binary,
-          ...omit(answer, 'reference'),
         },
       ];
     });

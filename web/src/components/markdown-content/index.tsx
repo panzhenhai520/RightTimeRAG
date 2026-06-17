@@ -24,6 +24,7 @@ import {
   replaceRetrievingToSection,
   replaceTextByOldReg,
   replaceThinkToSection,
+  stripProcessBlocks,
 } from '@/utils/chat';
 import classNames from 'classnames';
 import { omit } from 'lodash';
@@ -38,6 +39,13 @@ import {
 import styles from './index.module.less';
 
 const getChunkIndex = (match: string) => parseCitationIndex(match);
+
+const toText = (value: unknown): string => {
+  if (typeof value === 'string') return value;
+  if (value === undefined || value === null) return '';
+  if (Array.isArray(value)) return value.map(toText).join('');
+  return String(value);
+};
 
 const formatMetadataValue = (value: unknown) => {
   if (Array.isArray(value)) return value.join(', ');
@@ -76,7 +84,7 @@ const MarkdownContent = ({
   const { setDocumentIds, data: fileThumbnails } =
     useFetchDocumentThumbnailsByIds();
   const contentWithCursor = useMemo(() => {
-    let text = DOMPurify.sanitize(content, {
+    let text = DOMPurify.sanitize(stripProcessBlocks(toText(content)), {
       ADD_TAGS: ['think', 'section', 'details', 'summary', 'retrieving'],
       ADD_ATTR: ['class'],
     });
@@ -172,6 +180,9 @@ const MarkdownContent = ({
         documentId,
         document,
       } = getReferenceInfo(chunkIndex);
+      if (!chunkItem) {
+        return null;
+      }
       const isSummary = !!chunkItem?.is_raptor_summary;
       const sourceChunks = chunkItem?.source_chunks ?? [];
 
@@ -278,10 +289,25 @@ const MarkdownContent = ({
     (text: string) => {
       const citationRenderReg = new RegExp(citationMarkerReg.source, 'g');
       const replacedText = reactStringReplace(
-        text,
+        toText(text),
         citationRenderReg,
         (match, i) => {
           const chunkIndex = getChunkIndex(match);
+          const chunks = reference?.chunks ?? [];
+          const chunkItem = Number.isNaN(chunkIndex)
+            ? undefined
+            : chunks[chunkIndex];
+
+          if (!chunkItem) {
+            return (
+              <bdi
+                key={i}
+                className="text-text-secondary bg-bg-card rounded-2xl px-1 mx-1 text-nowrap inline-block"
+              >
+                Fig. {Number.isNaN(chunkIndex) ? match : chunkIndex + 1}
+              </bdi>
+            );
+          }
 
           return (
             <HoverCard key={i}>
@@ -300,10 +326,10 @@ const MarkdownContent = ({
 
       return replacedText;
     },
-    [getPopoverContent],
+    [getPopoverContent, reference?.chunks],
   );
 
-  const dir = getDirAttribute(content.replace(citationMarkerReg, ''));
+  const dir = getDirAttribute(toText(content).replace(citationMarkerReg, ''));
 
   return (
     <div dir={dir} className={styles.markdownContentWrapper}>

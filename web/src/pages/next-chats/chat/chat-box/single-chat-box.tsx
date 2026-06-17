@@ -7,10 +7,13 @@ import { useFetchChat, useGetChatSearchParams } from '@/hooks/use-chat-request';
 import { useFetchUserInfo } from '@/hooks/use-user-setting-request';
 import { IClientConversation } from '@/interfaces/database/chat';
 import api from '@/utils/api';
-import { buildMessageUuidWithRole } from '@/utils/chat';
+import {
+  buildMessageUuidWithRole,
+  mergeFinalAnswerWithProcess,
+} from '@/utils/chat';
 import request from '@/utils/next-request';
 import { t } from 'i18next';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
   useGetSendButtonDisabled,
@@ -21,36 +24,13 @@ import { useSendMessage } from '../../hooks/use-send-chat-message';
 import { buildMessageItemReference } from '../../utils';
 import { useShowInternet } from '../use-show-internet';
 
+const hasProcessBlocks = (content: unknown) =>
+  typeof content === 'string' && /<(?:retrieving|think)>/i.test(content);
+
 interface IProps {
   controller: AbortController;
   stopOutputMessage(): void;
   conversation: IClientConversation;
-}
-
-class MessageRenderBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean }
-> {
-  state = { hasError: false };
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error) {
-    console.error('Message render failed', error);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="rounded border border-border-default bg-bg-card p-3 text-sm text-text-secondary">
-          {t('chat.messageRenderError')}
-        </div>
-      );
-    }
-    return this.props.children;
-  }
 }
 
 export function SingleChatBox({
@@ -90,6 +70,11 @@ export function SingleChatBox({
     const messages = conversation?.messages;
     if (Array.isArray(messages)) {
       setDerivedMessages((prevMessages) => {
+        const localById = new Map(prevMessages.map((m) => [m.id, m]));
+        const localAssistants = prevMessages.filter(
+          (m) => m.role === MessageType.Assistant,
+        );
+        let assistantIndex = -1;
         // Preserve uploaded file objects from local state that the server doesn't
         // persist (e.g. File instances). Build a map of message id → files from
         // the current local state so they survive when server data is applied.
@@ -98,16 +83,38 @@ export function SingleChatBox({
             .filter((m) => m.files?.length)
             .map((m) => [m.id, m.files]),
         );
-        if (filesMap.size === 0) {
-          return messages;
-        }
-        return messages.map((m) => ({
-          ...m,
-          files: filesMap.get(m.id) ?? m.files,
-        }));
+        return messages.map((m) => {
+          const sameIdLocal = localById.get(m.id);
+          let sameOrderLocal: typeof sameIdLocal | undefined;
+          let serverReference = m.reference;
+          if (m.role === MessageType.Assistant) {
+            assistantIndex += 1;
+            sameOrderLocal = localAssistants[assistantIndex];
+            if (!serverReference && assistantIndex > 0) {
+              serverReference = conversation.reference?.[assistantIndex - 1];
+            }
+          }
+          const localMessage = sameIdLocal ?? sameOrderLocal;
+          const localContent = String(localMessage?.content ?? '');
+          const serverContent = String(m.content ?? '');
+
+          return {
+            ...m,
+            ...(hasProcessBlocks(localContent) && !hasProcessBlocks(serverContent)
+              ? {
+                  content: mergeFinalAnswerWithProcess(
+                    localContent,
+                    serverContent,
+                  ),
+                }
+              : {}),
+            reference: serverReference ?? localMessage?.reference,
+            files: filesMap.get(m.id) ?? m.files,
+          };
+        });
       });
     }
-  }, [conversation?.messages, setDerivedMessages]);
+  }, [conversation?.messages, conversation.reference, setDerivedMessages]);
 
   const handleAddToMemory = useCallback(async () => {
     if (!currentDialog.id || !conversationId) {
@@ -145,31 +152,30 @@ export function SingleChatBox({
       >
         <div className="w-full pr-5">
           {derivedMessages?.map((message, i) => (
-            <MessageRenderBoundary key={buildMessageUuidWithRole(message)}>
-              <MessageItem
-                loading={
-                  message.role === MessageType.Assistant &&
-                  sendLoading &&
-                  derivedMessages.length - 1 === i
-                }
-                item={message}
-                nickname={userInfo.nickname}
-                avatar={userInfo.avatar}
-                avatarDialog={currentDialog.icon}
-                reference={buildMessageItemReference(
-                  {
-                    messages: derivedMessages,
-                    reference: conversation.reference,
-                  },
-                  message,
-                )}
-                clickDocumentButton={clickDocumentButton}
-                index={i}
-                removeMessageById={removeMessageById}
-                regenerateMessage={regenerateMessage}
-                sendLoading={sendLoading}
-              />
-            </MessageRenderBoundary>
+            <MessageItem
+              key={buildMessageUuidWithRole(message)}
+              loading={
+                message.role === MessageType.Assistant &&
+                sendLoading &&
+                derivedMessages.length - 1 === i
+              }
+              item={message}
+              nickname={userInfo.nickname}
+              avatar={userInfo.avatar}
+              avatarDialog={currentDialog.icon}
+              reference={buildMessageItemReference(
+                {
+                  messages: derivedMessages,
+                  reference: conversation.reference,
+                },
+                message,
+              )}
+              clickDocumentButton={clickDocumentButton}
+              index={i}
+              removeMessageById={removeMessageById}
+              regenerateMessage={regenerateMessage}
+              sendLoading={sendLoading}
+            />
           ))}
         </div>
         <div ref={scrollRef} />

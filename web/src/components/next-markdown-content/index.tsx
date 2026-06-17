@@ -23,6 +23,7 @@ import {
   replaceRetrievingToSection,
   replaceTextByOldReg,
   replaceThinkToSection,
+  stripProcessBlocks,
 } from '@/utils/chat';
 import { citationMarkerReg } from '@/utils/citation-utils';
 import { getDirAttribute } from '@/utils/text-direction';
@@ -43,6 +44,13 @@ import message from '../ui/message';
 import styles from './index.module.less';
 
 const getChunkIndex = (match: string) => parseCitationIndex(match);
+
+const toText = (value: unknown): string => {
+  if (typeof value === 'string') return value;
+  if (value === undefined || value === null) return '';
+  if (Array.isArray(value)) return value.map(toText).join('');
+  return String(value);
+};
 
 const isArtifactUrl = (url?: string) =>
   Boolean(url && url.includes('/api/v1/documents/artifact/'));
@@ -168,7 +176,7 @@ function MarkdownContent({
   const { setDocumentIds, data: fileThumbnails } =
     useFetchDocumentThumbnailsByIds();
   const contentWithCursor = useMemo(() => {
-    let text = DOMPurify.sanitize(content, {
+    let text = DOMPurify.sanitize(stripProcessBlocks(toText(content)), {
       ADD_TAGS: ['think', 'section', 'details', 'summary', 'retrieving'],
       ADD_ATTR: ['class'],
     });
@@ -229,7 +237,7 @@ function MarkdownContent({
   const getReferenceInfo = useCallback(
     (chunkIndex: number) => {
       const chunks = reference?.chunks ?? {};
-      const chunkItem = chunks[chunkIndex];
+      const chunkItem = (chunks as Record<string, IReferenceChunk>)[chunkIndex];
 
       const documentList = Object.values(reference?.doc_aggs ?? {});
       const document = documentList.find(
@@ -238,7 +246,9 @@ function MarkdownContent({
       const documentId = document?.doc_id;
       const documentUrl = document?.url;
       const fileThumbnail = documentId ? fileThumbnails[documentId] : '';
-      const fileExtension = documentId ? getExtension(document?.doc_name) : '';
+      const fileExtension = documentId
+        ? getExtension(document?.doc_name ?? chunkItem?.document_name)
+        : '';
       const imageId = chunkItem?.image_id;
 
       return {
@@ -265,6 +275,10 @@ function MarkdownContent({
         documentId,
         document,
       } = getReferenceInfo(chunkIndex);
+
+      if (!chunkItem) {
+        return null;
+      }
 
       return (
         <div key={chunkItem?.id} className="flex gap-2">
@@ -331,10 +345,25 @@ function MarkdownContent({
     (text: string) => {
       const citationRenderReg = new RegExp(citationMarkerReg.source, 'g');
       const replacedText = reactStringReplace(
-        text,
+        toText(text),
         citationRenderReg,
         (match, i) => {
           const chunkIndex = getChunkIndex(match);
+          const chunks = reference?.chunks ?? {};
+          const chunkItem = Number.isNaN(chunkIndex)
+            ? undefined
+            : (chunks as Record<string, IReferenceChunk>)[chunkIndex];
+
+          if (!chunkItem) {
+            return (
+              <bdi
+                key={i}
+                className="text-text-secondary bg-bg-card rounded-2xl px-1 mx-1 text-nowrap inline-block"
+              >
+                Fig. {Number.isNaN(chunkIndex) ? match : chunkIndex + 1}
+              </bdi>
+            );
+          }
 
           return (
             <HoverCard key={i}>
@@ -353,10 +382,10 @@ function MarkdownContent({
 
       return replacedText;
     },
-    [renderPopoverContent],
+    [reference?.chunks, renderPopoverContent],
   );
 
-  const dir = getDirAttribute(content.replace(citationMarkerReg, ''));
+  const dir = getDirAttribute(toText(content).replace(citationMarkerReg, ''));
 
   return (
     <div dir={dir} className={styles.markdownContentWrapper}>

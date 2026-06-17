@@ -45,13 +45,13 @@ export function NextBanner() {
   const { i18n, t } = useTranslation();
   return (
     <h1
-      className="text-5xl leading-normal text-left"
+      className="text-5xl leading-normal text-left text-[#163f5d] dark:text-white"
       dir={i18n.language?.startsWith('ar') ? 'rtl' : 'ltr'}
     >
-      <span className="font-semibold text-text-primary">
+      <span className="font-semibold text-current">
         {t('homeBanner.welcomePrefix')}
       </span>
-      <span className="font-bold text-transparent bg-clip-text bg-gradient-to-l from-[#823a53] to-[#c196a9]">
+      <span className="font-bold text-current">
         {t('homeBanner.productName')}
       </span>
     </h1>

@@ -14,18 +14,16 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
 import { Modal } from './ui/modal/modal';
 
-const presetAvatarPaths = [
-  '/robot-icons/robot_01_male_engineer_blue_transparent.png',
-  '/robot-icons/robot_02_female_assistant_rose_transparent.png',
-  '/robot-icons/robot_03_male_doctor_green_transparent.png',
-  '/robot-icons/robot_04_female_scientist_violet_transparent.png',
-  '/robot-icons/robot_05_male_pilot_orange_transparent.png',
-  '/robot-icons/robot_06_female_artist_coral_transparent.png',
-  '/robot-icons/robot_07_male_security_navy_transparent.png',
-  '/robot-icons/robot_08_female_teacher_yellow_transparent.png',
-  '/robot-icons/robot_09_male_gamer_cyan_transparent.png',
-  '/robot-icons/robot_10_female_explorer_mint_transparent.png',
-];
+const presetAvatarSpritePath =
+  '/robot-icons/flat_robot_icons_v3_micro_grid_transparent.png';
+const presetAvatarColumns = 5;
+const presetAvatarRows = 2;
+const presetAvatarCount = presetAvatarColumns * presetAvatarRows;
+const presetAvatars = Array.from({ length: presetAvatarCount }, (_, index) => ({
+  index,
+  x: index % presetAvatarColumns,
+  y: Math.floor(index / presetAvatarColumns),
+}));
 
 type AvatarUploadProps = {
   value?: string;
@@ -52,6 +50,9 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
   ) {
     const { t } = useTranslation();
     const [avatarBase64Str, setAvatarBase64Str] = useState(''); // Avatar Image base64
+    const [selectedPresetIndex, setSelectedPresetIndex] = useState<
+      number | null
+    >(null);
     const [isCropModalOpen, setIsCropModalOpen] = useState(false);
     const [imageToCrop, setImageToCrop] = useState<string | null>(null);
     const [cropArea, setCropArea] = useState({ x: 0, y: 0, size: 200 });
@@ -79,13 +80,45 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
 
     const handleRemove = useCallback(() => {
       setAvatarBase64Str('');
+      setSelectedPresetIndex(null);
       onChange?.('');
     }, [onChange]);
 
     const handleSelectPresetAvatar = useCallback(
-      (avatarPath: string) => {
-        setAvatarBase64Str(avatarPath);
-        onChange?.(avatarPath);
+      (presetIndex: number) => {
+        const image = new Image();
+        image.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+
+          const cellWidth = image.naturalWidth / presetAvatarColumns;
+          const cellHeight = image.naturalHeight / presetAvatarRows;
+          const sourceX = (presetIndex % presetAvatarColumns) * cellWidth;
+          const sourceY =
+            Math.floor(presetIndex / presetAvatarColumns) * cellHeight;
+
+          canvas.width = 256;
+          canvas.height = 256;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(
+            image,
+            sourceX,
+            sourceY,
+            cellWidth,
+            cellHeight,
+            0,
+            0,
+            canvas.width,
+            canvas.height,
+          );
+
+          const presetAvatarBase64 = canvas.toDataURL('image/png');
+          setAvatarBase64Str(presetAvatarBase64);
+          setSelectedPresetIndex(presetIndex);
+          onChange?.(presetAvatarBase64);
+        };
+        image.src = presetAvatarSpritePath;
       },
       [onChange],
     );
@@ -263,6 +296,7 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
     useEffect(() => {
       if (value) {
         setAvatarBase64Str(value);
+        setSelectedPresetIndex(null);
       }
     }, [value]);
 
@@ -347,11 +381,11 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
         </div>
 
         <div className="grid grid-cols-10 gap-2">
-          {presetAvatarPaths.map((avatarPath) => {
-            const isSelected = avatarBase64Str === avatarPath;
+          {presetAvatars.map((avatar) => {
+            const isSelected = selectedPresetIndex === avatar.index;
             return (
               <button
-                key={avatarPath}
+                key={avatar.index}
                 type="button"
                 className={`
                   size-10 rounded-md border bg-bg-card p-1 transition
@@ -359,13 +393,16 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
                   focus-visible:ring-[#8b4c36]
                   ${isSelected ? 'border-[#8b4c36] ring-2 ring-[#8b4c36]/30' : 'border-border'}
                 `}
-                onClick={() => handleSelectPresetAvatar(avatarPath)}
+                onClick={() => handleSelectPresetAvatar(avatar.index)}
               >
-                <img
-                  src={avatarPath}
-                  alt=""
-                  className="size-full object-contain"
-                  loading="lazy"
+                <span
+                  aria-hidden="true"
+                  className="block size-full bg-no-repeat"
+                  style={{
+                    backgroundImage: `url(${presetAvatarSpritePath})`,
+                    backgroundSize: `${presetAvatarColumns * 100}% ${presetAvatarRows * 100}%`,
+                    backgroundPosition: `${avatar.x * 25}% ${avatar.y * 100}%`,
+                  }}
                 />
               </button>
             );

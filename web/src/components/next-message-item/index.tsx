@@ -8,6 +8,8 @@ import {
 import classNames from 'classnames';
 import {
   PropsWithChildren,
+  Component,
+  ReactNode,
   memo,
   useCallback,
   useContext,
@@ -25,6 +27,7 @@ import {
   getThinkingPreview,
   parseRetrievingAndAnswer,
   parseThinkAndAnswer,
+  stripProcessBlocks,
 } from '@/utils/chat';
 import { citationMarkerReg } from '@/utils/citation-utils';
 import { getDirAttribute } from '@/utils/text-direction';
@@ -49,9 +52,17 @@ import { useTheme } from '../theme-provider';
 import { Button } from '../ui/button';
 import { AssistantGroupButton, UserGroupButton } from './group-button';
 import styles from './index.module.less';
+import { EvidenceAuditPanel } from './evidence-audit-panel';
 import { ReferenceDocumentList } from './reference-document-list';
 import { ReferenceImageList } from './reference-image-list';
 import { UploadedMessageFiles } from './uploaded-message-files';
+
+const toMessageText = (value: unknown): string => {
+  if (typeof value === 'string') return value;
+  if (value === undefined || value === null) return '';
+  if (Array.isArray(value)) return value.map(toMessageText).join('');
+  return String(value);
+};
 
 interface IProps
   extends Partial<IRemoveMessageById>, IRegenerateMessage, PropsWithChildren {
@@ -73,6 +84,41 @@ interface IProps
   showLoudspeaker?: boolean;
   showLog?: boolean;
   isShare?: boolean;
+}
+
+class InlineRenderBoundary extends Component<
+  {
+    boundaryKey: string;
+    children: ReactNode;
+    fallback?: ReactNode;
+  },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('Message section render failed', error);
+  }
+
+  componentDidUpdate(prevProps: { boundaryKey: string }) {
+    if (
+      this.state.hasError &&
+      prevProps.boundaryKey !== this.props.boundaryKey
+    ) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback ?? null;
+    }
+    return this.props.children;
+  }
 }
 
 function MessageItem({
@@ -100,8 +146,9 @@ function MessageItem({
   const { theme } = useTheme();
   const isAssistant = item.role === MessageType.Assistant;
   const isUser = item.role === MessageType.User;
-  const [showThinking, setShowThinking] = useState(false);
-  const [showReasoning, setShowReasoning] = useState(false);
+  const [showThinking, setShowThinking] = useState(true);
+  const [showRetrieving, setShowRetrieving] = useState(true);
+  const [showReasoning, setShowReasoning] = useState(true);
   const { setLastSendLoadingFunc } = useContext(AgentChatContext);
 
   useEffect(() => {
@@ -134,43 +181,56 @@ function MessageItem({
     () => item.downloads ?? [],
     [item.downloads],
   );
-  const messageContent = item.content;
-  const parsedContent = useMemo(
-    () => parseThinkAndAnswer(messageContent),
+  const messageContent = toMessageText(item.content);
+  const parsedRetrievingContent = useMemo(
+    () => parseRetrievingAndAnswer(messageContent),
     [messageContent],
   );
-  const parsedRetrievingContent = useMemo(
-    () => parseRetrievingAndAnswer(parsedContent.answer),
-    [parsedContent.answer],
-  );
-  const combinedThinking = useMemo(
-    () =>
-      [parsedContent.thinking, parsedRetrievingContent.thinking]
-        .filter(Boolean)
-        .join('\n\n'),
-    [parsedContent.thinking, parsedRetrievingContent.thinking],
+  const parsedContent = useMemo(
+    () => parseThinkAndAnswer(parsedRetrievingContent.answer),
+    [parsedRetrievingContent.answer],
   );
   const thinkingPreview = useMemo(
-    () => getThinkingPreview(combinedThinking, 2),
-    [combinedThinking],
+    () => getThinkingPreview(parsedContent.thinking, loading ? 6 : 2),
+    [loading, parsedContent.thinking],
   );
-  const answerContent = parsedRetrievingContent.answer;
-  const hasProcessSignals =
-    parsedContent.hasThinking || parsedRetrievingContent.hasThinking;
-  const shouldShowThinking = isAssistant && (loading || hasProcessSignals);
-  const isThinkingRunning = loading;
+  const retrievingPreview = useMemo(
+    () => getThinkingPreview(parsedRetrievingContent.thinking, loading ? 6 : 2),
+    [loading, parsedRetrievingContent.thinking],
+  );
+  const answerContent = stripProcessBlocks(parsedContent.answer);
+  const shouldShowRetrieving =
+    isAssistant && (loading || parsedRetrievingContent.hasThinking);
+  const isRetrievingRunning =
+    loading && !parsedRetrievingContent.thinkingComplete;
+  const displayedRetrieving = loading
+    ? retrievingPreview
+    : showRetrieving
+      ? parsedRetrievingContent.thinking
+      : retrievingPreview;
+  const displayedRetrievingLines = useMemo(
+    () => displayedRetrieving.split(/\r?\n/).filter(Boolean),
+    [displayedRetrieving],
+  );
+  const shouldShowRetrievingBody =
+    !!parsedRetrievingContent.thinking && (loading || showRetrieving);
+  const shouldShowThinking =
+    isAssistant && (loading || parsedContent.hasThinking);
+  const isThinkingRunning = loading && !parsedContent.thinkingComplete;
   const shouldShowReasoningBody =
-    loading || (!!combinedThinking && showReasoning);
+    !!parsedContent.thinking && (loading || showReasoning);
   const displayedReasoning = loading
     ? thinkingPreview
     : showReasoning
-      ? combinedThinking
+      ? parsedContent.thinking
       : thinkingPreview;
+  const displayedReasoningLines = useMemo(
+    () => displayedReasoning.split(/\r?\n/).filter(Boolean),
+    [displayedReasoning],
+  );
   const reasoningPanelTitle = isThinkingRunning
-    ? t('chat.processRunning')
-    : showReasoning
-      ? t('chat.processHide')
-      : t('chat.processShow');
+    ? t('chat.thinking')
+    : t('chat.thought');
   const processStages = useMemo(() => {
     const hasRetrieval =
       loading || parsedRetrievingContent.hasThinking || hasReferenceChunks;
@@ -246,10 +306,11 @@ function MessageItem({
   }, [item.id, setCurrentMessageId]);
 
   useEffect(() => {
-    if (!loading && answerContent) {
-      setShowReasoning(false);
+    if (loading) {
+      setShowRetrieving(true);
+      setShowReasoning(true);
     }
-  }, [answerContent, loading]);
+  }, [loading]);
 
   const startedNodeList = useCallback(
     (item: IMessage) => {
@@ -281,12 +342,21 @@ function MessageItem({
         ) : sendLoading && isEmpty(answerContent) ? (
           <>{!isShare && 'running...'}</>
         ) : (
-          <MarkdownContent
-            loading={loading}
-            content={answerContent}
-            reference={reference}
-            clickDocumentButton={clickDocumentButton}
-          ></MarkdownContent>
+          <InlineRenderBoundary
+            boundaryKey={`${item.id}-answer-${answerContent.length}`}
+            fallback={
+              <div className="whitespace-pre-wrap text-sm leading-6 text-text-primary">
+                {answerContent}
+              </div>
+            }
+          >
+            <MarkdownContent
+              loading={loading}
+              content={answerContent}
+              reference={reference}
+              clickDocumentButton={clickDocumentButton}
+            ></MarkdownContent>
+          </InlineRenderBoundary>
         )}
       </div>
     );
@@ -297,6 +367,7 @@ function MessageItem({
     isAssistant,
     isShare,
     item.data,
+    item.id,
     loading,
     reference,
     sendLoading,
@@ -323,9 +394,13 @@ function MessageItem({
         >
           {visibleAvatar &&
             (item.role === MessageType.User ? (
-              <RAGFlowAvatar avatar={avatar ?? '/logo.svg'} />
+              <RAGFlowAvatar
+                className="size-20 shrink-0"
+                avatar={avatar ?? '/logo.svg'}
+              />
             ) : avatarDialog || agentName ? (
               <RAGFlowAvatar
+                className="size-20 shrink-0"
                 avatar={avatarDialog as string}
                 name={agentName}
                 isPerson
@@ -334,7 +409,7 @@ function MessageItem({
               <SvgIcon
                 name={'assistant'}
                 width={'100%'}
-                className={cn('size-10 fill-current')}
+                className={cn('size-20 shrink-0 fill-current')}
               ></SvgIcon>
             ))}
           <section className="flex-col gap-2 flex-1">
@@ -414,6 +489,62 @@ function MessageItem({
                 </div>
               )}
 
+            {shouldShowRetrieving && (
+              <div className={styles.thinkingPanel}>
+                <button
+                  type="button"
+                  className={styles.thinkingHeader}
+                  onClick={() => setShowRetrieving((visible) => !visible)}
+                >
+                  {isRetrievingRunning ? (
+                    <Loader2
+                      className={cn(styles.thinkingIcon, 'animate-spin')}
+                    />
+                  ) : (
+                    <CheckCircle2 className={styles.thinkingIcon} />
+                  )}
+                  <span>
+                    {isRetrievingRunning
+                      ? t('chat.retrieving')
+                      : t('chat.retrieved')}
+                  </span>
+                  {parsedRetrievingContent.thinking &&
+                    (showRetrieving ? (
+                      <ChevronUp className={styles.thinkingChevron} />
+                    ) : (
+                      <ChevronDown className={styles.thinkingChevron} />
+                    ))}
+                </button>
+                {shouldShowRetrievingBody && (
+                  <div
+                    className={cn(styles.thinkingText, {
+                      [styles.thinkingTextRunning]: isRetrievingRunning,
+                    })}
+                  >
+                    {displayedRetrievingLines.length > 0 ? (
+                      <div className={styles.reasoningLineList}>
+                        {displayedRetrievingLines.map((line, lineIndex) => (
+                          <div
+                            key={`${lineIndex}-${line}`}
+                            className={cn(styles.reasoningLine, {
+                              [styles.reasoningLineStreaming]:
+                                isRetrievingRunning &&
+                                lineIndex ===
+                                  displayedRetrievingLines.length - 1,
+                            })}
+                          >
+                            {line}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      displayedRetrieving
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {shouldShowThinking && (
               <div className={styles.thinkingPanel}>
                 <button
@@ -429,7 +560,7 @@ function MessageItem({
                     <CheckCircle2 className={styles.thinkingIcon} />
                   )}
                   <span>{reasoningPanelTitle}</span>
-                  {combinedThinking &&
+                  {parsedContent.thinking &&
                     (showReasoning ? (
                       <ChevronUp className={styles.thinkingChevron} />
                     ) : (
@@ -469,7 +600,22 @@ function MessageItem({
                         })}
                       </ol>
                     )}
-                    {displayedReasoning}
+                    {displayedReasoningLines.length > 0 && (
+                      <div className={styles.reasoningLineList}>
+                        {displayedReasoningLines.map((line, lineIndex) => (
+                          <div
+                            key={`${lineIndex}-${line}`}
+                            className={cn(styles.reasoningLine, {
+                              [styles.reasoningLineStreaming]:
+                                loading &&
+                                lineIndex === displayedReasoningLines.length - 1,
+                            })}
+                          >
+                            {line}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -477,19 +623,37 @@ function MessageItem({
 
             {renderContent()}
 
+            {isAssistant && reference?.evidence_audit && (
+              <InlineRenderBoundary
+                boundaryKey={`${item.id}-evidence-audit-${answerContent.length}`}
+              >
+                <EvidenceAuditPanel
+                  audit={reference.evidence_audit}
+                ></EvidenceAuditPanel>
+              </InlineRenderBoundary>
+            )}
+
             {isAssistant && hasReferenceChunks && (
-              <ReferenceImageList
-                referenceChunks={reference?.chunks}
-                messageContent={answerContent}
-              ></ReferenceImageList>
+              <InlineRenderBoundary
+                boundaryKey={`${item.id}-reference-images-${answerContent.length}`}
+              >
+                <ReferenceImageList
+                  referenceChunks={reference?.chunks}
+                  messageContent={answerContent}
+                ></ReferenceImageList>
+              </InlineRenderBoundary>
             )}
 
             {isAssistant &&
               hasReferenceChunks &&
               referenceDocuments.length > 0 && (
-                <ReferenceDocumentList
-                  list={referenceDocuments}
-                ></ReferenceDocumentList>
+                <InlineRenderBoundary
+                  boundaryKey={`${item.id}-reference-docs-${referenceDocuments.length}`}
+                >
+                  <ReferenceDocumentList
+                    list={referenceDocuments}
+                  ></ReferenceDocumentList>
+                </InlineRenderBoundary>
               )}
 
             {isUser && (

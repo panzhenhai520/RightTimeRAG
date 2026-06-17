@@ -46,7 +46,7 @@ export function HomeCard({
         onClick?.();
       }}
       tabIndex={0}
-      className="px-2.5 py-4 flex gap-2 items-start group h-full w-full hover:shadow-md"
+      className="px-2.5 py-4 flex gap-2 items-start group h-full w-full cursor-pointer hover:shadow-md"
     >
       <div>
         <RAGFlowAvatar

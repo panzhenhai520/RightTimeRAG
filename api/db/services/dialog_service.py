@@ -14,10 +14,15 @@
 #  limitations under the License.
 #
 import asyncio
+import hashlib
+import json
 import logging
+import os
 import re
 import time
 import uuid
+from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from copy import deepcopy
 
 logger = logging.getLogger(__name__)
@@ -27,7 +32,7 @@ from timeit import default_timer as timer
 from langfuse import Langfuse
 from peewee import fn
 from api.db.services.file_service import FileService
-from common.constants import LLMType, ParserType, StatusEnum
+from common.constants import LLMType, MemoryType, ParserType, StatusEnum
 from api.db.db_models import DB, Dialog
 from api.db.services.common_service import CommonService
 from api.db.services.doc_metadata_service import DocMetadataService
@@ -41,19 +46,20 @@ from api.utils.reference_metadata_utils import (
     resolve_reference_metadata_preferences,
 )
 from api.db.services.tenant_llm_service import TenantLLMService
-from api.db.joint_services.memory_message_service import query_message
+from api.db.joint_services.memory_message_service import embed_and_save, query_message
 from api.db.joint_services.tenant_model_service import get_model_config_by_id, get_model_config_by_type_and_name, get_tenant_default_model_by_type
-from common.misc_utils import thread_pool_exec
-from common.time_utils import current_timestamp, datetime_format
+from common.misc_utils import get_uuid, thread_pool_exec
+from common.time_utils import current_timestamp, datetime_format, timestamp_to_date
 from common.text_utils import normalize_arabic_digits
 from rag.graphrag.general.mind_map_extractor import MindMapExtractor
 from rag.advanced_rag import DeepResearcher
 from rag.app.tag import label_question
 from rag.nlp.search import index_name
-from rag.prompts.generator import chunks_format, citation_prompt, cross_languages, full_question, kb_prompt, keyword_extraction, message_fit_in, memory_prompt, PROMPT_JINJA_ENV, ASK_SUMMARY
-from common.token_utils import num_tokens_from_string
+from rag.prompts.generator import chunks_format, cross_languages, full_question, kb_prompt, keyword_extraction, memory_prompt, PROMPT_JINJA_ENV, ASK_SUMMARY
+from common.token_utils import DynamicTokenCounter, num_tokens_from_string
 from rag.utils.tavily_conn import Tavily
 from rag.utils.tts_cache import synthesize_with_cache
+from rag.utils.redis_conn import REDIS_CONN
 from common.string_utils import remove_redundant_spaces
 from common import settings
 
@@ -584,9 +590,17 @@ def normalize_markdown_table_citations(answer: str):
 
 def build_compact_reference(answer: str, kbinfos: dict, idx: set):
     chunks = kbinfos.get("chunks") or []
-    cited_chunk_indexes = [int(i) for i in sorted(idx) if 0 <= int(i) < len(chunks)]
+    cited_chunk_indexes = []
+    for raw_index in idx or []:
+        try:
+            chunk_index = int(raw_index)
+        except (TypeError, ValueError):
+            continue
+        if 0 <= chunk_index < len(chunks):
+            cited_chunk_indexes.append(chunk_index)
+    cited_chunk_indexes = sorted(set(cited_chunk_indexes))
     if not cited_chunk_indexes:
-        return answer, {"chunks": [], "doc_aggs": []}
+        return answer, {"chunks": [], "doc_aggs": []}, {}
 
     old_to_new = {old_index: new_index for new_index, old_index in enumerate(cited_chunk_indexes)}
 
@@ -614,7 +628,7 @@ def build_compact_reference(answer: str, kbinfos: dict, idx: set):
         "chunks": compact_chunks,
         "doc_aggs": [d for d in kbinfos.get("doc_aggs", []) if d.get("doc_id") in cited_doc_ids],
     }
-    return answer, refs
+    return answer, refs, old_to_new
 
 
 def is_raptor_summary_chunk(chunk: dict):
@@ -688,6 +702,31 @@ def attach_raptor_source_chunks(chunks: list[dict], tenant_ids: list[str], kb_id
             }
             for _, source in candidates[:max_sources]
         ]
+
+
+def expand_raptor_chunks_for_generation(kbinfos: dict, max_sources: int = 3, max_chars_per_source: int = 1200):
+    chunks = kbinfos.get("chunks") or []
+    if not chunks:
+        return
+    attach_raptor_source_chunks(chunks, kbinfos.get("tenant_ids", []), kbinfos.get("kb_ids", []), max_sources=max_sources)
+    for chunk in chunks:
+        if not chunk.get("is_raptor_summary") or not chunk.get("source_chunks"):
+            continue
+        source_texts = []
+        for index, source in enumerate(chunk.get("source_chunks", [])[:max_sources], start=1):
+            content = str(source.get("content") or "").strip()
+            if not content:
+                continue
+            if len(content) > max_chars_per_source:
+                content = content[:max_chars_per_source].rstrip() + "\n...[truncated]"
+            source_texts.append(f"Source excerpt {index}:\n{content}")
+        if not source_texts:
+            continue
+        original = str(chunk.get("content_with_weight") or chunk.get("content") or "")
+        chunk["content_with_weight"] = (
+            f"{original}\n\n[This is a RAPTOR summary chunk. Use the following linked original source excerpts as evidence before concluding the knowledge base lacks details.]\n"
+            + "\n\n".join(source_texts)
+        )
 
 
 def repair_bad_citation_formats(answer: str, kbinfos: dict, idx: set):
@@ -767,6 +806,8 @@ ERROR_HISTORY_PATTERNS = (
     "知识库内容为空",
 )
 THINK_BLOCK_PATTERN = re.compile(r"<think>[\s\S]*?</think>", flags=re.IGNORECASE)
+RETRIEVING_BLOCK_PATTERN = re.compile(r"<retrieving>[\s\S]*?</retrieving>", flags=re.IGNORECASE)
+PROCESS_TAG_PATTERN = re.compile(r"</?(?:think|retrieving)>", flags=re.IGNORECASE)
 
 
 def _is_error_history_message(message: dict) -> bool:
@@ -786,7 +827,9 @@ def _sanitize_chat_history(messages: list[dict]) -> list[dict]:
             continue
         if message.get("role") == "assistant" and isinstance(message.get("content"), str):
             message = deepcopy(message)
-            message["content"] = THINK_BLOCK_PATTERN.sub("", message["content"]).strip()
+            content = THINK_BLOCK_PATTERN.sub("", message["content"])
+            content = RETRIEVING_BLOCK_PATTERN.sub("", content)
+            message["content"] = PROCESS_TAG_PATTERN.sub("", content).strip()
         sanitized.append(message)
     if sanitized and sanitized[-1].get("role") == "user":
         return sanitized
@@ -854,17 +897,60 @@ CONTEXT_DEPENDENT_PATTERNS = (
     "这个报告",
     "继续",
 )
+EXPLICIT_TOPIC_RESET_PATTERNS = (
+    "换个话题",
+    "换一个话题",
+    "另一个问题",
+    "新的问题",
+    "重新开始",
+    "不要参考上文",
+    "不参考上文",
+    "忽略上文",
+    "reset context",
+    "new topic",
+    "start over",
+)
+STRONG_CONTEXT_FOLLOWUP_PATTERNS = (
+    "继续",
+    "其中",
+    "上述",
+    "上面",
+    "前面",
+    "刚才",
+    "该报告",
+    "这个报告",
+)
 
-MAX_RETRIEVAL_QUERY_CHARS = 512
+MAX_RETRIEVAL_QUERY_CHARS = 220
+MAX_RETRIEVAL_QUERY_TERMS = 36
 DEFAULT_MODEL_CONTEXT_TOKENS = 8192
 DEEPSEEK_V4_CONTEXT_TOKENS = 131072
+DEEPSEEK_V4_EFFECTIVE_CONTEXT_TOKENS = 65536
+DEEPSEEK_V4_RETRY_CONTEXT_TOKENS = 32768
+DEEPSEEK_V4_PROMPT_HARD_TOKENS = 60000
 MIN_OUTPUT_TOKENS = 1
 DEFAULT_OUTPUT_TOKENS = 512
+DEEPSEEK_V4_RAG_OUTPUT_TOKENS = 2048
 MEMORY_CONTEXT_TOKENS = 2048
 MAX_MEMORY_RESULTS = 5
 MAX_MEMORY_GROUPS = 4
-MAX_KNOWLEDGE_CONTEXT_RATIO = 0.70
+MAX_KNOWLEDGE_CONTEXT_RATIO = 0.30
 MAX_PROMPT_CONTEXT_RATIO = 0.95
+MAX_RAG_HISTORY_TOKENS = 4096
+DEFAULT_RETRIEVAL_TOP_N = 8
+DEFAULT_RETRIEVAL_TOP_K = 1024
+try:
+    DS4_MAX_CONCURRENT_GENERATIONS = max(1, int(os.environ.get("DS4_MAX_CONCURRENT_GENERATIONS", "2")))
+except ValueError:
+    DS4_MAX_CONCURRENT_GENERATIONS = 2
+DS4_GENERATION_SEMAPHORE = asyncio.Semaphore(DS4_MAX_CONCURRENT_GENERATIONS)
+ACTIVE_TOKEN_COUNTER: ContextVar[DynamicTokenCounter | None] = ContextVar("active_rag_token_counter", default=None)
+CONTEXT_SPAN_ERROR_PATTERNS = (
+    "layer-slice token span exceeds context",
+    "exceeds context",
+    "context length",
+    "maximum context",
+)
 PURE_LLM_SYSTEM_PROMPT = """你是 Panython / RightTime 本地部署的 DeepSeek V4 Flash 智能助手。
 
 当前请求已被判定为普通聊天或模型自身相关问题，不要检索知识库，不要引用 PDF、文档、Fig. 或来源片段。
@@ -872,6 +958,42 @@ PURE_LLM_SYSTEM_PROMPT = """你是 Panython / RightTime 本地部署的 DeepSeek
 
 You are the locally deployed DeepSeek V4 Flash assistant served by Panython / RightTime.
 For general chat or model-self questions, answer directly without knowledge-base citations or document references."""
+
+COMPACT_CITATION_PROMPT = """
+
+### Citation rules
+Use retrieved knowledge only when it supports the answer. When a sentence uses a retrieved passage, append its source marker as [ID:n], where n is the passage ID shown in the knowledge context. Do not invent IDs. If multiple passages support one sentence, append multiple markers such as [ID:1] [ID:3].
+Keep any reasoning brief and make sure the final answer is completed before reaching the token limit.
+"""
+
+MAX_RAG_HISTORY_MESSAGES = 4
+MAX_RAG_ASSISTANT_HISTORY_CHARS = 1200
+MAX_RAG_USER_HISTORY_CHARS = 1000
+CONVERSATION_SUMMARY_KEY = "_conversation_summary"
+SYSTEM_CONVERSATION_MEMORY_NAME = "__panython_conversation_memory__"
+SUMMARY_RECENT_MESSAGE_KEEP = 4
+SUMMARY_SOURCE_TOKEN_LIMIT = 6000
+SUMMARY_MAX_TOKENS = 768
+SUMMARY_CONTEXT_TOKEN_BUDGET = 1024
+STRUCTURED_MEMORY_TOKEN_BUDGET = 1200
+SEMANTIC_TOPIC_SIMILARITY_THRESHOLD = float(os.environ.get("RAGFLOW_TOPIC_RESET_SEMANTIC_THRESHOLD", "0.38"))
+SEMANTIC_TOPIC_CONTEXT_CHARS = int(os.environ.get("RAGFLOW_TOPIC_RESET_CONTEXT_CHARS", "2400"))
+HISTORY_STOP_TERMS = {
+    "这个",
+    "那个",
+    "这些",
+    "那些",
+    "其中",
+    "问题",
+    "回答",
+    "内容",
+    "please",
+    "what",
+    "which",
+    "with",
+    "from",
+    "that",
+}
 
 
 def _normalize_route_text(text: str) -> str:
@@ -903,11 +1025,860 @@ def _question_depends_on_history(latest_question: str) -> bool:
     return any(pattern in normalized for pattern in CONTEXT_DEPENDENT_PATTERNS)
 
 
-def _build_retrieval_query(question: str) -> str:
-    normalized = re.sub(r"\s+", " ", (question or "").strip())
+def _should_reset_topic(latest_question: str, cached_summary: dict | None, messages: list[dict], depends_on_history: bool) -> tuple[bool, str]:
+    cached_content = _summary_content(cached_summary)
+    if not cached_content:
+        return False, "no_cached_summary"
+
+    normalized = _normalize_route_text(latest_question)
+    if any(pattern in normalized for pattern in EXPLICIT_TOPIC_RESET_PATTERNS):
+        return True, "explicit_reset"
+    if any(pattern in normalized for pattern in MODEL_SELF_QUESTION_PATTERNS):
+        return True, "model_self_question"
+    if any(pattern in normalized for pattern in GENERAL_CHAT_PATTERNS) and len(normalized) <= 24:
+        return True, "general_chat"
+
+    if not depends_on_history:
+        score = _history_relevance_score(latest_question, cached_content)
+        if score <= 0:
+            return True, "new_independent_topic"
+        return False, "independent_but_related"
+
+    if any(pattern in normalized for pattern in STRONG_CONTEXT_FOLLOWUP_PATTERNS):
+        return False, "strong_followup"
+
+    recent_context = "\n".join(
+        _strip_process_blocks(str(m.get("content", "")))
+        for m in (messages or [])[-6:]
+        if m.get("role") in {"user", "assistant"} and not _is_error_history_message(m)
+    )
+    score = _history_relevance_score(latest_question, cached_content + "\n" + recent_context)
+    if score <= 0:
+        return True, "dependent_terms_without_topic_overlap"
+    return False, f"related_score_{score}"
+
+
+def _safe_token_count(text) -> int:
+    try:
+        token_counter = ACTIVE_TOKEN_COUNTER.get()
+        if token_counter:
+            return token_counter.count_text(_normalize_text_from_content(text))
+        return num_tokens_from_string(_normalize_text_from_content(text))
+    except Exception:  # noqa: BLE001 - token logging must never break chat
+        return max(1, len(str(text or "")) // 3)
+
+
+def _messages_token_count(messages: list[dict]) -> int:
+    try:
+        token_counter = ACTIVE_TOKEN_COUNTER.get()
+        if token_counter:
+            return token_counter.count_messages(messages or [])
+    except Exception:  # noqa: BLE001 - token logging must never break chat
+        pass
+    return sum(_safe_token_count(message.get("content", "")) for message in messages or [])
+
+
+def _truncate_to_tokens(content: str, token_limit: int) -> str:
+    token_counter = ACTIVE_TOKEN_COUNTER.get()
+    if token_counter:
+        effective_limit = max(0, int(token_limit / max(1.0, token_counter.fallback_safety_factor)))
+        return token_counter.truncate_text(content, effective_limit)
+    return content[: max(0, token_limit * 3)]
+
+
+def _significant_terms(text: str) -> set[str]:
+    text = _strip_process_blocks(str(text or "")).lower()
+    terms = set(re.findall(r"[a-z0-9_]{3,}", text))
+    chinese_chars = re.findall(r"[\u4e00-\u9fff]", text)
+    for size in (2, 3):
+        for idx in range(0, max(0, len(chinese_chars) - size + 1)):
+            terms.add("".join(chinese_chars[idx : idx + size]))
+    return {term for term in terms if term not in HISTORY_STOP_TERMS}
+
+
+def _history_relevance_score(latest_question: str, history_text: str) -> int:
+    question_terms = _significant_terms(latest_question)
+    history_terms = _significant_terms(history_text)
+    if not question_terms or not history_terms:
+        return 0
+    return len(question_terms & history_terms)
+
+
+def _cosine_similarity(left, right) -> float | None:
+    try:
+        left_values = [float(v) for v in left]
+        right_values = [float(v) for v in right]
+        if not left_values or not right_values or len(left_values) != len(right_values):
+            return None
+        numerator = sum(a * b for a, b in zip(left_values, right_values))
+        left_norm = sum(a * a for a in left_values) ** 0.5
+        right_norm = sum(b * b for b in right_values) ** 0.5
+        if left_norm <= 0 or right_norm <= 0:
+            return None
+        return numerator / (left_norm * right_norm)
+    except Exception:  # noqa: BLE001 - semantic reset must degrade to lexical reset
+        return None
+
+
+def _encode_topic_pair(embd_mdl, latest_question: str, context: str):
+    vectors, _ = embd_mdl.encode([latest_question, context])
+    if vectors is None or len(vectors) < 2:
+        return None
+    return _cosine_similarity(vectors[0], vectors[1])
+
+
+async def _semantic_topic_similarity(embd_mdl, latest_question: str, context: str) -> float | None:
+    if not embd_mdl or not latest_question or not context:
+        return None
+    context = _strip_process_blocks(context).strip()
+    if not context:
+        return None
+    context = context[:SEMANTIC_TOPIC_CONTEXT_CHARS]
+    try:
+        return await thread_pool_exec(_encode_topic_pair, embd_mdl, latest_question, context)
+    except Exception as exc:  # noqa: BLE001 - semantic reset must not break chat
+        logging.warning("TopicReset semantic similarity failed: %s", exc)
+        return None
+
+
+async def _should_reset_topic_with_semantics(
+    latest_question: str,
+    cached_summary: dict | None,
+    messages: list[dict],
+    depends_on_history: bool,
+    embd_mdl=None,
+) -> tuple[bool, str]:
+    reset, reason = _should_reset_topic(latest_question, cached_summary, messages, depends_on_history)
+    if not reset or reason == "explicit_reset":
+        return reset, reason
+
+    if reason != "dependent_terms_without_topic_overlap":
+        return reset, reason
+
+    cached_content = _summary_content(cached_summary)
+    recent_context = "\n".join(
+        _strip_process_blocks(str(m.get("content", "")))
+        for m in (messages or [])[-6:]
+        if m.get("role") in {"user", "assistant"} and not _is_error_history_message(m)
+    )
+    semantic_context = "\n".join([cached_content, recent_context]).strip()
+    similarity = await _semantic_topic_similarity(embd_mdl, latest_question, semantic_context)
+    if similarity is None:
+        return reset, f"{reason}_semantic_unavailable"
+    if similarity >= SEMANTIC_TOPIC_SIMILARITY_THRESHOLD:
+        return False, f"semantic_related_{similarity:.3f}"
+    return True, f"{reason}_semantic_{similarity:.3f}"
+
+
+def _truncate_history_content(content: str, limit: int) -> str:
+    content = _strip_process_blocks(str(content or "")).strip()
+    if len(content) <= limit:
+        return content
+    return content[:limit].rstrip() + "\n...[truncated]"
+
+
+def _rag_generation_messages(
+    messages: list[dict],
+    latest_question: str,
+    depends_on_history: bool,
+    token_budget: int = MAX_RAG_HISTORY_TOKENS,
+) -> list[dict]:
+    """Keep RAG generation focused on the current turn and avoid KV/context buildup."""
+    latest_user_index = next((idx for idx in range(len(messages) - 1, -1, -1) if messages[idx].get("role") == "user"), None)
+    latest_user = messages[latest_user_index] if latest_user_index is not None else None
+    if latest_user is None:
+        return []
+
+    latest_content = _truncate_history_content(latest_user.get("content", ""), MAX_RAG_USER_HISTORY_CHARS)
+    latest_message = {"role": "user", "content": latest_content}
+    if not depends_on_history:
+        return [latest_message]
+
+    used_tokens = _safe_token_count(latest_content)
+    selected = []
+    previous_messages = [m for m in messages[:latest_user_index] if m.get("role") in {"user", "assistant"}]
+    for distance, message in enumerate(reversed(previous_messages)):
+        if len(selected) >= MAX_RAG_HISTORY_MESSAGES:
+            break
+        role = message.get("role")
+        limit = MAX_RAG_USER_HISTORY_CHARS if role == "user" else MAX_RAG_ASSISTANT_HISTORY_CHARS
+        content = _truncate_history_content(message.get("content", ""), limit)
+        if not content:
+            continue
+        is_recent_turn = distance < 2
+        if not is_recent_turn and _history_relevance_score(latest_question, content) <= 0:
+            continue
+        content_tokens = _safe_token_count(content)
+        if used_tokens + content_tokens > token_budget:
+            continue
+        selected.append({"role": role, "content": content})
+        used_tokens += content_tokens
+
+    selected.reverse()
+    selected.append(latest_message)
+    return selected
+
+
+def _message_stable_id(message: dict, fallback_index: int) -> str:
+    return str(message.get("id") or f"idx:{fallback_index}")
+
+
+def _summary_source_ids(summary: dict | None) -> set[str]:
+    if not isinstance(summary, dict):
+        return set()
+    ids = summary.get("source_message_ids") or []
+    return {str(item) for item in ids if item is not None}
+
+
+def _summary_content(summary: dict | None) -> str:
+    if not isinstance(summary, dict):
+        return ""
+    return str(summary.get("content") or "").strip()
+
+
+def _clean_message_for_summary(message: dict) -> str:
+    content = _strip_process_blocks(str(message.get("content") or "")).strip()
+    if not content:
+        return ""
+    if any(pattern in content for pattern in ERROR_HISTORY_PATTERNS):
+        return ""
+    limit = MAX_RAG_USER_HISTORY_CHARS if message.get("role") == "user" else MAX_RAG_ASSISTANT_HISTORY_CHARS
+    return _truncate_history_content(content, limit)
+
+
+def _messages_to_summarize(messages: list[dict], cached_summary: dict | None) -> tuple[list[dict], list[str]]:
+    latest_user_index = next((idx for idx in range(len(messages) - 1, -1, -1) if messages[idx].get("role") == "user"), None)
+    if latest_user_index is None:
+        return [], []
+    previous = [
+        (idx, message)
+        for idx, message in enumerate(messages[:latest_user_index])
+        if message.get("role") in {"user", "assistant"} and not _is_error_history_message(message)
+    ]
+    if len(previous) <= SUMMARY_RECENT_MESSAGE_KEEP:
+        return [], []
+
+    summarized_ids = _summary_source_ids(cached_summary)
+    candidates = previous[:-SUMMARY_RECENT_MESSAGE_KEEP]
+    selected = []
+    source_ids = set(summarized_ids)
+    used_tokens = 0
+    for idx, message in candidates:
+        message_id = _message_stable_id(message, idx)
+        if message_id in summarized_ids:
+            continue
+        content = _clean_message_for_summary(message)
+        if not content:
+            source_ids.add(message_id)
+            continue
+        token_count = _safe_token_count(content)
+        if selected and used_tokens + token_count > SUMMARY_SOURCE_TOKEN_LIMIT:
+            break
+        selected.append({"role": message.get("role"), "content": content, "id": message_id})
+        source_ids.add(message_id)
+        used_tokens += token_count
+    return selected, sorted(source_ids)
+
+
+async def _resolve_conversation_summary(chat_mdl, llm_model_config, dialog, messages: list[dict], cached_summary: dict | None, depends_on_history: bool):
+    if not depends_on_history:
+        return None
+
+    new_messages, source_ids = _messages_to_summarize(messages, cached_summary)
+    cached_content = _summary_content(cached_summary)
+    if not new_messages:
+        return cached_summary if cached_content else None
+
+    transcript = "\n".join(
+        f"{item['role']} ({item['id']}): {item['content']}"
+        for item in new_messages
+    )
+    system_prompt = (
+        "You maintain a compact rolling summary for a RAG chat session.\n"
+        "Rules:\n"
+        "- Do not include model reasoning, retrieval traces, errors, or raw PDF chunks.\n"
+        "- Preserve only facts useful for future follow-up questions.\n"
+        "- Keep document IDs or knowledge-base IDs only when explicitly present.\n"
+        "- Output in Chinese unless the transcript is mostly English.\n"
+        "- Use this exact structure:\n"
+        "已确认事实:\n"
+        "用户当前目标:\n"
+        "重要实体:\n"
+        "结构化记忆:\n"
+        "- 实体:\n"
+        "- 日期:\n"
+        "- 金额:\n"
+        "- 结论:\n"
+        "未解决问题:\n"
+        "涉及知识库/文档ID:\n"
+    )
+    user_prompt = (
+        f"Existing summary:\n{cached_content or '(none)'}\n\n"
+        f"New conversation turns to merge:\n{transcript}\n\n"
+        "Return the updated compact summary."
+    )
+    try:
+        async with _generation_slot(llm_model_config, dialog):
+            summary = await chat_mdl.async_chat(
+                system_prompt,
+                [{"role": "user", "content": user_prompt}],
+                {"temperature": 0.1, "max_tokens": SUMMARY_MAX_TOKENS, "reasoning": False, "reasoning_effort": "none"},
+            )
+    except Exception as exc:  # noqa: BLE001 - summary must never break chat
+        logging.warning("ConversationSummary update failed; using cached summary: %s", exc)
+        return cached_summary if cached_content else None
+
+    if isinstance(summary, tuple):
+        summary = summary[0]
+    summary = _strip_process_blocks(str(summary or "")).strip()
+    if not summary or any(pattern in summary for pattern in ERROR_HISTORY_PATTERNS):
+        return cached_summary if cached_content else None
+
+    return {
+        "content": _truncate_to_tokens(summary, SUMMARY_CONTEXT_TOKEN_BUDGET),
+        "structured_memory": _structured_memory_from_summary_content(summary),
+        "source_message_ids": source_ids,
+        "token_count": _safe_token_count(summary),
+        "changed": True,
+        "updated_at": time.time(),
+    }
+
+
+def _format_conversation_summary_context(summary: dict | None) -> str:
+    content = _summary_content(summary)
+    if not content:
+        return ""
+    content = _truncate_to_tokens(content, SUMMARY_CONTEXT_TOKEN_BUDGET)
+    return (
+        "\n\n### Rolling conversation summary\n"
+        "Use this only to resolve follow-up references. Do not treat it as retrieved knowledge evidence.\n"
+        f"{content}\n"
+    )
+
+
+SUMMARY_SECTION_HEADING_RE = (
+    r"(?:已确认事实|用户当前目标|重要实体|结构化记忆|未解决问题|"
+    r"涉及知识库\s*(?:ID\s*)?/\s*文档\s*ID)"
+)
+
+
+def _summary_heading_re(heading: str) -> str:
+    if heading == "涉及知识库/文档ID":
+        return r"涉及知识库\s*(?:ID\s*)?/\s*文档\s*ID"
+    return re.escape(heading)
+
+
+def _extract_summary_section(content: str, heading: str) -> str:
+    pattern = re.compile(
+        rf"{_summary_heading_re(heading)}\s*[:：]?\s*(.*?)(?=\n{SUMMARY_SECTION_HEADING_RE}\s*[:：]|\Z)",
+        flags=re.DOTALL,
+    )
+    match = pattern.search(content or "")
+    return match.group(1).strip() if match else ""
+
+
+def _split_summary_items(value: str) -> list[str]:
+    items = []
+    for raw_line in str(value or "").splitlines():
+        line = re.sub(r"^\s*[-*•\d.、]+\s*", "", raw_line).strip()
+        line = re.sub(r"^\s*[-–—]\s*", "", line).strip()
+        if not line or line in {"无", "none", "None", "null", "N/A", "n/a"}:
+            continue
+        items.append(line)
+    fallback = re.sub(r"^\s*[-–—]\s*", "", str(value or "").strip()).strip()
+    if not items and fallback and fallback not in {"无", "none", "None", "null", "N/A", "n/a"}:
+        items.append(fallback)
+    return items
+
+
+def _split_inline_values(value: str) -> list[str]:
+    cleaned = re.sub(r"^[^:：]{1,12}[:：]\s*", "", str(value or "").strip())
+    parts = re.split(r"[;；、]\s*", cleaned)
+    return [part.strip() for part in parts if part.strip() and part.strip() not in {"无", "none", "None", "null"}]
+
+
+def _structured_memory_from_summary_content(content: str) -> dict:
+    sections = {
+        "facts": _split_summary_items(_extract_summary_section(content, "已确认事实")),
+        "current_goal": " ".join(_split_summary_items(_extract_summary_section(content, "用户当前目标"))),
+        "entities": _split_summary_items(_extract_summary_section(content, "重要实体")),
+        "unresolved": _split_summary_items(_extract_summary_section(content, "未解决问题")),
+        "source_ids": _split_summary_items(_extract_summary_section(content, "涉及知识库/文档ID")),
+    }
+    structured_section = _extract_summary_section(content, "结构化记忆")
+    structured = {
+        "entities": [],
+        "dates": [],
+        "amounts": [],
+        "conclusions": [],
+    }
+    for item in _split_summary_items(structured_section):
+        normalized = item.strip()
+        if re.match(r"^(实体|entities?)\s*[:：]", normalized, flags=re.IGNORECASE):
+            structured["entities"].extend(_split_inline_values(normalized))
+        elif re.match(r"^(日期|dates?)\s*[:：]", normalized, flags=re.IGNORECASE):
+            structured["dates"].extend(_split_inline_values(normalized))
+        elif re.match(r"^(金额|numbers?|amounts?)\s*[:：]", normalized, flags=re.IGNORECASE):
+            structured["amounts"].extend(_split_inline_values(normalized))
+        elif re.match(r"^(结论|conclusions?)\s*[:：]", normalized, flags=re.IGNORECASE):
+            structured["conclusions"].extend(_split_inline_values(normalized))
+    if not structured["entities"]:
+        structured["entities"] = sections["entities"]
+    return {
+        "facts": sections["facts"],
+        "current_goal": sections["current_goal"],
+        "entities": list(dict.fromkeys(structured["entities"])),
+        "dates": list(dict.fromkeys(structured["dates"])),
+        "amounts": list(dict.fromkeys(structured["amounts"])),
+        "conclusions": list(dict.fromkeys(structured["conclusions"])),
+        "unresolved": sections["unresolved"],
+        "source_ids": sections["source_ids"],
+    }
+
+
+def _structured_memory_from_summary(summary: dict | None) -> dict:
+    if isinstance(summary, dict) and isinstance(summary.get("structured_memory"), dict):
+        return summary["structured_memory"]
+    return _structured_memory_from_summary_content(_summary_content(summary))
+
+
+def _build_structured_memory_text(summary: dict | None) -> str:
+    content = _summary_content(summary)
+    if not content:
+        return ""
+    structured = _structured_memory_from_summary(summary)
+    body = (
+        "会话结构化记忆(JSON):\n"
+        + json.dumps(structured, ensure_ascii=False, sort_keys=True)
+        + "\n\n会话摘要:\n"
+        + content
+    )
+    return _truncate_to_tokens(body, STRUCTURED_MEMORY_TOKEN_BUDGET)
+
+
+def _memory_context_is_relevant(query: str, content: str) -> bool:
+    if not query or not content:
+        return False
+    if _history_relevance_score(query, content) > 0:
+        return True
+    # Keep structured memories when they are strongly entity/date/amount oriented
+    # and contain at least one non-trivial Chinese or alphanumeric term from query.
+    query_terms = _significant_terms(query)
+    content_terms = _significant_terms(content)
+    return bool(query_terms and content_terms and query_terms & content_terms)
+
+
+def _get_or_create_system_conversation_memory(dialog, kbs):
+    if not kbs:
+        return None
+    kb = kbs[0]
+    embd_id = getattr(kb, "embd_id", "") or ""
+    if not embd_id:
+        return None
+    existing = list(MemoryService.query(tenant_id=dialog.tenant_id, name=SYSTEM_CONVERSATION_MEMORY_NAME))
+    if existing:
+        return existing[0]
+    _, memory = MemoryService.create_memory(
+        dialog.tenant_id,
+        SYSTEM_CONVERSATION_MEMORY_NAME,
+        [MemoryType.RAW.name.lower()],
+        embd_id,
+        getattr(kb, "tenant_embd_id", None),
+        getattr(dialog, "llm_id", "") or "",
+        getattr(dialog, "tenant_llm_id", None),
+    )
+    try:
+        MemoryService.update_memory(
+            dialog.tenant_id,
+            memory.id,
+            {
+                "description": "System-managed structured conversation memory for prompt-safe long-context recall.",
+                "permissions": "me",
+                "memory_size": 20 * 1024 * 1024,
+            },
+        )
+    except Exception as exc:  # noqa: BLE001 - memory metadata update is best effort
+        logging.warning("ConversationMemory metadata update failed: %s", exc)
+    return MemoryService.get_by_memory_id(memory.id)
+
+
+async def _persist_structured_conversation_memory(dialog, kbs, summary: dict | None, session_id: str | None):
+    content = _build_structured_memory_text(summary)
+    if not content:
+        return False
+    try:
+        memory = await thread_pool_exec(_get_or_create_system_conversation_memory, dialog, kbs)
+        if not memory:
+            logging.info("ConversationMemory skipped: no memory or embedding config available")
+            return False
+        message_id = REDIS_CONN.generate_auto_increment_id(namespace="memory")
+        message = {
+            "message_id": message_id,
+            "message_type": MemoryType.RAW.name.lower(),
+            "source_id": 0,
+            "memory_id": memory.id,
+            "user_id": getattr(dialog, "tenant_id", ""),
+            "agent_id": getattr(dialog, "id", "") or getattr(dialog, "llm_id", ""),
+            "session_id": session_id or "",
+            "content": content,
+            "valid_at": timestamp_to_date(current_timestamp()),
+            "invalid_at": None,
+            "forget_at": None,
+            "status": True,
+        }
+        ok, msg = await embed_and_save(memory, [message])
+        if not ok:
+            logging.warning("ConversationMemory save failed memory=%s msg=%s", getattr(memory, "id", ""), msg)
+            return False
+        logging.info("ConversationMemory saved memory=%s message_id=%s tokens=%s", memory.id, message_id, _safe_token_count(content))
+        return True
+    except Exception as exc:  # noqa: BLE001 - memory persistence must not break chat
+        logging.warning("ConversationMemory save failed: %s", exc)
+        return False
+
+
+ANSWER_LIKE_QUERY_PATTERNS = (
+    "主要包括",
+    "包括：",
+    "包括:",
+    "如下",
+    "合同条款",
+    "违约责任",
+    "担保措施",
+    "legal protections",
+    "include:",
+    "includes:",
+    "mainly include",
+)
+
+
+def _clean_generated_query_text(text: str) -> str:
+    text = _strip_process_blocks(text or "")
+    text = re.sub(r"[*`#>]+", " ", text)
+    text = re.sub(r"(?i)\b(output|input|chinese|english|中文|英文)\s*[:：]", " ", text)
+    text = re.sub(r"\s*(?:###|===)\s*", "\n", text)
+    lines = []
+    for line in text.splitlines():
+        line = re.sub(r"^\s*[-*\d.、]+\s*", "", line).strip()
+        if line:
+            lines.append(line)
+    return " ".join(lines)
+
+
+def _build_retrieval_query(question: str, fallback_question: str | None = None) -> str:
+    normalized = re.sub(r"\s+", " ", _clean_generated_query_text(question)).strip()
+    fallback = re.sub(r"\s+", " ", _clean_generated_query_text(fallback_question or "")).strip()
+    lower = normalized.lower()
+
+    if not normalized:
+        normalized = fallback
+    elif any(pattern in lower for pattern in ANSWER_LIKE_QUERY_PATTERNS) and fallback:
+        normalized = fallback
+
+    terms = normalized.split()
+    if len(terms) > MAX_RETRIEVAL_QUERY_TERMS:
+        normalized = " ".join(terms[:MAX_RETRIEVAL_QUERY_TERMS])
+
     if len(normalized) <= MAX_RETRIEVAL_QUERY_CHARS:
         return normalized
-    return normalized[:MAX_RETRIEVAL_QUERY_CHARS]
+    return normalized[:MAX_RETRIEVAL_QUERY_CHARS].rstrip()
+
+
+def _classify_retrieval_scope(question: str) -> str:
+    normalized = _normalize_route_text(question)
+    if any(word in normalized for word in ("比较", "对比", "区别", "总结", "汇总", "compare", "summary", "summarize")):
+        return "summary"
+    if any(word in normalized for word in ("研究", "分析", "报告", "趋势", "影响", "research", "analysis", "report")):
+        return "research"
+    if any(word in normalized for word in ("法律", "条文", "条例", "责任", "保障", "契诺", "租金", "liability", "covenant", "rent")):
+        return "legal"
+    if len(normalized) <= 40 or any(word in normalized for word in ("是什么", "是谁", "定义", "what is", "define")):
+        return "definition"
+    return "default"
+
+
+def _resolve_dynamic_retrieval_limits(dialog, question: str, deep_research_enabled: bool) -> tuple[int, int, str]:
+    configured_top_n = _safe_positive_int(getattr(dialog, "top_n", None), DEFAULT_RETRIEVAL_TOP_N)
+    configured_top_k = _safe_positive_int(getattr(dialog, "top_k", None), DEFAULT_RETRIEVAL_TOP_K)
+    if deep_research_enabled:
+        return configured_top_n, configured_top_k, "deep_research"
+
+    scope = _classify_retrieval_scope(question)
+    if scope == "definition":
+        target_top_n, target_top_k = 5, 512
+    elif scope == "legal":
+        target_top_n, target_top_k = 8, 1024
+    elif scope == "summary":
+        target_top_n, target_top_k = 12, 1536
+    elif scope == "research":
+        target_top_n, target_top_k = 12, 2048
+    else:
+        target_top_n, target_top_k = 8, 1024
+
+    return max(1, min(configured_top_n, target_top_n)), max(1, min(configured_top_k, target_top_k)), scope
+
+
+def _chunk_text_for_hash(chunk: dict) -> str:
+    return re.sub(r"\s+", " ", str(chunk.get("content_with_weight") or chunk.get("content") or "")).strip().lower()
+
+
+def _chunk_dedup_key(chunk: dict) -> tuple:
+    doc_id = chunk.get("doc_id") or chunk.get("document_id") or ""
+    page = chunk.get("page_num_int") or chunk.get("page_num") or ""
+    position = chunk.get("position_int") or chunk.get("positions") or ""
+    image_id = chunk.get("img_id") or chunk.get("image_id") or ""
+    if doc_id and (page or position or image_id):
+        return ("loc", doc_id, str(page), str(position), str(image_id))
+    digest = hashlib.sha1(_chunk_text_for_hash(chunk)[:5000].encode("utf-8", "ignore")).hexdigest()
+    return ("txt", doc_id, digest)
+
+
+def _deduplicate_retrieved_chunks(kbinfos: dict) -> tuple[int, int]:
+    chunks = kbinfos.get("chunks") or []
+    seen = set()
+    deduped = []
+    for chunk in chunks:
+        if not isinstance(chunk, dict):
+            continue
+        key = _chunk_dedup_key(chunk)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(chunk)
+    if len(deduped) != len(chunks):
+        kbinfos["chunks"] = deduped
+    return len(chunks), len(deduped)
+
+
+def _chunk_value(chunk: dict, *keys, default=""):
+    for key in keys:
+        value = chunk.get(key)
+        if value is not None:
+            return value
+    return default
+
+
+def _format_knowledge_chunk(chunk: dict, chunk_id: int) -> str:
+    def draw_node(label, value):
+        if value is not None and not isinstance(value, str):
+            value = str(value)
+        if not value:
+            return ""
+        return f"\n├── {label}: " + re.sub(r"\n+", " ", value, flags=re.DOTALL)
+
+    content = _chunk_value(chunk, "content", "content_with_weight")
+    formatted = f"\nID: {chunk_id}"
+    formatted += draw_node("Title", _chunk_value(chunk, "docnm_kwd", "document_name"))
+    formatted += draw_node("URL", chunk.get("url", ""))
+    meta = chunk.get("document_metadata") or {}
+    if isinstance(meta, dict):
+        for key, value in meta.items():
+            formatted += draw_node(key, value)
+    formatted += "\n└── Content:\n"
+    formatted += str(content or "")
+    return formatted
+
+
+def _chunk_document_name(chunk: dict) -> str:
+    return str(_chunk_value(chunk, "docnm_kwd", "document_name") or "")
+
+
+def _chunk_content(chunk: dict) -> str:
+    return str(_chunk_value(chunk, "content", "content_with_weight") or "")
+
+
+def _chunk_score(chunk: dict) -> float:
+    for key in ("similarity", "vector_similarity", "term_similarity"):
+        value = chunk.get(key)
+        try:
+            if value is not None:
+                return round(float(value), 4)
+        except (TypeError, ValueError):
+            continue
+    return 0.0
+
+
+def _classify_evidence_chunk(chunk: dict) -> tuple[str, str]:
+    content = _chunk_content(chunk).strip()
+    compact = re.sub(r"\s+", "", content)
+    has_article_signal = bool(
+        re.search(
+            r"(第\s*\d+\s*条|Section\s+\d+|subsection|\(\d+\)|\(1\)|凡任何|Where\s+a\s+personal|shall|不得|可将|法律责任|liability)",
+            content,
+            flags=re.IGNORECASE,
+        )
+    )
+    if is_raptor_summary_chunk(chunk):
+        if chunk.get("source_chunks"):
+            return "raptor_summary_with_sources", "摘要型证据，已关联原文片段，可辅助定位但不应单独支持强结论"
+        return "raptor_summary", "摘要型证据，缺少关联原文，只能作为导航线索"
+    if len(compact) < 80:
+        return "title_only", "内容过短，主要像标题或目录，不能单独作为结论依据"
+    if not has_article_signal and len(compact) < 220:
+        return "weak_context", "片段较短且缺少条文/事实信号，需要其他原文共同支持"
+    return "original_text", "包含可直接用于回答的原文或条文信息"
+
+
+def _build_evidence_audit(
+    kbinfos: dict,
+    cited_indexes: set | None,
+    question: str,
+    retrieval_query: str,
+    answer: str = "",
+    citation_id_map: dict | None = None,
+) -> dict:
+    chunks = [chunk for chunk in (kbinfos.get("chunks") or []) if isinstance(chunk, dict)]
+    cited = set()
+    for raw_index in cited_indexes or set():
+        try:
+            cited.add(int(raw_index))
+        except (TypeError, ValueError):
+            continue
+
+    evidence = []
+    warnings = []
+    type_counts = {}
+    citation_id_map = citation_id_map or {}
+    for index, chunk in enumerate(chunks):
+        evidence_type, reason = _classify_evidence_chunk(chunk)
+        fig_id = citation_id_map.get(index)
+        type_counts[evidence_type] = type_counts.get(evidence_type, 0) + 1
+        if evidence_type in {"title_only", "raptor_summary"}:
+            warnings.append(reason)
+        evidence.append(
+            {
+                "id": index,
+                "chunk_id": _chunk_value(chunk, "id", "chunk_id"),
+                "doc_id": _chunk_value(chunk, "doc_id", "document_id"),
+                "doc_name": _chunk_document_name(chunk),
+                "type": evidence_type,
+                "fig_id": fig_id,
+                "score": _chunk_score(chunk),
+                "has_image": bool(_chunk_value(chunk, "img_id", "image_id")),
+                "is_cited": index in cited,
+                "why": reason if index in cited else reason.replace("可直接用于回答", "可作为候选依据"),
+                "preview": _chunk_content(chunk).strip()[:260],
+            }
+        )
+
+    docs = {
+        _chunk_value(chunk, "doc_id", "document_id")
+        for chunk in chunks
+        if _chunk_value(chunk, "doc_id", "document_id")
+    }
+    answer_basis = []
+    if cited:
+        answer_basis.append(
+            {
+                "claim": "最终回答中出现引用标记的结论",
+                "source_ids": sorted(cited),
+                "fig_ids": [citation_id_map[index] for index in sorted(cited) if index in citation_id_map],
+            }
+        )
+    if any(item["type"] == "original_text" and item["is_cited"] for item in evidence):
+        source_ids = [item["id"] for item in evidence if item["type"] == "original_text" and item["is_cited"]]
+        answer_basis.append(
+            {
+                "claim": "优先使用包含原文或条文信息的 chunk",
+                "source_ids": source_ids,
+                "fig_ids": [citation_id_map[index] for index in source_ids if index in citation_id_map],
+            }
+        )
+    if any(item["type"] in {"title_only", "weak_context"} for item in evidence):
+        warnings.append("存在标题型或弱上下文片段，生成答案时不应把它们单独当作充分依据")
+
+    return {
+        "intent": "knowledge_base_question",
+        "query": question,
+        "rewritten_query": retrieval_query,
+        "retrieval": {
+            "candidate_docs": len([doc for doc in docs if doc]),
+            "candidate_chunks": len(chunks),
+            "selected_chunks": len(cited),
+            "type_counts": type_counts,
+        },
+        "evidence": evidence,
+        "answer_basis": answer_basis,
+        "warnings": sorted(set(warnings)),
+        "answer_citation_markers": sorted(set(CITATION_MARKER_PATTERN.findall(answer))) if answer else [],
+    }
+
+
+def _format_evidence_guidance_for_prompt(kbinfos: dict) -> str:
+    chunks = [chunk for chunk in (kbinfos.get("chunks") or []) if isinstance(chunk, dict)]
+    if not chunks:
+        return ""
+
+    lines = []
+    for index, chunk in enumerate(chunks[:12]):
+        evidence_type, reason = _classify_evidence_chunk(chunk)
+        doc_name = _chunk_document_name(chunk)
+        lines.append(f"- ID:{index} {evidence_type}: {reason}; source={doc_name[:90]}")
+
+    return (
+        "\n\n### Evidence audit guidance\n"
+        "Use this audit to choose reliable evidence before answering. Prefer original_text chunks. "
+        "Do not conclude the knowledge base lacks details if at least one original_text chunk directly addresses the question. "
+        "Do not rely on title_only or weak_context chunks alone for legal or factual conclusions. "
+        "If a RAPTOR summary is used, ground the claim in its linked original source chunks when available.\n"
+        + "\n".join(lines)
+    )
+
+
+def _prioritize_evidence_chunks(kbinfos: dict) -> None:
+    chunks = [chunk for chunk in (kbinfos.get("chunks") or []) if isinstance(chunk, dict)]
+    if len(chunks) < 2:
+        return
+
+    priority = {
+        "original_text": 0,
+        "raptor_summary_with_sources": 1,
+        "weak_context": 2,
+        "raptor_summary": 3,
+        "title_only": 4,
+    }
+    indexed = []
+    for order, chunk in enumerate(chunks):
+        evidence_type, _ = _classify_evidence_chunk(chunk)
+        indexed.append((priority.get(evidence_type, 2), order, chunk))
+    ordered = [chunk for _, _, chunk in sorted(indexed, key=lambda item: (item[0], item[1]))]
+    if ordered != chunks:
+        kbinfos["chunks"] = ordered
+        logging.info(
+            "EvidenceAudit reordered chunks original_types=%s",
+            [item[0] for item in indexed[:12]],
+        )
+
+
+def _kb_prompt_dynamic(kbinfos: dict, max_tokens: int) -> list[str]:
+    chunks = kbinfos.get("chunks") or []
+    knowledges = []
+    used_token_count = 0
+    limit = max(MIN_OUTPUT_TOKENS, int(max_tokens * 0.97))
+    for index, chunk in enumerate(chunks):
+        if not isinstance(chunk, dict):
+            continue
+        formatted = _format_knowledge_chunk(chunk, index)
+        chunk_tokens = _safe_token_count(formatted)
+        if knowledges and used_token_count + chunk_tokens > limit:
+            logging.warning(
+                "KnowledgeBudget trimmed chunks=%s/%s used=%s limit=%s",
+                len(knowledges),
+                len(chunks),
+                used_token_count,
+                limit,
+            )
+            break
+        if not knowledges and chunk_tokens > limit:
+            formatted = _truncate_to_tokens(formatted, limit)
+            chunk_tokens = _safe_token_count(formatted)
+        knowledges.append(formatted)
+        used_token_count += chunk_tokens
+        if used_token_count >= limit:
+            break
+    kbinfos["_prompt_chunk_count"] = len(knowledges)
+    kbinfos["_prompt_knowledge_tokens"] = used_token_count
+    return knowledges
 
 
 def _safe_positive_int(value, default: int) -> int:
@@ -918,8 +1889,7 @@ def _safe_positive_int(value, default: int) -> int:
     return parsed if parsed > 0 else default
 
 
-def _resolve_model_context_tokens(llm_model_config: dict | None, dialog) -> int:
-    configured_tokens = _safe_positive_int((llm_model_config or {}).get("max_tokens"), DEFAULT_MODEL_CONTEXT_TOKENS)
+def _is_deepseek_v4_model(llm_model_config: dict | None, dialog) -> bool:
     llm_name = " ".join(
         str(v or "")
         for v in (
@@ -928,8 +1898,24 @@ def _resolve_model_context_tokens(llm_model_config: dict | None, dialog) -> int:
             (llm_model_config or {}).get("model_name"),
         )
     ).lower()
-    if "deepseek-v4" in llm_name or "deepseek v4" in llm_name:
+    return "deepseek-v4" in llm_name or "deepseek v4" in llm_name
+
+
+def _resolve_dsv4_thinking_mode(prompt_config: dict | None, kwargs: dict | None) -> str:
+    kwargs = kwargs or {}
+    prompt_config = prompt_config or {}
+    reasoning = prompt_config.get("reasoning", False) or kwargs.get("reasoning")
+    reasoning_effort = str(kwargs.get("reasoning_effort") or "").strip().lower()
+    if reasoning or (reasoning_effort and reasoning_effort != "none"):
+        return "thinking"
+    return "chat"
+
+
+def _resolve_model_context_tokens(llm_model_config: dict | None, dialog) -> int:
+    configured_tokens = _safe_positive_int((llm_model_config or {}).get("max_tokens"), DEFAULT_MODEL_CONTEXT_TOKENS)
+    if _is_deepseek_v4_model(llm_model_config, dialog):
         configured_tokens = max(configured_tokens, DEEPSEEK_V4_CONTEXT_TOKENS)
+        configured_tokens = min(configured_tokens, DEEPSEEK_V4_EFFECTIVE_CONTEXT_TOKENS)
     return configured_tokens
 
 
@@ -940,6 +1926,11 @@ def _resolve_output_tokens(llm_setting: dict | None) -> int:
 def _resolve_context_budgets(llm_model_config: dict | None, dialog) -> dict[str, int]:
     model_context_tokens = _resolve_model_context_tokens(llm_model_config, dialog)
     output_tokens = min(_resolve_output_tokens(getattr(dialog, "llm_setting", None)), max(MIN_OUTPUT_TOKENS, model_context_tokens - MIN_OUTPUT_TOKENS))
+    if _is_deepseek_v4_model(llm_model_config, dialog):
+        output_tokens = min(
+            max(output_tokens, DEEPSEEK_V4_RAG_OUTPUT_TOKENS),
+            max(MIN_OUTPUT_TOKENS, model_context_tokens - MIN_OUTPUT_TOKENS),
+        )
     prompt_tokens = max(MIN_OUTPUT_TOKENS, model_context_tokens - output_tokens)
     return {
         "model": model_context_tokens,
@@ -948,6 +1939,157 @@ def _resolve_context_budgets(llm_model_config: dict | None, dialog) -> dict[str,
         "knowledge": max(MIN_OUTPUT_TOKENS, int(prompt_tokens * MAX_KNOWLEDGE_CONTEXT_RATIO)),
         "fit": max(MIN_OUTPUT_TOKENS, int(prompt_tokens * MAX_PROMPT_CONTEXT_RATIO)),
     }
+
+
+def _resolve_retry_context_budgets(context_budget: dict[str, int]) -> dict[str, int]:
+    model_context_tokens = min(context_budget["model"], DEEPSEEK_V4_RETRY_CONTEXT_TOKENS)
+    output_tokens = min(context_budget["output"], DEFAULT_OUTPUT_TOKENS, max(MIN_OUTPUT_TOKENS, model_context_tokens - MIN_OUTPUT_TOKENS))
+    prompt_tokens = max(MIN_OUTPUT_TOKENS, model_context_tokens - output_tokens)
+    return {
+        "model": model_context_tokens,
+        "output": output_tokens,
+        "prompt": prompt_tokens,
+        "knowledge": max(MIN_OUTPUT_TOKENS, int(prompt_tokens * 0.35)),
+        "fit": max(MIN_OUTPUT_TOKENS, int(prompt_tokens * 0.90)),
+    }
+
+
+def _prompt_hard_limit(context_budget: dict[str, int], output_tokens: int) -> int:
+    hard_limit = context_budget["fit"]
+    if context_budget["model"] >= DEEPSEEK_V4_EFFECTIVE_CONTEXT_TOKENS:
+        hard_limit = min(hard_limit, DEEPSEEK_V4_PROMPT_HARD_TOKENS)
+    reserve = max(1024, output_tokens)
+    return max(MIN_OUTPUT_TOKENS, min(hard_limit, context_budget["model"] - reserve))
+
+
+def _fit_messages_to_budget(msg: list[dict], context_budget: dict[str, int], gen_conf: dict, stage: str) -> tuple[int, list[dict], int]:
+    output_tokens = _safe_positive_int(gen_conf.get("max_tokens"), context_budget["output"])
+    prompt_limit = _prompt_hard_limit(context_budget, output_tokens)
+    original_count = len(msg)
+    used_token_count, fitted_msg = _message_fit_in_dynamic(msg, prompt_limit)
+    if len(fitted_msg) < original_count or used_token_count > prompt_limit:
+        logging.info(
+            "ContextBudget stage=%s trimmed messages=%s->%s used=%s prompt_limit=%s output=%s model=%s",
+            stage,
+            original_count,
+            len(fitted_msg),
+            used_token_count,
+            prompt_limit,
+            output_tokens,
+            context_budget["model"],
+        )
+    return used_token_count, fitted_msg, prompt_limit
+
+
+def _message_fit_in_dynamic(msg: list[dict], max_length: int) -> tuple[int, list[dict]]:
+    fitted = [{"role": m.get("role", "user"), "content": str(m.get("content", ""))} for m in msg or []]
+
+    def count(messages: list[dict]) -> int:
+        return _messages_token_count(messages)
+
+    current_count = count(fitted)
+    if current_count < max_length:
+        return current_count, fitted
+
+    preserved = [m for m in fitted if m.get("role") == "system"]
+    if len(fitted) > 1:
+        preserved.append(fitted[-1])
+    fitted = preserved
+    current_count = count(fitted)
+    if current_count < max_length:
+        return current_count, fitted
+
+    if not fitted:
+        return 0, fitted
+
+    if len(fitted) == 1:
+        fitted[0]["content"] = _truncate_to_tokens(fitted[0]["content"], max_length)
+        return count(fitted), fitted
+
+    system_tokens = max(0, _safe_token_count(fitted[0].get("content", "")))
+    user_tokens = max(0, _safe_token_count(fitted[-1].get("content", "")))
+    total = system_tokens + user_tokens
+    if total <= 0:
+        return 0, fitted
+
+    if system_tokens / total > 0.8:
+        preserved_user = min(user_tokens, max_length)
+        fitted[-1]["content"] = _truncate_to_tokens(fitted[-1]["content"], preserved_user)
+        fitted[0]["content"] = _truncate_to_tokens(fitted[0]["content"], max(0, max_length - preserved_user))
+        return count(fitted), fitted
+
+    preserved_system = min(system_tokens, max_length)
+    fitted[0]["content"] = _truncate_to_tokens(fitted[0]["content"], preserved_system)
+    fitted[-1]["content"] = _truncate_to_tokens(fitted[-1]["content"], max(0, max_length - preserved_system))
+    return count(fitted), fitted
+
+
+@asynccontextmanager
+async def _generation_slot(llm_model_config: dict | None, dialog):
+    if not _is_deepseek_v4_model(llm_model_config, dialog):
+        yield
+        return
+    logging.debug("DS4GenerationQueue waiting max_concurrent=%s llm_id=%s", DS4_MAX_CONCURRENT_GENERATIONS, dialog.llm_id)
+    async with DS4_GENERATION_SEMAPHORE:
+        logging.debug("DS4GenerationQueue acquired llm_id=%s", dialog.llm_id)
+        yield
+
+
+def _log_rag_token_budget(
+    stage: str,
+    context_budget: dict[str, int],
+    msg: list[dict],
+    gen_conf: dict,
+    kbinfos: dict,
+    retrieval_scope: str,
+    retrieval_top_n: int,
+    retrieval_top_k: int,
+    knowledge_text: str,
+    memory_context_text: str,
+    attachments_text: str,
+) -> None:
+    try:
+        output_tokens = _safe_positive_int(gen_conf.get("max_tokens"), context_budget["output"])
+        system_tokens = _safe_token_count(msg[0].get("content", "")) if msg else 0
+        latest_user_tokens = 0
+        history_tokens = 0
+        user_indexes = [idx for idx, m in enumerate(msg) if m.get("role") == "user"]
+        latest_user_index = user_indexes[-1] if user_indexes else None
+        for idx, message in enumerate(msg[1:], start=1):
+            tokens = _safe_token_count(message.get("content", ""))
+            if latest_user_index is not None and idx == latest_user_index:
+                latest_user_tokens += tokens
+            else:
+                history_tokens += tokens
+        logging.info(
+            "RAGTokenBudget stage=%s model=%s prompt_fit=%s prompt_hard=%s output=%s final_prompt=%s "
+            "system=%s knowledge=%s memory=%s attachments=%s history=%s question=%s chunks=%s docs=%s "
+            "retrieval_scope=%s top_n=%s top_k=%s",
+            stage,
+            context_budget["model"],
+            context_budget["fit"],
+            _prompt_hard_limit(context_budget, output_tokens),
+            output_tokens,
+            _messages_token_count(msg),
+            system_tokens,
+            _safe_token_count(knowledge_text),
+            _safe_token_count(memory_context_text),
+            _safe_token_count(attachments_text),
+            history_tokens,
+            latest_user_tokens,
+            len(kbinfos.get("chunks", [])),
+            len(kbinfos.get("doc_aggs", [])),
+            retrieval_scope,
+            retrieval_top_n,
+            retrieval_top_k,
+        )
+    except Exception as exc:  # noqa: BLE001 - budget logging is diagnostic only
+        logging.warning("RAGTokenBudget logging failed at stage=%s: %s", stage, exc)
+
+
+def _is_context_span_error(exc: Exception | str) -> bool:
+    text = str(exc).lower()
+    return any(pattern in text for pattern in CONTEXT_SPAN_ERROR_PATTERNS)
 
 
 def _group_accessible_memories_for_query(tenant_id: str) -> list[list[str]]:
@@ -988,7 +2130,7 @@ async def _retrieve_memory_context(tenant_id: str, query: str, token_budget: int
             continue
         for message in matches or []:
             content = message.get("content") if isinstance(message, dict) else None
-            if content:
+            if content and _memory_context_is_relevant(query, str(content)):
                 memory_messages.append({"content": str(content)})
             if len(memory_messages) >= MAX_MEMORY_RESULTS:
                 break
@@ -1026,6 +2168,17 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         llm_model_config = TenantLLMService.get_model_config(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
 
     factory = llm_model_config.get("llm_factory", "") if llm_model_config else ""
+    dsv4_thinking_mode = _resolve_dsv4_thinking_mode(getattr(dialog, "prompt_config", None), kwargs)
+    token_counter = DynamicTokenCounter.from_model_config(llm_model_config, dsv4_thinking_mode=dsv4_thinking_mode)
+    ACTIVE_TOKEN_COUNTER.set(token_counter)
+    logging.debug(
+        "TokenizerCounter model=%s provider=%s base_url=%s fallback_safety=%.2f dsv4_thinking_mode=%s",
+        token_counter.model_name,
+        token_counter.provider,
+        token_counter.base_url,
+        token_counter.fallback_safety_factor,
+        token_counter.resolved_dsv4_thinking_mode,
+    )
     context_budget = _resolve_context_budgets(llm_model_config, dialog)
     max_tokens = context_budget["model"]
     logging.debug(
@@ -1119,7 +2272,21 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
 
     latest_user_question = questions[-1] if questions else latest_question
     depends_on_history = _question_depends_on_history(latest_user_question)
-    if len(questions) > 1 and prompt_config.get("refine_multiturn") and depends_on_history:
+    cached_conversation_summary = kwargs.get(CONVERSATION_SUMMARY_KEY)
+    if not isinstance(cached_conversation_summary, dict):
+        cached_conversation_summary = None
+    reset_conversation_summary, topic_reset_reason = await _should_reset_topic_with_semantics(
+        latest_user_question,
+        cached_conversation_summary,
+        messages,
+        depends_on_history,
+        embd_mdl,
+    )
+    use_history_context = depends_on_history and not reset_conversation_summary
+    if reset_conversation_summary:
+        logging.info("ConversationSummary reset reason=%s question=%s", topic_reset_reason, latest_user_question[:120])
+
+    if len(questions) > 1 and prompt_config.get("refine_multiturn") and use_history_context:
         questions = [await full_question(dialog.tenant_id, dialog.llm_id, messages)]
     else:
         questions = questions[-1:]
@@ -1140,17 +2307,30 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
 
     if prompt_config.get("keyword", False):
         questions[-1] = questions[-1] + "," + await keyword_extraction(chat_mdl, questions[-1])
-    retrieval_query = _build_retrieval_query(questions[-1])
+    retrieval_query = _build_retrieval_query(questions[-1], latest_user_question)
     refine_question_ts = timer()
 
     thought = ""
     kbinfos = {"total": 0, "chunks": [], "doc_aggs": []}
     knowledges = []
     deep_research_enabled = False
+    retrieval_top_n = _safe_positive_int(getattr(dialog, "top_n", None), DEFAULT_RETRIEVAL_TOP_N)
+    retrieval_top_k = _safe_positive_int(getattr(dialog, "top_k", None), DEFAULT_RETRIEVAL_TOP_K)
+    retrieval_scope = "not_retrieved"
 
     if "knowledge" in param_keys:
         logging.debug("Proceeding with retrieval")
         deep_research_enabled = prompt_config.get("reasoning", False) or kwargs.get("reasoning")
+        retrieval_top_n, retrieval_top_k, retrieval_scope = _resolve_dynamic_retrieval_limits(dialog, retrieval_query, deep_research_enabled)
+        logging.info(
+            "RetrievalPlanner scope=%s top_n=%s top_k=%s configured_top_n=%s configured_top_k=%s query=%s",
+            retrieval_scope,
+            retrieval_top_n,
+            retrieval_top_k,
+            getattr(dialog, "top_n", None),
+            getattr(dialog, "top_k", None),
+            retrieval_query[:160],
+        )
         if not deep_research_enabled:
             query_preview = retrieval_query.replace("\n", " ").strip()[:160]
             yield {
@@ -1173,7 +2353,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                     tenant_ids=tenant_ids,
                     kb_ids=dialog.kb_ids,
                     page=1,
-                    page_size=dialog.top_n,
+                    page_size=retrieval_top_n,
                     similarity_threshold=0.2,
                     vector_similarity_weight=0.3,
                     doc_ids=attachments,
@@ -1208,20 +2388,23 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                     tenant_ids,
                     dialog.kb_ids,
                     1,
-                    dialog.top_n,
+                    retrieval_top_n,
                     dialog.similarity_threshold,
                     dialog.vector_similarity_weight,
                     doc_ids=attachments,
-                    top=dialog.top_k,
+                    top=retrieval_top_k,
                     aggs=True,
                     rerank_mdl=rerank_mdl,
                     rank_feature=label_question(retrieval_query, kbs),
                 )
                 if prompt_config.get("toc_enhance"):
-                    cks = await retriever.retrieval_by_toc(retrieval_query, kbinfos["chunks"], tenant_ids, chat_mdl, dialog.top_n)
+                    cks = await retriever.retrieval_by_toc(retrieval_query, kbinfos["chunks"], tenant_ids, chat_mdl, retrieval_top_n)
                     if cks:
                         kbinfos["chunks"] = cks
                 kbinfos["chunks"] = retriever.retrieval_by_children(kbinfos["chunks"], tenant_ids)
+                before_dedup, after_dedup = _deduplicate_retrieved_chunks(kbinfos)
+                if before_dedup != after_dedup:
+                    logging.info("RetrievalDedup chunks=%s->%s query=%s", before_dedup, after_dedup, retrieval_query[:160])
                 yield {
                     "answer": (
                         f"Found {len(kbinfos.get('chunks', []))} relevant passages"
@@ -1236,6 +2419,9 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 tav_res = tav.retrieve_chunks(retrieval_query)
                 kbinfos["chunks"].extend(tav_res["chunks"])
                 kbinfos["doc_aggs"].extend(tav_res["doc_aggs"])
+                before_dedup, after_dedup = _deduplicate_retrieved_chunks(kbinfos)
+                if before_dedup != after_dedup:
+                    logging.info("RetrievalDedup after_web chunks=%s->%s query=%s", before_dedup, after_dedup, retrieval_query[:160])
                 yield {
                     "answer": f"Added {len(tav_res.get('chunks', []))} web search passages.\n",
                     "reference": {},
@@ -1247,6 +2433,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 ck = await settings.kg_retriever.retrieval(retrieval_query, tenant_ids, dialog.kb_ids, embd_mdl, LLMBundle(dialog.tenant_id, default_chat_model))
                 if ck["content_with_weight"]:
                     kbinfos["chunks"].insert(0, ck)
+                    _deduplicate_retrieved_chunks(kbinfos)
                     yield {"answer": "Added knowledge graph context.\n", "reference": {}, "audio_binary": None, "final": False}
         if not deep_research_enabled:
             yield {
@@ -1256,6 +2443,10 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 "final": False,
             }
 
+    before_dedup, after_dedup = _deduplicate_retrieved_chunks(kbinfos)
+    if before_dedup != after_dedup:
+        logging.info("RetrievalDedup final chunks=%s->%s query=%s", before_dedup, after_dedup, retrieval_query[:160])
+
     if include_reference_metadata:
         logging.debug(
             "reference_metadata enrichment enabled for async_chat: chunk_count=%d metadata_fields=%s",
@@ -1264,8 +2455,11 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         )
         _enrich_chunks_with_document_metadata(kbinfos.get("chunks", []), metadata_fields)
 
-    knowledges = kb_prompt(kbinfos, context_budget["knowledge"])
+    expand_raptor_chunks_for_generation(kbinfos)
+    _prioritize_evidence_chunks(kbinfos)
+    knowledges = _kb_prompt_dynamic(kbinfos, context_budget["knowledge"])
     logging.debug("{}->{}".format(" ".join(questions), "\n->".join(knowledges)))
+    evidence_guidance_text = _format_evidence_guidance_for_prompt(kbinfos) if knowledges else ""
     memory_context = await _retrieve_memory_context(
         dialog.tenant_id,
         retrieval_query,
@@ -1284,35 +2478,61 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     gen_conf = deepcopy(dialog.llm_setting or {})
     if prompt_config.get("reasoning", False) or kwargs.get("reasoning"):
         gen_conf["reasoning"] = True
-    if "max_tokens" in gen_conf:
-        gen_conf["max_tokens"] = context_budget["output"]
+    gen_conf["max_tokens"] = context_budget["output"]
 
     memory_context_text = ""
     if memory_context:
         memory_context_text = "\n\n### Conversation memory:\n" + "\n".join(f"- {m}" for m in memory_context)
 
-    msg = [{"role": "system", "content": prompt_config["system"].format(**kwargs) + memory_context_text + attachments_}]
+    if reset_conversation_summary:
+        conversation_summary_update = {"content": "", "reset": True, "reason": topic_reset_reason, "updated_at": time.time()}
+        prompt_conversation_summary = None
+    else:
+        conversation_summary_update = None
+        prompt_conversation_summary = cached_conversation_summary if use_history_context else None
+    summary_update_pending = use_history_context and not reset_conversation_summary
+    conversation_summary_text = _format_conversation_summary_context(prompt_conversation_summary)
+    if conversation_summary_text:
+        logging.info(
+            "ConversationSummary injected cached tokens=%s source_messages=%s",
+            _safe_token_count(conversation_summary_text),
+            len((prompt_conversation_summary or {}).get("source_message_ids") or []),
+        )
+
     prompt4citation = ""
     if knowledges and (prompt_config.get("quote", True) and kwargs.get("quote", True)):
-        prompt4citation = citation_prompt()
-    msg.extend([{"role": m["role"], "content": re.sub(r"##\d+\$\$", "", m["content"])} for m in messages if m["role"] != "system"])
-    original_message_count = len(msg)
-    used_token_count, msg = message_fit_in(msg, context_budget["fit"])
-    if len(msg) < original_message_count:
-        logging.info(
-            "ContextBudget trimmed chat history from %s to %s messages under fit_budget=%s",
-            original_message_count,
-            len(msg),
-            context_budget["fit"],
-        )
+        prompt4citation = COMPACT_CITATION_PROMPT
+    system_prompt = prompt_config["system"].format(**kwargs) + evidence_guidance_text + conversation_summary_text + memory_context_text + attachments_ + prompt4citation
+    msg = [{"role": "system", "content": system_prompt}]
+    generation_history = _rag_generation_messages(
+        messages,
+        latest_user_question,
+        use_history_context,
+        min(MAX_RAG_HISTORY_TOKENS, max(MIN_OUTPUT_TOKENS, context_budget["prompt"] // 8)),
+    )
+    msg.extend([{"role": m["role"], "content": re.sub(r"##\d+\$\$", "", m["content"])} for m in generation_history if m["role"] != "system"])
+    used_token_count, msg, prompt_hard_limit = _fit_messages_to_budget(msg, context_budget, gen_conf, "initial")
     if llm_type == "chat" and image_attachments:
         convert_last_user_msg_to_multimodal(msg, image_attachments, factory)
     assert len(msg) >= 2, f"message_fit_in has bug: {msg}"
     prompt = msg[0]["content"]
+    prompt4citation = ""
 
-    if "max_tokens" in gen_conf:
-        available_output_tokens = max(MIN_OUTPUT_TOKENS, max_tokens - used_token_count)
-        gen_conf["max_tokens"] = max(MIN_OUTPUT_TOKENS, min(int(gen_conf["max_tokens"]), available_output_tokens))
+    available_output_tokens = max(MIN_OUTPUT_TOKENS, max_tokens - used_token_count)
+    gen_conf["max_tokens"] = max(MIN_OUTPUT_TOKENS, min(int(gen_conf["max_tokens"]), available_output_tokens))
+    _log_rag_token_budget(
+        "initial",
+        context_budget,
+        msg,
+        gen_conf,
+        kbinfos,
+        retrieval_scope,
+        retrieval_top_n,
+        retrieval_top_k,
+        kwargs.get("knowledge", ""),
+        memory_context_text,
+        attachments_,
+    )
 
     async def decorate_answer(answer):
         nonlocal embd_mdl, prompt_config, knowledges, kwargs, kbinfos, prompt, retrieval_ts, questions, langfuse_generation
@@ -1323,6 +2543,13 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         if len(ans) == 2:
             think = ans[0] + "</think>"
             answer = ans[1]
+
+        if any(pattern in answer for pattern in ERROR_HISTORY_PATTERNS):
+            cleaned_error = _strip_process_blocks(answer)
+            return {
+                "answer": cleaned_error or answer,
+                "reference": {"chunks": [], "doc_aggs": []},
+            }
 
         if knowledges and (prompt_config.get("quote", True) and kwargs.get("quote", True)):
             idx = set([])
@@ -1353,7 +2580,15 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 )
                 answer, idx = append_fallback_citations(answer, kbinfos)
             answer = normalize_markdown_table_citations(answer)
-            answer, refs = build_compact_reference(answer, kbinfos, idx)
+            answer, refs, citation_id_map = build_compact_reference(answer, kbinfos, idx)
+            refs["evidence_audit"] = _build_evidence_audit(
+                kbinfos,
+                idx,
+                " ".join(questions),
+                retrieval_query,
+                answer,
+                citation_id_map,
+            )
 
         if answer.lower().find("invalid key") >= 0 or answer.lower().find("invalid api") >= 0:
             answer += " Please set LLM API-Key in 'User Setting -> Model providers -> API-Key'"
@@ -1398,7 +2633,23 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
             )
             langfuse_generation.end()
 
-        return {"answer": think + answer, "reference": refs, "prompt": re.sub(r"\n", "  \n", prompt), "created_at": time.time()}
+        final_conversation_summary_update = conversation_summary_update
+        if summary_update_pending:
+            final_conversation_summary_update = await _resolve_conversation_summary(
+                chat_mdl,
+                llm_model_config,
+                dialog,
+                messages,
+                cached_conversation_summary,
+                True,
+            )
+
+        result = {"answer": think + answer, "reference": refs, "prompt": re.sub(r"\n", "  \n", prompt), "created_at": time.time()}
+        if isinstance(final_conversation_summary_update, dict) and (final_conversation_summary_update.get("content") or final_conversation_summary_update.get("reset")):
+            result[CONVERSATION_SUMMARY_KEY] = final_conversation_summary_update
+            if final_conversation_summary_update.get("content") and final_conversation_summary_update.get("changed"):
+                await _persist_structured_conversation_memory(dialog, kbs, final_conversation_summary_update, kwargs.get("_session_id"))
+        return result
 
     if langfuse_tracer:
         try:
@@ -1414,6 +2665,69 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
             langfuse_tracer = None
             langfuse_generation = None
 
+    async def run_model_stream(current_prompt, current_msg, current_gen_conf):
+        async with _generation_slot(llm_model_config, dialog):
+            if llm_type == "chat":
+                current_stream_iter = chat_mdl.async_chat_streamly_delta(current_prompt, current_msg[1:], current_gen_conf)
+            else:
+                current_stream_iter = chat_mdl.async_chat_streamly_delta(current_prompt, current_msg[1:], current_gen_conf, images=image_files)
+            async for item in _stream_with_think_delta(current_stream_iter):
+                yield item
+
+    async def run_model_once(current_prompt, current_msg, current_gen_conf):
+        async with _generation_slot(llm_model_config, dialog):
+            if llm_type == "chat":
+                return await chat_mdl.async_chat(current_prompt, current_msg[1:], current_gen_conf)
+            return await chat_mdl.async_chat(current_prompt, current_msg[1:], current_gen_conf, images=image_files)
+
+    def build_context_retry_payload():
+        retry_budget = _resolve_retry_context_budgets(context_budget)
+        retry_knowledges = _kb_prompt_dynamic(kbinfos, retry_budget["knowledge"])
+        retry_kwargs = deepcopy(kwargs)
+        retry_kwargs["knowledge"] = "\n------\n" + "\n\n------\n\n".join(retry_knowledges)
+        retry_prompt4citation = ""
+        if retry_knowledges and (prompt_config.get("quote", True) and kwargs.get("quote", True)):
+            retry_prompt4citation = COMPACT_CITATION_PROMPT
+        retry_evidence_guidance_text = _format_evidence_guidance_for_prompt(kbinfos) if retry_knowledges else ""
+        retry_system_prompt = prompt_config["system"].format(**retry_kwargs) + retry_evidence_guidance_text + conversation_summary_text + memory_context_text + attachments_ + retry_prompt4citation
+        retry_msg = [{"role": "system", "content": retry_system_prompt}]
+        retry_msg.extend([{"role": m["role"], "content": re.sub(r"##\d+\$\$", "", m["content"])} for m in generation_history if m["role"] != "system"])
+        retry_gen_conf = deepcopy(gen_conf)
+        retry_gen_conf["max_tokens"] = min(_safe_positive_int(retry_gen_conf.get("max_tokens"), retry_budget["output"]), retry_budget["output"])
+        retry_used_token_count, retry_msg, _ = _fit_messages_to_budget(retry_msg, retry_budget, retry_gen_conf, "retry")
+        if llm_type == "chat" and image_attachments:
+            convert_last_user_msg_to_multimodal(retry_msg, image_attachments, factory)
+        retry_prompt = retry_msg[0]["content"]
+        available_output_tokens = max(MIN_OUTPUT_TOKENS, retry_budget["model"] - retry_used_token_count)
+        retry_gen_conf["max_tokens"] = max(
+            MIN_OUTPUT_TOKENS,
+            min(int(retry_gen_conf["max_tokens"]), retry_budget["output"], available_output_tokens),
+        )
+        logging.warning(
+            "ContextBudget retry model=%s prompt=%s knowledge=%s fit=%s output=%s used=%s llm_id=%s",
+            retry_budget["model"],
+            retry_budget["prompt"],
+            retry_budget["knowledge"],
+            retry_budget["fit"],
+            retry_budget["output"],
+            retry_used_token_count,
+            dialog.llm_id,
+        )
+        _log_rag_token_budget(
+            "retry",
+            retry_budget,
+            retry_msg,
+            retry_gen_conf,
+            kbinfos,
+            retrieval_scope,
+            retrieval_top_n,
+            retrieval_top_k,
+            retry_kwargs.get("knowledge", ""),
+            memory_context_text,
+            attachments_,
+        )
+        return retry_prompt, retry_msg, retry_gen_conf
+
     if stream:
         if "knowledge" in param_keys and not deep_research_enabled:
             yield {
@@ -1422,18 +2736,32 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 "audio_binary": None,
                 "final": False,
             }
-        if llm_type == "chat":
-            stream_iter = chat_mdl.async_chat_streamly_delta(prompt + prompt4citation, msg[1:], gen_conf)
-        else:
-            stream_iter = chat_mdl.async_chat_streamly_delta(prompt + prompt4citation, msg[1:], gen_conf, images=image_files)
         last_state = None
-        async for kind, value, state in _stream_with_think_delta(stream_iter):
-            last_state = state
-            if kind == "marker":
-                flags = {"start_to_think": True} if value == "<think>" else {"end_to_think": True}
-                yield {"answer": "", "reference": {}, "audio_binary": None, "final": False, **flags}
-                continue
-            yield {"answer": value, "reference": {}, "audio_binary": tts(tts_mdl, value), "final": False}
+        try:
+            async for kind, value, state in run_model_stream(prompt, msg, gen_conf):
+                last_state = state
+                if kind == "marker":
+                    flags = {"start_to_think": True} if value == "<think>" else {"end_to_think": True}
+                    yield {"answer": "", "reference": {}, "audio_binary": None, "final": False, **flags}
+                    continue
+                if _is_context_span_error(value):
+                    raise RuntimeError(value)
+                yield {"answer": value, "reference": {}, "audio_binary": tts(tts_mdl, value), "final": False}
+        except Exception as exc:
+            if not _is_context_span_error(exc):
+                raise
+            logging.warning("Context span error from LLM; retrying with reduced prompt budget: %s", exc)
+            retry_prompt, retry_msg, retry_gen_conf = build_context_retry_payload()
+            last_state = None
+            async for kind, value, state in run_model_stream(retry_prompt, retry_msg, retry_gen_conf):
+                last_state = state
+                if kind == "marker":
+                    flags = {"start_to_think": True} if value == "<think>" else {"end_to_think": True}
+                    yield {"answer": "", "reference": {}, "audio_binary": None, "final": False, **flags}
+                    continue
+                if _is_context_span_error(value):
+                    raise RuntimeError(value)
+                yield {"answer": value, "reference": {}, "audio_binary": tts(tts_mdl, value), "final": False}
         full_answer = last_state.full_text if last_state else ""
         if full_answer:
             final = await decorate_answer(_extract_visible_answer(thought + full_answer))
@@ -1441,10 +2769,16 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
             final["audio_binary"] = None
             yield final
     else:
-        if llm_type == "chat":
-            answer = await chat_mdl.async_chat(prompt + prompt4citation, msg[1:], gen_conf)
-        else:
-            answer = await chat_mdl.async_chat(prompt + prompt4citation, msg[1:], gen_conf, images=image_files)
+        try:
+            answer = await run_model_once(prompt, msg, gen_conf)
+            if _is_context_span_error(answer):
+                raise RuntimeError(answer)
+        except Exception as exc:
+            if not _is_context_span_error(exc):
+                raise
+            logging.warning("Context span error from LLM; retrying non-stream request with reduced prompt budget: %s", exc)
+            retry_prompt, retry_msg, retry_gen_conf = build_context_retry_payload()
+            answer = await run_model_once(retry_prompt, retry_msg, retry_gen_conf)
         user_content = msg[-1].get("content", "[content not available]")
         logging.debug("User: {}|Assistant: {}".format(user_content, answer))
         res = await decorate_answer(answer)
@@ -1997,6 +3331,12 @@ def _extract_visible_answer(text: str) -> str:
     if not thought:
         return answer
     return f"<think>{thought}</think>{answer}"
+
+
+def _strip_process_blocks(text: str) -> str:
+    text = THINK_BLOCK_PATTERN.sub("", text or "")
+    text = RETRIEVING_BLOCK_PATTERN.sub("", text)
+    return PROCESS_TAG_PATTERN.sub("", text).strip()
 
 
 def _next_think_delta(state: _ThinkStreamState) -> str:

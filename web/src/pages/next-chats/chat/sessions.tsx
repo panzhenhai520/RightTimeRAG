@@ -168,19 +168,21 @@ export function Sessions({ handleConversationCardClick }: SessionProps) {
 
   return (
     <aside
-      className="p-5 w-[296px] flex flex-col"
+      className="px-4 py-4 w-[276px] flex flex-col"
       role="complementary"
       data-testid="chat-detail-sessions"
     >
-      <header className="flex items-center text-base justify-between gap-4">
-        <div className="flex gap-3 items-center min-w-0">
+      <header className="flex items-center text-sm justify-between gap-3">
+        <div className="flex gap-2.5 items-center min-w-0">
           <RAGFlowAvatar
             avatar={data.icon}
             name={data.name}
-            className="size-8"
+            className="size-7"
           />
 
-          <span className="flex-1 truncate">{data.name}</span>
+          <span className="flex-1 truncate font-medium leading-5">
+            {data.name}
+          </span>
         </div>
 
         <Tooltip>
@@ -216,9 +218,11 @@ export function Sessions({ handleConversationCardClick }: SessionProps) {
         </Button>
       </header>
 
-      <div className="flex justify-between items-center mb-4 pt-10">
-        <div className="flex items-center gap-3">
-          <span className="text-base font-bold">{t('chat.conversations')}</span>
+      <div className="flex justify-between items-center mb-3 pt-6">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold">
+            {t('chat.conversations')}
+          </span>
           <data
             className="text-text-secondary text-xs"
             value={conversationList.length}
@@ -289,7 +293,7 @@ export function Sessions({ handleConversationCardClick }: SessionProps) {
         </div>
       </div>
 
-      <div className="pb-4" role="search">
+      <div className="pb-3" role="search">
         <SearchInput
           onChange={handleInputChange}
           value={searchString}
@@ -299,11 +303,11 @@ export function Sessions({ handleConversationCardClick }: SessionProps) {
 
       <div className="flex-1 overflow-auto">
         {selectionMode ? (
-          <ul className="space-y-2" role="listbox" aria-multiselectable>
+          <ul className="space-y-1" role="listbox" aria-multiselectable>
             {conversationList.map((x) => (
               <li
                 key={x.id}
-                className="py-2"
+                className="py-1 text-xs leading-5"
                 role="option"
                 aria-selected={selectedIds.has(x.id)}
                 data-session-id={x.id}
@@ -323,19 +327,19 @@ export function Sessions({ handleConversationCardClick }: SessionProps) {
           </ul>
         ) : (
           <nav aria-label={t('chat.conversations')}>
-            <ul className="space-y-2">
+            <ul className="space-y-1">
               {conversationList.map((x) => (
                 <li
                   key={x.id}
                   className="
-                      group pr-3 flex items-center gap-1 rounded-lg
+                      group pr-2 flex items-center gap-1 rounded-md text-xs leading-5
                       aria-selected:bg-bg-card has-[>button:focus-visible]:bg-bg-card
                     "
                   aria-selected={conversationId === x.id}
                 >
                   <button
                     type="button"
-                    className="focus-visible:outline-none px-3 py-2 text-left flex-1 truncate"
+                    className="focus-visible:outline-none px-2.5 py-1.5 text-left flex-1 truncate"
                     onClick={() => handleConversationCardClick(x.id, x.is_new)}
                     data-testid="chat-detail-session-item"
                     data-session-id={x.id}

@@ -10,9 +10,13 @@ import {
   useRemoveSessions,
 } from '@/hooks/use-chat-request';
 import { IConversation } from '@/interfaces/database/chat';
-import { Trash2 } from 'lucide-react';
+import api from '@/utils/api';
+import request from '@/utils/next-request';
+import { BookMarked, Trash2 } from 'lucide-react';
 import { MouseEventHandler, PropsWithChildren, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router';
+import { toast } from 'sonner';
 import { useChatUrlParams } from '../hooks/use-chat-url';
 
 export function ConversationDropdown({
@@ -27,6 +31,39 @@ export function ConversationDropdown({
   const { setConversationBoth } = useChatUrlParams();
   const { removeSessions } = useRemoveSessions();
   const { conversationId, isNew } = useGetChatSearchParams();
+  const navigate = useNavigate();
+
+  const handleAddToMemory: MouseEventHandler<HTMLDivElement> =
+    useCallback(async (e) => {
+      e.stopPropagation();
+      if (conversation.is_new || !conversation.chat_id || !conversation.id) {
+        toast.info(t('chat.addToMemoryPreparing'));
+        return;
+      }
+
+      try {
+        const { data } = await request.post(api.memorizeChat, {
+          chat_id: conversation.chat_id,
+          session_id: conversation.id,
+        });
+
+        if (data?.code === 0) {
+          const memoryId = data?.data?.memory_id;
+          toast.success(t('chat.addToMemorySuccess'), {
+            action: memoryId
+              ? {
+                  label: t('chat.viewMemory'),
+                  onClick: () => navigate(`/memory/message/${memoryId}`),
+                }
+              : undefined,
+          });
+        } else {
+          toast.error(data?.message || t('chat.addToMemoryFailed'));
+        }
+      } catch {
+        toast.error(t('chat.addToMemoryFailed'));
+      }
+    }, [conversation.chat_id, conversation.id, conversation.is_new, navigate, t]);
 
   const handleDelete: MouseEventHandler<HTMLDivElement> =
     useCallback(async () => {
@@ -54,6 +91,14 @@ export function ConversationDropdown({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
       <DropdownMenuContent>
+        <DropdownMenuItem
+          onClick={handleAddToMemory}
+          data-testid="chat-detail-session-add-memory"
+          data-session-id={conversation.id}
+        >
+          {t('chat.addToMemory')} <BookMarked />
+        </DropdownMenuItem>
+
         <ConfirmDeleteDialog onOk={handleDelete}>
           <DropdownMenuItem
             className="text-state-error"

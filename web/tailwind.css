@@ -112,7 +112,7 @@
     --border-accent: #000000;
     --border-button: rgba(0, 0, 0, 0.1);
     /* Regulators, parsing, switches, variables */
-    --accent-primary: 0 190 180;
+    --accent-primary: 121 57 77;
     /* Output Variables Box */
     --bg-accent: rgba(76, 164, 231, 0.05);
 
@@ -135,34 +135,34 @@
   }
 
   .dark {
-    --background: rgba(11, 10, 18, 1);
-    --foreground: 213 31% 91%;
+    --background: 207 35% 18%;
+    --foreground: 208 34% 94%;
 
-    --muted: 223 47% 11%;
-    --muted-foreground: 215.4 16.3% 56.9%;
+    --muted: 207 30% 27%;
+    --muted-foreground: 208 24% 76%;
 
-    --accent: 216 34% 17%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 205 36% 34%;
+    --accent-foreground: 210 35% 96%;
 
-    --popover: 224 71% 4%;
-    --popover-foreground: 215 20.2% 65.1%;
+    --popover: 207 34% 21%;
+    --popover-foreground: 210 25% 88%;
 
-    --border: 216 34% 17%;
-    --input: 216 34% 17%;
+    --border: 205 26% 38%;
+    --input: 205 26% 38%;
 
-    --card: 224 71% 4%;
-    --card-foreground: 213 31% 91%;
+    --card: 207 32% 23%;
+    --card-foreground: 210 27% 92%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 1.2%;
+    --primary: 204 50% 64%;
+    --primary-foreground: 207 38% 15%;
 
-    --secondary: 222.2 47.4% 11.2%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 207 32% 29%;
+    --secondary-foreground: 210 35% 94%;
 
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
 
-    --ring: 216 34% 17%;
+    --ring: 204 48% 52%;
 
     --radius: 0.5rem;
 
@@ -172,13 +172,13 @@
     --background-inverse-weak: rgba(184, 181, 203, 0.15);
     --background-inverse-weak-foreground: rgba(255, 255, 255, 1);
 
-    --background-core-standard: rgba(137, 126, 255, 1);
+    --background-core-standard: rgba(74, 126, 160, 1);
     --background-core-standard-foreground: rgba(255, 255, 255, 1);
 
     --background-inverse-strong: rgba(255, 255, 255, 0.15);
     --background-inverse-strong-foreground: rgba(255, 255, 255, 1);
 
-    --background-core-weak: rgb(101, 75, 248);
+    --background-core-weak: rgb(46, 88, 116);
     --background-core-weak-foreground: rgba(255, 255, 255, 1);
 
     --background-badge: rgba(22, 22, 24, 0.5);
@@ -186,15 +186,15 @@
 
     --colors-background-inverse-standard: rgba(230, 227, 246, 0.15);
     --colors-background-inverse-strong: rgba(255, 255, 255, 0.8);
-    --colors-background-neutral-standard: rgba(11, 10, 18, 1);
-    --colors-background-neutral-strong: rgba(29, 26, 44, 1);
-    --colors-background-neutral-weak: rgba(17, 16, 23, 1);
+    --colors-background-neutral-standard: rgba(25, 45, 60, 1);
+    --colors-background-neutral-strong: rgba(34, 61, 80, 1);
+    --colors-background-neutral-weak: rgba(29, 53, 70, 1);
 
-    --colors-outline-sentiment-primary: rgba(146, 118, 255, 1);
+    --colors-outline-sentiment-primary: rgba(92, 151, 189, 1);
     --colors-outline-neutral-strong: rgba(255, 255, 255, 0.15);
     --colors-outline-neutral-standard: rgba(230, 227, 246, 0.1);
 
-    --colors-text-core-standard: rgba(137, 126, 255, 1);
+    --colors-text-core-standard: rgba(146, 199, 228, 1);
     --colors-text-neutral-strong: rgba(255, 255, 255, 1);
     --colors-text-neutral-standard: rgba(230, 227, 246, 1);
     --colors-text-neutral-weak: rgba(170, 160, 197, 1);
@@ -203,49 +203,50 @@
     --colors-text-persist-light: rgba(255, 255, 255, 1);
     --colors-text-inverse-weak: rgba(84, 80, 106, 1);
 
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-background: 207 35% 18%;
+    --sidebar-foreground: 210 27% 92%;
+    --sidebar-primary: 204 48% 40%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 205 34% 30%;
+    --sidebar-accent-foreground: 210 27% 94%;
+    --sidebar-border: 205 26% 38%;
+    --sidebar-ring: 204 48% 52%;
 
     --text-title: rgba(255, 255, 255, 1);
     --text-sub-title: rgba(91, 93, 106, 1);
     --text-sub-title-invert: rgba(151, 154, 171, 1);
-    --background-header-bar: rgba(11, 11, 12, 1);
+    --background-header-bar: rgba(28, 52, 69, 0.94);
 
     --text-title-invert: rgba(22, 22, 24, 1);
 
-    --background-card: rgba(255, 255, 255, 0.05);
-    --background-note: rgba(255, 255, 255, 0.05);
+    --background-card: rgba(105, 164, 201, 0.16);
+    --background-note: rgba(105, 164, 201, 0.13);
 
-    --background-highlight: rgba(76, 164, 231, 0.1);
+    --background-highlight: rgba(93, 159, 199, 0.2);
 
-    --input-border: rgba(255, 255, 255, 0.2);
+    --input-border: rgba(177, 214, 234, 0.34);
 
     --metallic: #fafafa;
 
-    --bg-title: #38383a;
+    --bg-title: #24485f;
     /* design colors */
 
-    --bg-base: #161618;
-    --bg-card: rgba(255, 255, 255, 0.05);
-    --bg-component: #202025;
-    --bg-input: rgba(255, 255, 255, 0.05);
-    --bg-canvas: 0 0 0;
-    --bg-list: 56 56 58;
+    --bg-base: #192d3c;
+    --bg-card: rgba(105, 164, 201, 0.16);
+    --bg-component: #223d50;
+    --bg-input: rgba(229, 243, 250, 0.07);
+    --bg-canvas: 25 45 60;
+    --bg-list: 34 61 80;
 
     /* #f6f6f7 */
-    --text-primary: 246 246 247;
-    --text-secondary: 178 181 183;
-    --text-disabled: #75787a;
-    --text-input-tip: #75787a;
-    --border-default: rgba(255, 255, 255, 0.2);
-    --border-accent: #ffffff;
-    --border-button: rgba(255, 255, 255, 0.1);
+    --text-primary: 237 243 246;
+    --text-secondary: 197 219 231;
+    --text-disabled: #9bb4c3;
+    --text-input-tip: #a9c4d3;
+    --border-default: rgba(177, 214, 234, 0.34);
+    --border-accent: #8ec7e6;
+    --border-button: rgba(177, 214, 234, 0.28);
+    --accent-primary: 70 118 150;
 
     /* *-inverse: colors in light mode */
     --text-primary-inverse: 22 22 24;

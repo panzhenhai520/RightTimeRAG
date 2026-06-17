@@ -6,7 +6,15 @@ import {
   UploadResponseDataType,
 } from '@/interfaces/database/chat';
 import classNames from 'classnames';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Component,
+  memo,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { IRegenerateMessage, IRemoveMessageById } from '@/hooks/logic-hooks';
 import { cn } from '@/lib/utils';
@@ -14,11 +22,13 @@ import {
   getThinkingPreview,
   parseRetrievingAndAnswer,
   parseThinkAndAnswer,
+  stripProcessBlocks,
 } from '@/utils/chat';
 import { CheckCircle2, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DocumentDownloadButton } from '../document-download-button';
 import MarkdownContent from '../markdown-content';
+import { EvidenceAuditPanel } from '../next-message-item/evidence-audit-panel';
 import { ReferenceDocumentList } from '../next-message-item/reference-document-list';
 import { ReferenceImageList } from '../next-message-item/reference-image-list';
 import { UploadedMessageFiles } from '../next-message-item/uploaded-message-files';
@@ -41,6 +51,41 @@ interface IProps extends Partial<IRemoveMessageById>, IRegenerateMessage {
   index: number;
   showLikeButton?: boolean;
   showLoudspeaker?: boolean;
+}
+
+class InlineRenderBoundary extends Component<
+  {
+    boundaryKey: string;
+    children: ReactNode;
+    fallback?: ReactNode;
+  },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('Message section render failed', error);
+  }
+
+  componentDidUpdate(prevProps: { boundaryKey: string }) {
+    if (
+      this.state.hasError &&
+      prevProps.boundaryKey !== this.props.boundaryKey
+    ) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback ?? null;
+    }
+    return this.props.children;
+  }
 }
 
 const MessageItem = ({
@@ -95,13 +140,13 @@ const MessageItem = ({
     typeof item.content === 'string'
       ? item.content
       : String(item.content ?? '');
-  const parsedContent = useMemo(
-    () => parseThinkAndAnswer(messageContent),
+  const parsedRetrievingContent = useMemo(
+    () => parseRetrievingAndAnswer(messageContent),
     [messageContent],
   );
-  const parsedRetrievingContent = useMemo(
-    () => parseRetrievingAndAnswer(parsedContent.answer),
-    [parsedContent.answer],
+  const parsedContent = useMemo(
+    () => parseThinkAndAnswer(parsedRetrievingContent.answer),
+    [parsedRetrievingContent.answer],
   );
   const thinkingPreview = useMemo(
     () => getThinkingPreview(parsedContent.thinking, loading ? 6 : 2),
@@ -111,7 +156,7 @@ const MessageItem = ({
     () => getThinkingPreview(parsedRetrievingContent.thinking, loading ? 6 : 2),
     [loading, parsedRetrievingContent.thinking],
   );
-  const answerContent = parsedRetrievingContent.answer;
+  const answerContent = stripProcessBlocks(parsedContent.answer);
   const shouldShowRetrieving =
     isAssistant && (loading || parsedRetrievingContent.hasThinking);
   const isRetrievingRunning =
@@ -121,6 +166,10 @@ const MessageItem = ({
     : showRetrieving
       ? parsedRetrievingContent.thinking
       : retrievingPreview;
+  const displayedRetrievingLines = useMemo(
+    () => displayedRetrieving.split(/\r?\n/).filter(Boolean),
+    [displayedRetrieving],
+  );
   const shouldShowRetrievingBody =
     !!parsedRetrievingContent.thinking && (loading || showRetrieving);
   const shouldShowThinking =
@@ -131,6 +180,10 @@ const MessageItem = ({
     : showThinking
       ? parsedContent.thinking
       : thinkingPreview;
+  const displayedThinkingLines = useMemo(
+    () => displayedThinking.split(/\r?\n/).filter(Boolean),
+    [displayedThinking],
+  );
   const shouldShowThinkingBody =
     !!parsedContent.thinking && (loading || showThinking);
 
@@ -166,13 +219,13 @@ const MessageItem = ({
           {visibleAvatar &&
             (item.role === MessageType.User ? (
               <RAGFlowAvatar
-                className="size-10"
+                className="size-20 shrink-0"
                 avatar={avatar ?? '/logo.svg'}
                 isPerson
               />
             ) : avatarDialog ? (
               <RAGFlowAvatar
-                className="size-10"
+                className="size-20 shrink-0"
                 avatar={avatarDialog}
                 isPerson
               />
@@ -180,7 +233,7 @@ const MessageItem = ({
               <SvgIcon
                 name={'assistant'}
                 width={'100%'}
-                className={cn('size-10 fill-current')}
+                className={cn('size-20 shrink-0 fill-current')}
               ></SvgIcon>
             ))}
 
@@ -237,7 +290,25 @@ const MessageItem = ({
                       [styles.thinkingTextRunning]: isRetrievingRunning,
                     })}
                   >
-                    {displayedRetrieving}
+                    {displayedRetrievingLines.length > 0 ? (
+                      <div className={styles.reasoningLineList}>
+                        {displayedRetrievingLines.map((line, lineIndex) => (
+                          <div
+                            key={`${lineIndex}-${line}`}
+                            className={cn(styles.reasoningLine, {
+                              [styles.reasoningLineStreaming]:
+                                isRetrievingRunning &&
+                                lineIndex ===
+                                  displayedRetrievingLines.length - 1,
+                            })}
+                          >
+                            {line}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      displayedRetrieving
+                    )}
                   </div>
                 )}
               </div>
@@ -272,7 +343,24 @@ const MessageItem = ({
                       [styles.thinkingTextRunning]: isThinkingRunning,
                     })}
                   >
-                    {displayedThinking}
+                    {displayedThinkingLines.length > 0 ? (
+                      <div className={styles.reasoningLineList}>
+                        {displayedThinkingLines.map((line, lineIndex) => (
+                          <div
+                            key={`${lineIndex}-${line}`}
+                            className={cn(styles.reasoningLine, {
+                              [styles.reasoningLineStreaming]:
+                                isThinkingRunning &&
+                                lineIndex === displayedThinkingLines.length - 1,
+                            })}
+                          >
+                            {line}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      displayedThinking
+                    )}
                   </div>
                 )}
               </div>
@@ -289,26 +377,52 @@ const MessageItem = ({
                   { '!bg-bg-card': !isAssistant },
                 )}
               >
-                <MarkdownContent
-                  loading={loading}
-                  content={answerContent}
-                  reference={reference}
-                  clickDocumentButton={clickDocumentButton}
-                ></MarkdownContent>
+                <InlineRenderBoundary
+                  boundaryKey={`${item.id}-answer-${answerContent.length}`}
+                  fallback={
+                    <div className="whitespace-pre-wrap text-sm leading-6 text-text-primary">
+                      {answerContent}
+                    </div>
+                  }
+                >
+                  <MarkdownContent
+                    loading={loading}
+                    content={answerContent}
+                    reference={reference}
+                    clickDocumentButton={clickDocumentButton}
+                  ></MarkdownContent>
+                </InlineRenderBoundary>
               </div>
             )}
+            {isAssistant && reference?.evidence_audit && (
+              <InlineRenderBoundary
+                boundaryKey={`${item.id}-evidence-audit-${answerContent.length}`}
+              >
+                <EvidenceAuditPanel
+                  audit={reference.evidence_audit}
+                ></EvidenceAuditPanel>
+              </InlineRenderBoundary>
+            )}
             {isAssistant && hasReferenceChunks && (
-              <ReferenceImageList
-                referenceChunks={reference.chunks}
-                messageContent={answerContent}
-              ></ReferenceImageList>
+              <InlineRenderBoundary
+                boundaryKey={`${item.id}-reference-images-${answerContent.length}`}
+              >
+                <ReferenceImageList
+                  referenceChunks={reference.chunks}
+                  messageContent={answerContent}
+                ></ReferenceImageList>
+              </InlineRenderBoundary>
             )}
             {isAssistant &&
               hasReferenceChunks &&
               referenceDocumentList.length > 0 && (
-                <ReferenceDocumentList
-                  list={referenceDocumentList}
-                ></ReferenceDocumentList>
+                <InlineRenderBoundary
+                  boundaryKey={`${item.id}-reference-docs-${referenceDocumentList.length}`}
+                >
+                  <ReferenceDocumentList
+                    list={referenceDocumentList}
+                  ></ReferenceDocumentList>
+                </InlineRenderBoundary>
               )}
             {isUser &&
               Array.isArray(uploadedFiles) &&

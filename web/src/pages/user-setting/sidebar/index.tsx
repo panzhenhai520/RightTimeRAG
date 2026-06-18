@@ -1,4 +1,3 @@
-import { IconFontFill } from '@/components/icon-font';
 import { RAGFlowAvatar } from '@/components/ragflow-avatar';
 import ThemeSwitch from '@/components/theme-switch';
 import { Button } from '@/components/ui/button';
@@ -11,57 +10,17 @@ import {
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { TFunction } from 'i18next';
-import {
-  LucideBox,
-  LucideServer,
-  LucideUnplug,
-  LucideUser,
-  LucideUsers,
-} from 'lucide-react';
+import { LucideUser } from 'lucide-react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHandleMenuClick } from './hooks';
 
 const menuItems = (t: TFunction) => [
   {
-    icon: <LucideServer className="size-[1em]" />,
-    label: t('setting.dataSources'),
-    key: Routes.DataSource,
-  },
-  {
-    icon: <LucideBox className="size-[1em]" />,
-    label: t('setting.model'),
-    key: Routes.Model,
-    'data-testid': 'settings-nav-model-providers',
-  },
-  {
-    icon: <IconFontFill name="mcp" className="size-[1em]" />,
-    label: 'MCP',
-    key: Routes.Mcp,
-  },
-  {
-    icon: <LucideUsers className="size-[1em]" />,
-    label: t('setting.team'),
-    key: Routes.Team,
-  },
-  {
     icon: <LucideUser className="size-[1em]" />,
     label: t('setting.profile'),
     key: Routes.Profile,
   },
-  {
-    icon: <LucideUnplug className="size-[1em]" />,
-    label: t('setting.api'),
-    key: Routes.Api,
-  },
-  // {
-  //   icon: MessageSquareQuote,
-  //   label: 'Prompt Templates',
-  //   key: Routes.Profile,
-  // },
-  // { icon: TextSearch, label: 'Retrieval Templates', key: Routes.Profile },
-  // { icon: Cog, label: t('setting.system'), key: Routes.System },
-  // { icon: Banknote, label: 'Plan', key: Routes.Plan },
 ];
 
 export function SideBar() {

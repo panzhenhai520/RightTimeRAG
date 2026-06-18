@@ -288,9 +288,7 @@ const routeConfigOptions = [
         children: [
           {
             path: Routes.UserSetting,
-            element: (
-              <Navigate to={`/user-setting${Routes.DataSource}`} replace />
-            ),
+            element: <Navigate to={`/user-setting${Routes.Profile}`} replace />,
           },
           {
             path: `${Routes.UserSetting}/profile`,
@@ -304,18 +302,22 @@ const routeConfigOptions = [
           */
           {
             path: `${Routes.UserSetting}/model`,
+            loader: requireDevFeatureAccess,
             Component: () => import('@/pages/user-setting/setting-model'),
           },
           {
             path: `${Routes.UserSetting}/team`,
+            loader: requireDevFeatureAccess,
             Component: () => import('@/pages/user-setting/setting-team'),
           },
           {
             path: `${Routes.UserSetting}${Routes.Api}`,
+            loader: requireDevFeatureAccess,
             Component: () => import('@/pages/user-setting/setting-api'),
           },
           {
             path: `${Routes.UserSetting}${Routes.Mcp}`,
+            loader: requireDevFeatureAccess,
             Component: () => import('@/pages/user-setting/mcp'),
           },
 

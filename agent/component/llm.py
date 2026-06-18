@@ -31,6 +31,35 @@ from common.connection_utils import timeout
 from rag.prompts.generator import tool_call_summary, message_fit_in, citation_prompt, structured_output_prompt
 
 
+MIN_AGENT_PROMPT_TOKENS = 2048
+DEFAULT_AGENT_SAFE_CONTEXT_TOKENS = 60000
+DEFAULT_AGENT_RETRY_CONTEXT_TOKENS = 24000
+DEFAULT_AGENT_OUTPUT_TOKENS = 4096
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        value = int(os.environ.get(name, default))
+        return value if value > 0 else default
+    except Exception:
+        return default
+
+
+def _is_context_span_error(exc: Exception | str) -> bool:
+    text = str(exc)
+    return any(
+        marker in text
+        for marker in (
+            "layer-slice token span exceeds context",
+            "kv payload staging failed",
+            "KV cache",
+            "context length",
+            "maximum context",
+            "exceeds context",
+        )
+    )
+
+
 class LLMParam(ComponentParamBase):
     """
     Define the LLM component parameters.
@@ -90,6 +119,43 @@ class LLM(ComponentBase):
                                   max_retries=self._param.max_retries,
                                   retry_interval=self._param.delay_after_error)
         self.imgs = []
+
+    def _safe_prompt_budget(self, retry: bool = False) -> int:
+        env_name = "AGENT_LLM_RETRY_CONTEXT_TOKENS" if retry else "AGENT_LLM_SAFE_CONTEXT_TOKENS"
+        default = DEFAULT_AGENT_RETRY_CONTEXT_TOKENS if retry else DEFAULT_AGENT_SAFE_CONTEXT_TOKENS
+        configured = _env_int(env_name, default)
+        model_limit = int(getattr(self.chat_mdl, "max_length", 8192) or 8192)
+        # Keep a meaningful reserve for output tokens and ds4-server live KV state.
+        model_safe = max(MIN_AGENT_PROMPT_TOKENS, int(model_limit * (0.45 if retry else 0.60)))
+        return max(MIN_AGENT_PROMPT_TOKENS, min(configured, model_safe))
+
+    def _safe_gen_conf(self) -> dict[str, Any]:
+        conf = self._param.gen_conf()
+        max_output = _env_int("AGENT_LLM_OUTPUT_TOKENS", DEFAULT_AGENT_OUTPUT_TOKENS)
+        current = conf.get("max_tokens")
+        if not current:
+            conf["max_tokens"] = max_output
+        else:
+            try:
+                conf["max_tokens"] = max(MIN_AGENT_PROMPT_TOKENS // 4, min(int(current), max_output))
+            except Exception:
+                conf["max_tokens"] = max_output
+        return conf
+
+    def _fit_prompt_messages(self, prompt: str, msg: list[dict], retry: bool = False):
+        budget = self._safe_prompt_budget(retry)
+        used, fitted = message_fit_in([{"role": "system", "content": prompt}, *deepcopy(msg)], budget)
+        logging.info(
+            "AgentLLM prompt budget stage=%s component=%s model=%s used=%s budget=%s max_length=%s history_messages=%s",
+            "retry" if retry else "initial",
+            self._id,
+            self._param.llm_id,
+            used,
+            budget,
+            getattr(self.chat_mdl, "max_length", None),
+            max(0, len(fitted) - 1),
+        )
+        return used, fitted
 
     def get_input_form(self) -> dict[str, dict]:
         res = {}
@@ -272,8 +338,8 @@ class LLM(ComponentBase):
 
     async def _generate_async(self, msg: list[dict], **kwargs) -> str:
         if not self.imgs:
-            return await self.chat_mdl.async_chat(msg[0]["content"], msg[1:], self._param.gen_conf(), **kwargs)
-        return await self.chat_mdl.async_chat(msg[0]["content"], msg[1:], self._param.gen_conf(), images=self.imgs, **kwargs)
+            return await self.chat_mdl.async_chat(msg[0]["content"], msg[1:], self._safe_gen_conf(), **kwargs)
+        return await self.chat_mdl.async_chat(msg[0]["content"], msg[1:], self._safe_gen_conf(), images=self.imgs, **kwargs)
 
     async def _generate_streamly(self, msg: list[dict], **kwargs) -> AsyncGenerator[str, None]:
         async def delta_wrapper(txt_iter):
@@ -308,15 +374,14 @@ class LLM(ComponentBase):
                 yield delta(t)
 
         if not self.imgs:
-            async for t in delta_wrapper(self.chat_mdl.async_chat_streamly(msg[0]["content"], msg[1:], self._param.gen_conf(), **kwargs)):
+            async for t in delta_wrapper(self.chat_mdl.async_chat_streamly(msg[0]["content"], msg[1:], self._safe_gen_conf(), **kwargs)):
                 yield t
             return
 
-        async for t in delta_wrapper(self.chat_mdl.async_chat_streamly(msg[0]["content"], msg[1:], self._param.gen_conf(), images=self.imgs, **kwargs)):
+        async for t in delta_wrapper(self.chat_mdl.async_chat_streamly(msg[0]["content"], msg[1:], self._safe_gen_conf(), images=self.imgs, **kwargs)):
             yield t
 
     async def _stream_output_async(self, prompt, msg):
-        _, msg = message_fit_in([{"role": "system", "content": prompt}, *msg], int(self.chat_mdl.max_length * 0.97))
         answer = ""
         last_idx = 0
         endswith_think = False
@@ -347,22 +412,45 @@ class LLM(ComponentBase):
         stream_kwargs = {"images": self.imgs} if self.imgs else {}
         extra_chat_kwargs = self._get_chat_template_kwargs()
         stream_kwargs.update(extra_chat_kwargs)
-        async for ans in self.chat_mdl.async_chat_streamly(msg[0]["content"], msg[1:], self._param.gen_conf(), **stream_kwargs):
-            if self.check_if_canceled("LLM streaming"):
-                return
+        emitted = False
 
-            if isinstance(ans, int):
-                continue
+        async def stream_once(fitted_msg):
+            nonlocal emitted
+            async for ans in self.chat_mdl.async_chat_streamly(fitted_msg[0]["content"], fitted_msg[1:], self._safe_gen_conf(), **stream_kwargs):
+                if self.check_if_canceled("LLM streaming"):
+                    return
 
-            if ans.find("**ERROR**") >= 0:
-                if self.get_exception_default_value():
-                    self.set_output("content", self.get_exception_default_value())
-                    yield self.get_exception_default_value()
-                else:
-                    self.set_output("_ERROR", ans)
-                return
+                if isinstance(ans, int):
+                    continue
 
-            yield delta(ans)
+                if ans.find("**ERROR**") >= 0:
+                    if _is_context_span_error(ans) and not emitted:
+                        raise RuntimeError(ans)
+                    if self.get_exception_default_value():
+                        self.set_output("content", self.get_exception_default_value())
+                        yield self.get_exception_default_value()
+                    else:
+                        self.set_output("_ERROR", ans)
+                    return
+
+                piece = delta(ans)
+                emitted = emitted or bool(piece)
+                yield piece
+
+        _, fitted_msg = self._fit_prompt_messages(prompt, msg, retry=False)
+        try:
+            async for piece in stream_once(fitted_msg):
+                yield piece
+        except Exception as exc:
+            if not _is_context_span_error(exc) or emitted:
+                raise
+            logging.warning("AgentLLM context span error; retrying with reduced prompt budget: %s", exc)
+            answer = ""
+            last_idx = 0
+            endswith_think = False
+            _, retry_msg = self._fit_prompt_messages(prompt, msg, retry=True)
+            async for piece in stream_once(retry_msg):
+                yield piece
 
         self.set_output("content", answer)
 
@@ -391,12 +479,20 @@ class LLM(ComponentBase):
                 if self.check_if_canceled("LLM processing"):
                     return
 
-                _, msg_fit = message_fit_in(
-                    [{"role": "system", "content": prompt_with_schema}, *deepcopy(msg)],
-                    int(self.chat_mdl.max_length * 0.97),
-                )
+                _, msg_fit = self._fit_prompt_messages(prompt_with_schema, msg, retry=False)
                 error = ""
-                ans = await self._generate_async(msg_fit, **extra_chat_kwargs)
+                try:
+                    ans = await self._generate_async(msg_fit, **extra_chat_kwargs)
+                except Exception as exc:
+                    if not _is_context_span_error(exc):
+                        raise
+                    logging.warning("AgentLLM structured context span error; retrying with reduced prompt budget: %s", exc)
+                    _, msg_fit = self._fit_prompt_messages(prompt_with_schema, msg, retry=True)
+                    ans = await self._generate_async(msg_fit, **extra_chat_kwargs)
+                if ans.find("**ERROR**") >= 0 and _is_context_span_error(ans):
+                    logging.warning("AgentLLM structured context error response; retrying with reduced prompt budget: %s", ans)
+                    _, msg_fit = self._fit_prompt_messages(prompt_with_schema, msg, retry=True)
+                    ans = await self._generate_async(msg_fit, **extra_chat_kwargs)
                 msg_fit.pop(0)
                 if ans.find("**ERROR**") >= 0:
                     logging.error(f"LLM response error: {ans}")
@@ -425,11 +521,20 @@ class LLM(ComponentBase):
             if self.check_if_canceled("LLM processing"):
                 return
 
-            _, msg_fit = message_fit_in(
-                [{"role": "system", "content": prompt}, *deepcopy(msg)], int(self.chat_mdl.max_length * 0.97)
-            )
+            _, msg_fit = self._fit_prompt_messages(prompt, msg, retry=False)
             error = ""
-            ans = await self._generate_async(msg_fit, **extra_chat_kwargs)
+            try:
+                ans = await self._generate_async(msg_fit, **extra_chat_kwargs)
+            except Exception as exc:
+                if not _is_context_span_error(exc):
+                    raise
+                logging.warning("AgentLLM context span error; retrying with reduced prompt budget: %s", exc)
+                _, msg_fit = self._fit_prompt_messages(prompt, msg, retry=True)
+                ans = await self._generate_async(msg_fit, **extra_chat_kwargs)
+            if ans.find("**ERROR**") >= 0 and _is_context_span_error(ans):
+                logging.warning("AgentLLM context error response; retrying with reduced prompt budget: %s", ans)
+                _, msg_fit = self._fit_prompt_messages(prompt, msg, retry=True)
+                ans = await self._generate_async(msg_fit, **extra_chat_kwargs)
             msg_fit.pop(0)
             if ans.find("**ERROR**") >= 0:
                 logging.error(f"LLM response error: {ans}")

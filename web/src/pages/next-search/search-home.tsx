@@ -6,6 +6,7 @@ import { Search } from 'lucide-react';
 import { Dispatch, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import './index.less';
+import SearchDatasetChips from './search-dataset-chips';
 
 export default function SearchHome({
   isSearching,
@@ -14,6 +15,7 @@ export default function SearchHome({
   setSearchText,
   userInfo,
   canSearch,
+  kbIds,
 }: {
   isSearching: boolean;
   setIsSearching: Dispatch<SetStateAction<boolean>>;
@@ -22,6 +24,7 @@ export default function SearchHome({
   userInfo?: IUserInfo;
   canSearch?: boolean;
   showEmbedLogo?: boolean;
+  kbIds?: string[];
 }) {
   // const { data: userInfo } = useFetchUserInfo();
   const { t } = useTranslation();
@@ -33,7 +36,6 @@ export default function SearchHome({
           <div className="flex w-full max-w-3xl flex-col items-center justify-center">
             {!isSearching && (
               <>
-                <p className="mb-4 transition-opacity">👋 Hi there</p>
                 <p className="mb-10 transition-opacity">
                   {userInfo && (
                     <>
@@ -80,6 +82,7 @@ export default function SearchHome({
                 <Search size={22} className="m-auto" />
               </button>
             </div>
+            <SearchDatasetChips kbIds={kbIds} className="max-w-3xl" />
           </div>
         </div>
       </div>

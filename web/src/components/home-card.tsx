@@ -46,11 +46,12 @@ export function HomeCard({
         onClick?.();
       }}
       tabIndex={0}
-      className="px-2.5 py-4 flex gap-2 items-start group h-full w-full cursor-pointer hover:shadow-md"
+      className="px-3.5 py-4 flex gap-3 items-start group h-full w-full cursor-pointer hover:shadow-md"
     >
-      <div>
+      <div className="shrink-0">
         <RAGFlowAvatar
-          className="w-[32px] h-[32px]"
+          className="h-14 w-14 bg-transparent"
+          imageClassName="object-cover"
           avatar={data.avatar}
           name={data.name}
         />
@@ -76,7 +77,7 @@ export function HomeCard({
         </CardHeader>
 
         <CardContent className="p-0">
-          <div className="flex flex-col justify-between gap-1 flex-1 h-full w-[calc(100%-50px)]">
+          <div className="flex flex-col justify-between gap-1 flex-1 h-full w-full">
             <section className="flex justify-between"></section>
 
             <section className="flex flex-col gap-1 mt-1">

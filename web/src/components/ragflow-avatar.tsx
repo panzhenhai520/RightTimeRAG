@@ -48,52 +48,58 @@ export const RAGFlowAvatar = memo(
       name?: string;
       avatar?: string;
       isPerson?: boolean;
+      imageClassName?: string;
     }
-  >(({ name, avatar, isPerson = false, className, ...props }, ref) => {
-    // Generate initial letter logic
-    const { initials, from, to } = useMemo(
-      () => ({
-        initials: getInitials(name),
-        from: 'hsl(0, 0%, 30%)',
-        to: 'hsl(0, 0%, 80%)',
-        ...(name ? getColorForName(name) : {}),
-      }),
-      [name],
-    );
+  >(
+    (
+      { name, avatar, isPerson = false, className, imageClassName, ...props },
+      ref,
+    ) => {
+      // Generate initial letter logic
+      const { initials, from, to } = useMemo(
+        () => ({
+          initials: getInitials(name),
+          from: 'hsl(0, 0%, 30%)',
+          to: 'hsl(0, 0%, 80%)',
+          ...(name ? getColorForName(name) : {}),
+        }),
+        [name],
+      );
 
-    return (
-      <Avatar
-        ref={ref}
-        {...props}
-        className={cn(className, { 'rounded-md': !isPerson })}
-      >
-        <AvatarImage src={avatar} />
-        <AvatarFallback
-          className="flex items-center justify-center bg-gradient-to-b text-white"
-          style={{
-            backgroundImage: `linear-gradient(to bottom, ${from}, ${to})`,
-          }}
-          role="presentation"
-          aria-hidden="true"
+      return (
+        <Avatar
+          ref={ref}
+          {...props}
+          className={cn(className, { 'rounded-md': !isPerson })}
         >
-          <svg
-            className="size-full block text-current select-none"
-            viewBox={`${-(50 + 22.5 * (initials.length - 1))} -50 ${100 + 45 * (initials.length - 1)} 100`}
-            preserveAspectRatio="xMinYMid meet"
+          <AvatarImage src={avatar} className={imageClassName} />
+          <AvatarFallback
+            className="flex items-center justify-center bg-gradient-to-b text-white"
+            style={{
+              backgroundImage: `linear-gradient(to bottom, ${from}, ${to})`,
+            }}
+            role="presentation"
+            aria-hidden="true"
           >
-            <text
-              fontSize={55}
-              fill="currentColor"
-              textAnchor="middle"
-              dominantBaseline="central"
+            <svg
+              className="size-full block text-current select-none"
+              viewBox={`${-(50 + 22.5 * (initials.length - 1))} -50 ${100 + 45 * (initials.length - 1)} 100`}
+              preserveAspectRatio="xMinYMid meet"
             >
-              {initials}
-            </text>
-          </svg>
-        </AvatarFallback>
-      </Avatar>
-    );
-  }),
+              <text
+                fontSize={55}
+                fill="currentColor"
+                textAnchor="middle"
+                dominantBaseline="central"
+              >
+                {initials}
+              </text>
+            </svg>
+          </AvatarFallback>
+        </Avatar>
+      );
+    },
+  ),
 );
 
 RAGFlowAvatar.displayName = 'RAGFlowAvatar';

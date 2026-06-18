@@ -1,4 +1,22 @@
 .markdownContentWrapper {
+  line-height: 1.72;
+
+  :global(p) {
+    margin-block: 0.5em;
+    line-height: 1.72;
+  }
+
+  :global(li) {
+    margin-block: 0.24em;
+    line-height: 1.72;
+  }
+
+  :global(hr) {
+    margin-block: 1.2em;
+    border: 0;
+    border-top: 1px solid hsl(var(--border));
+  }
+
   :global(details.think) {
     padding-inline-start: 10px;
     color: #8b8b8b;

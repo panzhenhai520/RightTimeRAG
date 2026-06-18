@@ -27,6 +27,7 @@ import './index.less';
 import MarkdownContent from './markdown-content';
 import MindMapSheet from './mindmap-sheet';
 import RetrievalDocuments from './retrieval-documents';
+import SearchDatasetChips from './search-dataset-chips';
 
 const formatMetadataValue = (value: unknown) => {
   if (Array.isArray(value)) return value.join(', ');
@@ -258,6 +259,10 @@ export default function SearchingView({
                 </button>
               </div>
             </div>
+            <SearchDatasetChips
+              kbIds={searchData.search_config.kb_ids}
+              className="justify-start"
+            />
           </div>
           {/* search body */}
           <div
@@ -273,7 +278,7 @@ export default function SearchingView({
                   <SkeletonCard className=" mt-2" />
                 ) : (
                   answer.answer && (
-                    <div className="mt-3 rounded-xl bg-bg-base/60 p-4 shadow-sm">
+                    <div className="searchSummaryBlock mt-4 rounded-xl bg-bg-base/45 px-4 py-5 shadow-sm">
                       <ExpandableContent maxHeight={208}>
                         <MarkdownContent
                           loading={sendingLoading}
@@ -308,12 +313,9 @@ export default function SearchingView({
             )}
             <div className="mt-4">
               {showResultSkeleton && (
-                <div className="space-y-4">
+                <div className="divide-y divide-border-default/35 dark:divide-white/10">
                   {Array.from({ length: 8 }).map((_, index) => (
-                    <div
-                      key={index}
-                      className="rounded-xl bg-bg-base/80 p-5 shadow-sm ring-1 ring-accent-primary/10 dark:bg-bg-component/65"
-                    >
+                    <div key={index} className="px-1 py-5">
                       <div className="mb-3 h-4 w-40 animate-pulse rounded-md bg-[rgb(var(--accent-primary)/0.16)]" />
                       <div className="mb-3 h-6 w-2/3 animate-pulse rounded-md bg-[rgb(var(--accent-primary)/0.18)]" />
                       <div className="space-y-2">
@@ -327,30 +329,130 @@ export default function SearchingView({
               )}
               {documentCards.length > 0 && (
                 <div className="space-y-4">
-                  <div className="text-sm text-text-secondary">
-                    {t('search.resultsSummary', {
-                      docs: documentCards.length,
-                      chunks: totalChunkCount,
-                    })}
+                  <div className="flex items-center gap-2 text-sm text-text-secondary">
+                    <span>
+                      {t('search.resultsSummary', {
+                        docs: documentCards.length,
+                        chunks: totalChunkCount,
+                      })}
+                    </span>
+                    {loading && (
+                      <Loader2
+                        size={14}
+                        className="animate-spin text-accent-primary"
+                      />
+                    )}
                   </div>
-                  {documentCards.map((card) => {
-                    return (
-                      <article
-                        key={card.docId}
-                        className="cursor-pointer rounded-xl bg-bg-base/80 p-5 shadow-sm ring-1 ring-border-default/15 transition hover:bg-bg-base hover:shadow-md dark:bg-bg-component/65 dark:hover:bg-bg-component"
-                        onClick={() =>
-                          clickDocumentButton(
-                            card.representative.doc_id,
-                            card.representative as any,
-                          )
-                        }
-                        tabIndex={0}
-                      >
-                        <div className="mb-3 flex items-start justify-between gap-4">
-                          <div className="min-w-0">
+                  <div className="relative divide-y divide-border-default/35 overflow-hidden dark:divide-white/10">
+                    {loading && (
+                      <div className="pointer-events-none absolute left-0 right-0 top-0 z-10 h-px overflow-hidden bg-border-default/30 dark:bg-white/10">
+                        <span className="search-result-progress block h-full w-1/3 bg-accent-primary/70" />
+                      </div>
+                    )}
+                    {documentCards.map((card) => {
+                      return (
+                        <article
+                          key={card.docId}
+                          className="cursor-pointer px-1 py-6 transition hover:bg-accent-primary/5 dark:hover:bg-white/5"
+                          onClick={() =>
+                            clickDocumentButton(
+                              card.representative.doc_id,
+                              card.representative as any,
+                            )
+                          }
+                          tabIndex={0}
+                        >
+                          <div className="mb-3 flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <button
+                                type="button"
+                                className="mb-1 flex max-w-full items-center gap-2 text-left text-xs text-text-secondary hover:text-text-primary"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  clickDocumentButton(
+                                    card.representative.doc_id,
+                                    card.representative as any,
+                                  );
+                                }}
+                              >
+                                <FileIcon name={card.docName}></FileIcon>
+                                <span className="truncate">{card.docName}</span>
+                              </button>
+                              <h3 className="line-clamp-2 text-lg font-semibold leading-7 text-accent-primary">
+                                {card.docName || t('search.untitledDocument')}
+                              </h3>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-accent-primary/10 px-2.5 py-1 text-xs text-accent-primary">
+                              {t('search.hitChunks', {
+                                count: card.chunks.length,
+                              })}
+                            </span>
+                          </div>
+
+                          <div className="text-sm leading-6 text-text-primary">
+                            {(card.imageChunk.image_id ||
+                              card.imageChunk.img_id) && (
+                              <div
+                                className="float-left mb-2 mr-4 max-w-[112px] overflow-hidden rounded-lg bg-bg-card/50 p-1 [&_button]:block [&_img]:!max-h-24 [&_img]:!max-w-full [&_img]:rounded-md [&_img]:object-contain"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <ImageWithPopover
+                                  id={
+                                    card.imageChunk.image_id ||
+                                    card.imageChunk.img_id
+                                  }
+                                ></ImageWithPopover>
+                              </div>
+                            )}
+                            <div className="space-y-2">
+                              {card.snippets.map((snippet, snippetIndex) => (
+                                <div
+                                  key={snippet.chunk.chunk_id || snippetIndex}
+                                  className={cn(
+                                    'rounded-lg px-3 py-2',
+                                    snippetIndex === 0
+                                      ? 'bg-accent-primary/5'
+                                      : 'bg-bg-card/35',
+                                  )}
+                                >
+                                  <div className="mb-1 text-xs font-medium text-accent-primary">
+                                    #{snippetIndex + 1}
+                                  </div>
+                                  <HighLightMarkdown>
+                                    {highlightSearchTerms(
+                                      snippet.content,
+                                      card.terms,
+                                    )}
+                                  </HighLightMarkdown>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="clear-both mt-3 flex flex-wrap items-center gap-2 pt-2">
+                            {card.metadata &&
+                              Object.keys(card.metadata).length > 0 && (
+                                <>
+                                  {Object.entries(card.metadata).map(
+                                    ([key, value]) => (
+                                      <div
+                                        key={key}
+                                        className="rounded-full bg-bg-card/60 px-2.5 py-1 text-xs"
+                                      >
+                                        <span className="text-text-secondary">
+                                          {key}:
+                                        </span>{' '}
+                                        <span className="text-text-primary">
+                                          {formatMetadataValue(value)}
+                                        </span>
+                                      </div>
+                                    ),
+                                  )}
+                                </>
+                              )}
                             <button
                               type="button"
-                              className="mb-1 flex max-w-full items-center gap-2 text-left text-xs text-text-secondary hover:text-text-primary"
+                              className="ml-auto rounded-full px-3 py-1.5 text-xs text-text-secondary transition hover:bg-bg-card hover:text-text-primary"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 clickDocumentButton(
@@ -359,98 +461,13 @@ export default function SearchingView({
                                 );
                               }}
                             >
-                              <FileIcon name={card.docName}></FileIcon>
-                              <span className="truncate">{card.docName}</span>
+                              {t('search.openDocument')}
                             </button>
-                            <h3 className="line-clamp-2 text-lg font-semibold leading-7 text-accent-primary">
-                              {card.docName || t('search.untitledDocument')}
-                            </h3>
                           </div>
-                          <span className="shrink-0 rounded-full bg-accent-primary/10 px-2.5 py-1 text-xs text-accent-primary">
-                            {t('search.hitChunks', {
-                              count: card.chunks.length,
-                            })}
-                          </span>
-                        </div>
-
-                        <div className="text-sm leading-6 text-text-primary">
-                          {(card.imageChunk.image_id ||
-                            card.imageChunk.img_id) && (
-                            <div
-                              className="float-left mb-2 mr-4 max-w-[112px] overflow-hidden rounded-lg bg-bg-card/50 p-1 [&_button]:block [&_img]:!max-h-24 [&_img]:!max-w-full [&_img]:rounded-md [&_img]:object-contain"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <ImageWithPopover
-                                id={
-                                  card.imageChunk.image_id ||
-                                  card.imageChunk.img_id
-                                }
-                              ></ImageWithPopover>
-                            </div>
-                          )}
-                          <div className="space-y-2">
-                            {card.snippets.map((snippet, snippetIndex) => (
-                              <div
-                                key={snippet.chunk.chunk_id || snippetIndex}
-                                className={cn(
-                                  'rounded-lg px-3 py-2',
-                                  snippetIndex === 0
-                                    ? 'bg-accent-primary/5'
-                                    : 'bg-bg-card/35',
-                                )}
-                              >
-                                <div className="mb-1 text-xs font-medium text-accent-primary">
-                                  #{snippetIndex + 1}
-                                </div>
-                                <HighLightMarkdown>
-                                  {highlightSearchTerms(
-                                    snippet.content,
-                                    card.terms,
-                                  )}
-                                </HighLightMarkdown>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="clear-both mt-3 flex flex-wrap items-center gap-2 pt-2">
-                          {card.metadata &&
-                            Object.keys(card.metadata).length > 0 && (
-                              <>
-                                {Object.entries(card.metadata).map(
-                                  ([key, value]) => (
-                                    <div
-                                      key={key}
-                                      className="rounded-full bg-bg-card/60 px-2.5 py-1 text-xs"
-                                    >
-                                      <span className="text-text-secondary">
-                                        {key}:
-                                      </span>{' '}
-                                      <span className="text-text-primary">
-                                        {formatMetadataValue(value)}
-                                      </span>
-                                    </div>
-                                  ),
-                                )}
-                              </>
-                            )}
-                          <button
-                            type="button"
-                            className="ml-auto rounded-full px-3 py-1.5 text-xs text-text-secondary transition hover:bg-bg-card hover:text-text-primary"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              clickDocumentButton(
-                                card.representative.doc_id,
-                                card.representative as any,
-                              );
-                            }}
-                          >
-                            {t('search.openDocument')}
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })}
+                        </article>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
               {relatedQuestions?.length > 0 &&

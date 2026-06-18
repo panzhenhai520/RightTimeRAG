@@ -19,7 +19,7 @@ import { useExploreUrlParams } from './hooks/use-explore-url-params';
 
 export default function AgentExplore() {
   const { sessionId, setSessionId } = useExploreUrlParams();
-  const { navigateToAgent } = useNavigatePage();
+  const { navigateToAgent, navigateToHome } = useNavigatePage();
   const { t } = useTranslation();
   const { id } = useParams();
   const { flowDetail: agentDetail } = useFetchDataOnMount();
@@ -43,6 +43,12 @@ export default function AgentExplore() {
       <PageHeader>
         <Breadcrumb>
           <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink onClick={navigateToHome}>
+                {t('header.home')}
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink onClick={handleBackToAgent}>
                 {t('header.flow')}

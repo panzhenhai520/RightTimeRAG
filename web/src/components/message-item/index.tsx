@@ -93,6 +93,7 @@ const MessageItem = ({
   reference,
   loading = false,
   avatar,
+  nickname,
   avatarDialog,
   sendLoading = false,
   clickDocumentButton,
@@ -220,7 +221,8 @@ const MessageItem = ({
             (item.role === MessageType.User ? (
               <RAGFlowAvatar
                 className="size-20 shrink-0"
-                avatar={avatar ?? '/logo.svg'}
+                avatar={avatar}
+                name={nickname}
                 isPerson
               />
             ) : avatarDialog ? (

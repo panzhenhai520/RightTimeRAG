@@ -37,7 +37,7 @@ export default function SearchPage() {
       className="size-full flex-1 relative px-5 pb-5 flex pt-4"
       data-testid="search-detail"
     >
-      <div className="flex gap-3 w-full bg-bg-base border-0.5 border-border-button">
+      <div className="flex gap-3 w-full bg-bg-base">
         <div className="flex-1 min-w-0">
           {!isSearching && (
             <div className="animate-fade-in-down">
@@ -48,6 +48,7 @@ export default function SearchPage() {
                 setSearchText={setSearchText}
                 userInfo={userInfo}
                 canSearch={!checkOpenSetting}
+                kbIds={SearchData?.search_config?.kb_ids}
               />
             </div>
           )}

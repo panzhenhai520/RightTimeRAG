@@ -40,6 +40,17 @@ from rag.prompts.generator import chunks_format
 from rag.utils.redis_conn import REDIS_CONN
 from rag.utils.tts_cache import synthesize_with_cache
 
+AGENT_HISTORY_MAX_CHARS = 12000
+AGENT_HISTORY_ERROR_MARKERS = (
+    "ERROR:",
+    "CONNECTION_ERROR",
+    "INVALID_REQUEST",
+    "Traceback",
+    "layer-slice token span exceeds context",
+    "kv payload staging failed",
+)
+
+
 class Graph:
     """
         dsl = {
@@ -328,6 +339,40 @@ class Canvas(Graph):
         self.dsl["retrieval"] = self.retrieval
         self.dsl["memory"] = self.memory
         return super().__str__()
+
+    @staticmethod
+    def _clean_history_text(text: Any, max_chars: int = AGENT_HISTORY_MAX_CHARS) -> str:
+        if text is None:
+            return ""
+        if isinstance(text, dict):
+            for key in ("content", "answer", "text", "output"):
+                if text.get(key):
+                    text = text.get(key)
+                    break
+            else:
+                try:
+                    text = json.dumps(text, ensure_ascii=False)
+                except Exception:
+                    text = str(text)
+        elif not isinstance(text, str):
+            text = str(text)
+
+        if not text:
+            return ""
+
+        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r"<retrieving>.*?</retrieving>", "", text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r"data:image/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+", "[image omitted]", text)
+        lines = []
+        for line in text.splitlines():
+            if any(marker in line for marker in AGENT_HISTORY_ERROR_MARKERS):
+                continue
+            lines.append(line)
+        text = "\n".join(lines)
+        text = re.sub(r"\n{3,}", "\n\n", text).strip()
+        if len(text) > max_chars:
+            text = text[:max_chars].rstrip() + "\n[history truncated]"
+        return text
 
     def reset(self, mem=False):
         super().reset()
@@ -650,15 +695,18 @@ class Canvas(Graph):
                 return
         self.path = self.path[:idx]
         if not self.error:
+            final_output = self.get_component_obj(self.path[-1]).output()
             yield decorate("workflow_finished",
                        {
                            "inputs": kwargs.get("inputs"),
-                           "outputs": self.get_component_obj(self.path[-1]).output(),
+                           "outputs": final_output,
                            "elapsed_time": time.perf_counter() - st,
                            "created_at": st,
                        })
-            self.history.append(("assistant", self.get_component_obj(self.path[-1]).output()))
-            self.globals["sys.history"].append(f"{self.history[-1][0]}: {self.history[-1][1]}")
+            history_text = self._clean_history_text(final_output)
+            if history_text:
+                self.history.append(("assistant", history_text))
+                self.globals["sys.history"].append(f"assistant: {history_text}")
         elif "Task has been canceled" in self.error:
             yield decorate("workflow_finished",
                        {
@@ -721,15 +769,17 @@ class Canvas(Graph):
         if window_size <= 0:
             return convs
         for role, obj in self.history[window_size * -2:]:
-            if isinstance(obj, dict):
-                convs.append({"role": role, "content": obj.get("content", "")})
-            else:
-                convs.append({"role": role, "content": str(obj)})
+            content = self._clean_history_text(obj)
+            if not content:
+                continue
+            convs.append({"role": role, "content": content})
         return convs
 
     def add_user_input(self, question):
-        self.history.append(("user", question))
-        self.globals["sys.history"].append(f"{self.history[-1][0]}: {self.history[-1][1]}")
+        content = self._clean_history_text(question, max_chars=AGENT_HISTORY_MAX_CHARS // 2)
+        self.history.append(("user", content))
+        if content:
+            self.globals["sys.history"].append(f"user: {content}")
 
     def get_prologue(self):
         return self.components["begin"]["obj"]._param.prologue

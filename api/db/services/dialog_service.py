@@ -930,7 +930,7 @@ DEEPSEEK_V4_RETRY_CONTEXT_TOKENS = 32768
 DEEPSEEK_V4_PROMPT_HARD_TOKENS = 60000
 MIN_OUTPUT_TOKENS = 1
 DEFAULT_OUTPUT_TOKENS = 512
-DEEPSEEK_V4_RAG_OUTPUT_TOKENS = 2048
+DEEPSEEK_V4_RAG_OUTPUT_TOKENS = 4096
 MEMORY_CONTEXT_TOKENS = 2048
 MAX_MEMORY_RESULTS = 5
 MAX_MEMORY_GROUPS = 4
@@ -3406,7 +3406,8 @@ async def _stream_with_think_delta(stream_iter, min_tokens: int = 16):
         yield ("marker", "</think>", state)
 
 
-async def async_ask(question, kb_ids, tenant_id, chat_llm_name=None, search_config={}, search_id=None):
+async def async_ask(question, kb_ids, tenant_id, chat_llm_name=None, search_config=None, search_id=None):
+    search_config = search_config or {}
     doc_ids = search_config.get("doc_ids", [])
     rerank_mdl = None
     kb_ids = search_config.get("kb_ids", kb_ids)
@@ -3428,7 +3429,33 @@ async def async_ask(question, kb_ids, tenant_id, chat_llm_name=None, search_conf
     if rerank_id:
         rerank_model_config = get_model_config_by_type_and_name(tenant_id, LLMType.RERANK, rerank_id)
         rerank_mdl = LLMBundle(tenant_id, rerank_model_config)
-    max_tokens = chat_mdl.max_length
+    class _SearchSummaryDialog:
+        def __init__(self, llm_id, llm_setting, top_n, top_k):
+            self.llm_id = llm_id or ""
+            self.llm_setting = llm_setting or {}
+            self.top_n = top_n
+            self.top_k = top_k
+
+    search_llm_setting = deepcopy(search_config.get("llm_setting") or {})
+    search_dialog = _SearchSummaryDialog(
+        chat_llm_name or (chat_model_config or {}).get("llm_name", ""),
+        search_llm_setting,
+        search_config.get("top_n", DEFAULT_RETRIEVAL_TOP_N),
+        search_config.get("top_k", DEFAULT_RETRIEVAL_TOP_K),
+    )
+    context_budget = _resolve_context_budgets(chat_model_config, search_dialog)
+    if _is_deepseek_v4_model(chat_model_config, search_dialog):
+        # Search result summaries are auxiliary UI content. Keep them on the
+        # safer 32K lane so they cannot destabilize the shared DS4 service.
+        context_budget = _resolve_retry_context_budgets(context_budget)
+        context_budget["output"] = min(
+            DEEPSEEK_V4_RAG_OUTPUT_TOKENS,
+            max(MIN_OUTPUT_TOKENS, context_budget["model"] - MIN_OUTPUT_TOKENS),
+        )
+        context_budget["prompt"] = max(MIN_OUTPUT_TOKENS, context_budget["model"] - context_budget["output"])
+        context_budget["knowledge"] = max(MIN_OUTPUT_TOKENS, int(context_budget["prompt"] * 0.35))
+        context_budget["fit"] = max(MIN_OUTPUT_TOKENS, int(context_budget["prompt"] * 0.90))
+    retrieval_top_n, retrieval_top_k, retrieval_scope = _resolve_dynamic_retrieval_limits(search_dialog, question, False)
     tenant_ids = list(set([kb.tenant_id for kb in kbs]))
 
     if meta_data_filter:
@@ -3463,10 +3490,10 @@ async def async_ask(question, kb_ids, tenant_id, chat_llm_name=None, search_conf
         tenant_ids=tenant_ids,
         kb_ids=kb_ids,
         page=1,
-        page_size=12,
+        page_size=retrieval_top_n,
         similarity_threshold=search_config.get("similarity_threshold", 0.1),
         vector_similarity_weight=vector_similarity_weight,
-        top=search_config.get("top_k", 1024),
+        top=retrieval_top_k,
         doc_ids=doc_ids,
         aggs=True,
         rerank_mdl=rerank_mdl,
@@ -3481,13 +3508,59 @@ async def async_ask(question, kb_ids, tenant_id, chat_llm_name=None, search_conf
         )
         _enrich_chunks_with_document_metadata(kbinfos.get("chunks", []), metadata_fields)
 
-    knowledges = kb_prompt(kbinfos, max_tokens)
-    sys_prompt = PROMPT_JINJA_ENV.from_string(ASK_SUMMARY).render(knowledge="\n".join(knowledges))
+    original_chunk_count, deduped_chunk_count = _deduplicate_retrieved_chunks(kbinfos)
+    expand_raptor_chunks_for_generation(kbinfos)
+    _prioritize_evidence_chunks(kbinfos)
+    if original_chunk_count != deduped_chunk_count:
+        logging.info(
+            "SearchSummary deduplicated chunks=%s->%s search_id=%s",
+            original_chunk_count,
+            deduped_chunk_count,
+            search_id,
+        )
 
-    msg = [{"role": "user", "content": question}]
+    knowledges = []
+    sys_prompt = ""
+    msg = []
+    gen_conf = {}
+
+    def build_generation_payload(current_budget: dict[str, int], stage: str):
+        current_knowledges = _kb_prompt_dynamic(kbinfos, current_budget["knowledge"])
+        evidence_guidance_text = _format_evidence_guidance_for_prompt(kbinfos) if current_knowledges else ""
+        current_sys_prompt = PROMPT_JINJA_ENV.from_string(ASK_SUMMARY).render(knowledge="\n".join(current_knowledges)) + evidence_guidance_text
+        current_gen_conf = deepcopy(search_llm_setting)
+        current_gen_conf["temperature"] = 0.1
+        current_gen_conf["max_tokens"] = min(
+            _safe_positive_int(current_gen_conf.get("max_tokens"), current_budget["output"]),
+            current_budget["output"],
+        )
+        current_msg = [
+            {"role": "system", "content": current_sys_prompt},
+            {"role": "user", "content": question},
+        ]
+        used_token_count, current_msg, _ = _fit_messages_to_budget(current_msg, current_budget, current_gen_conf, stage)
+        available_output_tokens = max(MIN_OUTPUT_TOKENS, current_budget["model"] - used_token_count)
+        current_gen_conf["max_tokens"] = max(
+            MIN_OUTPUT_TOKENS,
+            min(int(current_gen_conf["max_tokens"]), current_budget["output"], available_output_tokens),
+        )
+        _log_rag_token_budget(
+            stage,
+            current_budget,
+            current_msg,
+            current_gen_conf,
+            kbinfos,
+            retrieval_scope,
+            retrieval_top_n,
+            retrieval_top_k,
+            "\n".join(current_knowledges),
+            "",
+            "",
+        )
+        return current_msg[0]["content"], current_msg, current_gen_conf, current_knowledges
 
     async def decorate_answer(answer):
-        nonlocal knowledges, kbinfos, sys_prompt
+        nonlocal knowledges, kbinfos
         # Main retrieval no longer ships chunk vectors back from ES. Pull
         # them on demand for the chunks we are about to cite.
         await _hydrate_chunk_vectors(retriever, kbinfos.get("chunks", []), tenant_ids, kb_ids)
@@ -3507,15 +3580,40 @@ async def async_ask(question, kb_ids, tenant_id, chat_llm_name=None, search_conf
         refs["chunks"] = chunks_format(refs)
         return {"answer": answer, "reference": refs}
 
-    stream_iter = chat_mdl.async_chat_streamly_delta(sys_prompt, msg, {"temperature": 0.1})
+    async def run_summary_stream(current_prompt, current_msg, current_gen_conf):
+        async with _generation_slot(chat_model_config, search_dialog):
+            current_stream_iter = chat_mdl.async_chat_streamly_delta(current_prompt, current_msg[1:], current_gen_conf)
+            async for item in _stream_with_think_delta(current_stream_iter):
+                yield item
+
+    sys_prompt, msg, gen_conf, knowledges = build_generation_payload(context_budget, "search_summary_initial")
     last_state = None
-    async for kind, value, state in _stream_with_think_delta(stream_iter):
-        last_state = state
-        if kind == "marker":
-            flags = {"start_to_think": True} if value == "<think>" else {"end_to_think": True}
-            yield {"answer": "", "reference": {}, "final": False, **flags}
-            continue
-        yield {"answer": value, "reference": {}, "final": False}
+    try:
+        async for kind, value, state in run_summary_stream(sys_prompt, msg, gen_conf):
+            last_state = state
+            if kind == "marker":
+                flags = {"start_to_think": True} if value == "<think>" else {"end_to_think": True}
+                yield {"answer": "", "reference": {}, "final": False, **flags}
+                continue
+            if _is_context_span_error(value):
+                raise RuntimeError(value)
+            yield {"answer": value, "reference": {}, "final": False}
+    except Exception as exc:
+        if not _is_context_span_error(exc):
+            raise
+        logging.warning("SearchSummary context span error; retrying with reduced prompt budget: %s", exc)
+        retry_budget = _resolve_retry_context_budgets(context_budget)
+        sys_prompt, msg, gen_conf, knowledges = build_generation_payload(retry_budget, "search_summary_retry")
+        last_state = None
+        async for kind, value, state in run_summary_stream(sys_prompt, msg, gen_conf):
+            last_state = state
+            if kind == "marker":
+                flags = {"start_to_think": True} if value == "<think>" else {"end_to_think": True}
+                yield {"answer": "", "reference": {}, "final": False, **flags}
+                continue
+            if _is_context_span_error(value):
+                raise RuntimeError(value)
+            yield {"answer": value, "reference": {}, "final": False}
     full_answer = last_state.full_text if last_state else ""
     final = await decorate_answer(_extract_visible_answer(full_answer))
     final["final"] = True

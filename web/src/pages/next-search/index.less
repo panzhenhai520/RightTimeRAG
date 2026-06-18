@@ -50,6 +50,15 @@
   }
 }
 
+@keyframes searchResultProgress {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+
 .animate-fade-in-up {
   animation-name: fadeInUp;
   animation-duration: 0.5s;
@@ -115,10 +124,38 @@
   }
 }
 
+.searchSummaryBlock {
+  :global(details.retrieving),
+  :global(details.think) {
+    margin-bottom: 16px;
+    color: rgb(var(--text-secondary));
+
+    summary {
+      color: rgb(var(--text-secondary));
+      font-size: 0.92em;
+    }
+  }
+
+  :global(details.retrieving[open]),
+  :global(details.think[open]) {
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgb(var(--border-default) / 0.45);
+  }
+
+  :global(details.retrieving + *),
+  :global(details.think + *) {
+    margin-top: 18px;
+  }
+}
+
 .search-keyword-mark {
   border-radius: 4px;
   background: rgb(var(--accent-primary) / 0.16);
   color: rgb(var(--accent-primary));
   font-weight: 600;
   padding: 0 2px;
+}
+
+.search-result-progress {
+  animation: searchResultProgress 1.15s ease-in-out infinite;
 }

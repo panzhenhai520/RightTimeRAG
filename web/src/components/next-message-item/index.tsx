@@ -7,8 +7,8 @@ import {
 } from '@/interfaces/database/chat';
 import classNames from 'classnames';
 import {
-  PropsWithChildren,
   Component,
+  PropsWithChildren,
   ReactNode,
   memo,
   useCallback,
@@ -50,9 +50,9 @@ import { RAGFlowAvatar } from '../ragflow-avatar';
 import SvgIcon from '../svg-icon';
 import { useTheme } from '../theme-provider';
 import { Button } from '../ui/button';
+import { EvidenceAuditPanel } from './evidence-audit-panel';
 import { AssistantGroupButton, UserGroupButton } from './group-button';
 import styles from './index.module.less';
-import { EvidenceAuditPanel } from './evidence-audit-panel';
 import { ReferenceDocumentList } from './reference-document-list';
 import { ReferenceImageList } from './reference-image-list';
 import { UploadedMessageFiles } from './uploaded-message-files';
@@ -129,6 +129,7 @@ function MessageItem({
   reference,
   loading = false,
   avatar,
+  nickname,
   avatarDialog,
   agentName,
   sendLoading = false,
@@ -396,7 +397,9 @@ function MessageItem({
             (item.role === MessageType.User ? (
               <RAGFlowAvatar
                 className="size-20 shrink-0"
-                avatar={avatar ?? '/logo.svg'}
+                avatar={avatar}
+                name={nickname}
+                isPerson
               />
             ) : avatarDialog || agentName ? (
               <RAGFlowAvatar
@@ -608,7 +611,8 @@ function MessageItem({
                             className={cn(styles.reasoningLine, {
                               [styles.reasoningLineStreaming]:
                                 loading &&
-                                lineIndex === displayedReasoningLines.length - 1,
+                                lineIndex ===
+                                  displayedReasoningLines.length - 1,
                             })}
                           >
                             {line}

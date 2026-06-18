@@ -191,7 +191,18 @@ export const useSaveSetting = (silent = false) => {
         if (!silent) {
           message.success(t('message.modified'));
         }
-        queryClient.invalidateQueries({ queryKey: ['userInfo'] });
+        queryClient.setQueryData<Partial<IUserInfo>>(
+          [UserSettingApiAction.UserInfo],
+          (oldUserInfo = {}) => ({
+            ...oldUserInfo,
+            ...('avatar' in userInfo ? { avatar: userInfo.avatar } : {}),
+            ...('nickname' in userInfo ? { nickname: userInfo.nickname } : {}),
+            ...('timezone' in userInfo ? { timezone: userInfo.timezone } : {}),
+          }),
+        );
+        queryClient.invalidateQueries({
+          queryKey: [UserSettingApiAction.UserInfo],
+        });
       }
       return data?.code;
     },

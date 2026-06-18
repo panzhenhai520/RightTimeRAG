@@ -687,7 +687,7 @@ export const useSelectTestingResult = (): ITestingResult => {
       return mutation.state.data;
     },
   });
-  return (data.at(-1) ?? {
+  return ([...data].reverse().find(Boolean) ?? {
     chunks: [],
     documents: [],
     total: 0,
@@ -721,7 +721,7 @@ export const useAllTestingResult = (): ITestingResult => {
       return mutation.state.data;
     },
   });
-  return (data.at(-1) ?? {
+  return ([...data].reverse().find(Boolean) ?? {
     chunks: [],
     documents: [],
     total: 0,

@@ -97,7 +97,7 @@ export function ChatSettings({ hasSingleChatBox }: ChatSettingsProps) {
       };
     }
 
-    updateChat({
+    const code = await updateChat({
       chatId: id!,
       params: {
         ...omit(data, [
@@ -113,6 +113,9 @@ export function ChatSettings({ hasSingleChatBox }: ChatSettingsProps) {
         ...nextValues,
       },
     });
+    if (code === 0) {
+      form.reset({ ...values, ...nextValues } as FormSchemaType);
+    }
   }
 
   function onInvalid(errors: any) {

@@ -132,9 +132,9 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
 
       if (!ctx) return;
 
-      // Set canvas size to 64x64 (avatar size)
-      canvas.width = 64;
-      canvas.height = 64;
+      // Keep enough detail for larger assistant cards.
+      canvas.width = 256;
+      canvas.height = 256;
 
       // Draw cropped image on canvas
       ctx.drawImage(
@@ -145,8 +145,8 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
         cropArea.size,
         0,
         0,
-        64,
-        64,
+        256,
+        256,
       );
 
       // Convert to base64

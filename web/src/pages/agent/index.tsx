@@ -32,6 +32,7 @@ import {
   CirclePlay,
   Compass,
   History,
+  House,
   LaptopMinimalCheck,
   Logs,
   MessageSquareCode,
@@ -131,7 +132,8 @@ export default function Agent() {
 
   const { showEmbedModal, hideEmbedModal, embedVisible, beta } =
     useShowEmbedModal();
-  const { navigateToAgentLogs, navigateToAgentExplore } = useNavigatePage();
+  const { navigateToAgentLogs, navigateToAgentExplore, navigateToHome } =
+    useNavigatePage();
   const time = useWatchAgentChange(chatDrawerVisible);
   const isWebhookMode = useIsWebhookMode();
 
@@ -286,6 +288,12 @@ export default function Agent() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
+                <BreadcrumbLink onClick={navigateToHome}>
+                  {t('header.home')}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
                 <BreadcrumbLink onClick={navigateToAgents}>
                   {t('header.flow')}
                 </BreadcrumbLink>
@@ -301,6 +309,10 @@ export default function Agent() {
           </div>
         </section>
         <div className="flex items-center gap-5">
+          <Button variant={'secondary'} onClick={navigateToHome}>
+            <House />
+            {t('header.home')}
+          </Button>
           <ButtonLoading
             variant={'secondary'}
             onClick={() => saveGraph()}

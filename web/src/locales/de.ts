@@ -2213,6 +2213,9 @@ Dieser Prozess aggregiert Variablen aus mehreren Zweigen in eine einzelne Variab
         'Schreiben Sie hier Ihre SQL-Abfrage. Sie können Variablen, rohes SQL oder beides unter Verwendung der Variablensyntax mischen.',
       frameworkPrompts: 'Framework',
       release: 'Veröffentlichen',
+      publishSuccess: 'Erfolgreich veröffentlicht',
+      publishRunPrompt:
+        'Der Agent wurde veröffentlicht. Möchten Sie ihn jetzt ausführen?',
       createFromBlank: 'Leer erstellen',
       createFromTemplate: 'Aus Vorlage erstellen',
       importJsonFile: 'JSON-Datei importieren',

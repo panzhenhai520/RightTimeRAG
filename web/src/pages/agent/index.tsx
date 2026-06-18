@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import message from '@/components/ui/message';
+import { Modal } from '@/components/ui/modal/modal';
 import { SharedFrom } from '@/constants/chat';
 import { useSetModalState } from '@/hooks/common-hooks';
 import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
@@ -174,6 +175,10 @@ export default function Agent() {
 
   const findNodeByName = useGraphStore((state) => state.findNodeByName);
 
+  const openAgentRuntime = useCallback(() => {
+    navigateToAgentExplore(id as string)();
+  }, [id, navigateToAgentExplore]);
+
   const handleRunPipeline = useCallback(() => {
     if (!findNodeByName(Operator.Tokenizer)) {
       message.warning(t('flow.tokenizerRequired'));
@@ -208,17 +213,34 @@ export default function Agent() {
       showWebhookTestSheet();
     } else if (isPipeline) {
       handleRunPipeline();
+    } else if (isConversationMode) {
+      openAgentRuntime();
     } else {
       handleRunAgent();
     }
   }, [
     handleRunAgent,
     handleRunPipeline,
+    isConversationMode,
     isPipeline,
     isWebhookMode,
+    openAgentRuntime,
     saveGraph,
     showWebhookTestSheet,
   ]);
+
+  const handlePublish = useCallback(async () => {
+    const ret = await saveGraph(undefined, undefined, true);
+    if (ret?.code === 0) {
+      Modal.confirm({
+        title: t('flow.publishSuccess'),
+        content: t('flow.publishRunPrompt'),
+        okText: t('flow.run'),
+        cancelText: t('common.cancel'),
+        onOk: openAgentRuntime,
+      });
+    }
+  }, [openAgentRuntime, saveGraph, t]);
 
   const {
     run: runPipeline,
@@ -306,7 +328,7 @@ export default function Agent() {
           <PublishConfirmDialog
             agentDetail={agentDetail}
             loading={loading}
-            onPublish={() => saveGraph(undefined, undefined, true)}
+            onPublish={handlePublish}
           />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

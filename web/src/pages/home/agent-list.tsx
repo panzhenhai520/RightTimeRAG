@@ -1,4 +1,5 @@
 import { HomeCard } from '@/components/home-card';
+import { AgentCategory } from '@/constants/agent';
 import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { useFetchAgentListByPage } from '@/hooks/use-agent-request';
 import { useEffect, useMemo } from 'react';
@@ -17,7 +18,7 @@ export function Agents({
   const { data, loading } = useFetchAgentListByPage(
     pageSize ? { page: 1, pageSize } : undefined,
   );
-  const { navigateToAgentExplore } = useNavigatePage();
+  const { navigateToAgent } = useNavigatePage();
   const publishedAgents = useMemo(
     () => data.filter((agent) => agent.release || agent.release_time),
     [data],
@@ -34,7 +35,7 @@ export function Agents({
         <HomeCard
           key={x.id}
           data={{ name: x.title, ...x } as any}
-          onClick={navigateToAgentExplore(x.id)}
+          onClick={navigateToAgent(x.id, x.canvas_category as AgentCategory)}
           moreDropdown={null}
         ></HomeCard>
       ))}

@@ -20,7 +20,7 @@ import { useIsPipeline } from '../hooks/use-is-pipeline';
 interface PublishConfirmDialogProps {
   agentDetail: IFlow;
   loading: boolean;
-  onPublish: () => void;
+  onPublish: () => void | Promise<void>;
 }
 
 function AssociatedDataset({
@@ -81,8 +81,8 @@ export function PublishConfirmDialog({
     return agentDetail?.datasets || [];
   }, [agentDetail?.datasets]);
 
-  const handleConfirmPublish = useCallback(() => {
-    onPublish();
+  const handleConfirmPublish = useCallback(async () => {
+    await onPublish();
     setOpen(false);
   }, [onPublish]);
 

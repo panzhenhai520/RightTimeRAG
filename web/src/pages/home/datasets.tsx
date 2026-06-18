@@ -1,4 +1,3 @@
-import { CardSineLineContainer } from '@/components/card-singleline-container';
 import { HomeCard } from '@/components/home-card';
 import { HomeIcon } from '@/components/svg-icon';
 import { CardSkeleton } from '@/components/ui/skeleton';
@@ -7,7 +6,7 @@ import { useFetchNextKnowledgeListByPage } from '@/hooks/use-knowledge-request';
 import { useTranslation } from 'react-i18next';
 import { SeeAllAppCard } from './application-card';
 
-const HOME_DATASET_PAGE_SIZE = 8;
+const HOME_DATASET_PAGE_SIZE = 12;
 
 export function Datasets() {
   const { t } = useTranslation();
@@ -57,7 +56,7 @@ export function Datasets() {
         ) : (
           <>
             {kbs?.length > 0 && (
-              <CardSineLineContainer className="gap-4 xl:grid-cols-3 2xl:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {kbs?.slice(0, HOME_DATASET_PAGE_SIZE).map((dataset) => (
                   <HomeCard
                     key={dataset.id}
@@ -72,7 +71,7 @@ export function Datasets() {
                 <SeeAllAppCard
                   click={() => navigateToDatasetList({ isCreate: false })}
                 />
-              </CardSineLineContainer>
+              </div>
             )}
             {kbs?.length <= 0 && (
               <div className="rounded-lg bg-bg-card/45 px-4 py-8 text-center text-sm text-text-secondary">

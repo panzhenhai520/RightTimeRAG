@@ -2283,6 +2283,8 @@ export default {
       publishIngestionPipeline:
         'Вы собираетесь опубликовать этот пайплайн обработки.',
       publishAgent: 'Вы собираетесь опубликовать этого агента',
+      publishSuccess: 'Опубликовано успешно',
+      publishRunPrompt: 'Агент опубликован. Запустить его сейчас?',
       linkedDataset: 'Связанная база знаний:',
       lastPublished: 'Последняя публикация',
       createFromBlank: 'Создать с нуля',

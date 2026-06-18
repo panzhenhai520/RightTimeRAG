@@ -2745,6 +2745,9 @@ Les informations structurées importantes peuvent inclure : noms, dates, lieux, 
       publishIngestionPipeline:
         "Vous êtes sur le point de publier ce pipeline d'ingestion.",
       publishAgent: 'Vous êtes sur le point de publier cet agent',
+      publishSuccess: 'Publication réussie',
+      publishRunPrompt:
+        "L'agent a été publié. Voulez-vous l'exécuter maintenant ?",
       linkedDataset: 'Base de connaissances liée :',
       lastPublished: 'Dernière publication',
       mode: 'Mode',

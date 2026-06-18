@@ -1280,6 +1280,8 @@ export default {
       optional: '可選項',
       pasteFileLink: '貼上文件連結',
       testRun: '試運行',
+      publishSuccess: '發布成功',
+      publishRunPrompt: '智能體已發布成功，是否立即運行？',
       template: '模板轉換',
       templateDescription:
         '此元件用於排版各種元件的輸出。1、支持Jinja2模板，會先將輸入轉為對象後進行模板渲染2、同時保留原使用{參數}字符串替換的方式',

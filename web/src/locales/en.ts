@@ -2585,6 +2585,8 @@ This process aggregates variables from multiple branches into a single variable 
       publishIngestionPipeline:
         'You are about to publish this Ingestion pipeline.',
       publishAgent: 'You are about to publish this agent',
+      publishSuccess: 'Published successfully',
+      publishRunPrompt: 'The agent has been published. Run it now?',
       linkedDataset: 'Linked dataset:',
       lastPublished: 'Last published',
       createFromBlank: 'Create from blank',

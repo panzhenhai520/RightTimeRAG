@@ -1128,6 +1128,8 @@ Quanto sopra è il contenuto che devi riassumere.`,
       optional: 'Opzionale',
       pasteFileLink: 'Incolla link file',
       testRun: 'Test esecuzione',
+      publishSuccess: 'Pubblicato con successo',
+      publishRunPrompt: "L'agente è stato pubblicato. Vuoi eseguirlo ora?",
       template: 'Template',
       templateDescription:
         "Un componente che formatta l'output di altri componenti.",

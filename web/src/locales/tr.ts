@@ -2421,6 +2421,8 @@ En uygun olduğu durumlar: Anlatı bütünlüğünün bitişik paragrafları bir
       confirmPublish: 'Yayını onayla',
       publishIngestionPipeline: 'Bu Alım hattını yayınlamak üzeresiniz.',
       publishAgent: 'Bu ajanı yayınlamak üzeresiniz',
+      publishSuccess: 'Başarıyla yayınlandı',
+      publishRunPrompt: 'Ajan yayınlandı. Şimdi çalıştırılsın mı?',
       linkedDataset: 'Bağlı dataset:',
       lastPublished: 'Son yayınlama',
       createFromBlank: 'Boştan oluştur',

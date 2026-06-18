@@ -2217,6 +2217,8 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取实体和关系
       confirmPublish: '确认发布',
       publishIngestionPipeline: '您即将发布此 Ingestion pipeline。',
       publishAgent: '您即将发布此智能体',
+      publishSuccess: '发布成功',
+      publishRunPrompt: '智能体已发布成功，是否立即运行？',
       linkedDataset: '已关联的知识库：',
       lastPublished: '上次发布时间',
       createFromBlank: '从空白创建',

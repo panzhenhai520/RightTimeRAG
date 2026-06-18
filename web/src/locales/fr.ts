@@ -141,6 +141,27 @@ export default {
       emptySection: 'Aucun contenu disponible pour le moment',
       manageOrCreate: 'Gérer / créer',
     },
+    devSettingPanython: {
+      createDataset: 'Créer une base de connaissances',
+      createDatasetDescription:
+        'Créez une base, choisissez les paramètres de parsing et importez des documents.',
+      createChat: 'Créer un assistant de chat',
+      createChatDescription:
+        'Configurez les assistants de chat, modèles, prompts et bases associées.',
+      createSearch: 'Créer un assistant de recherche',
+      createSearchDescription:
+        'Configurez les assistants de recherche, périmètres et résultats.',
+      agents: 'Agents',
+      agentsDescription: 'Gérez les agents prédéfinis et les workflows.',
+      memory: 'Organisation de la mémoire',
+      memoryDescription: 'Gérez les mémoires, messages et extensions de mémo.',
+      files: 'Gestion des fichiers',
+      filesDescription:
+        'Gérez les fichiers système et les fichiers de compétences.',
+      configuration: 'Configuration',
+      configurationDescription:
+        'Gérez les sources de données et connexions externes.',
+    },
     skills: {
       title: 'Compétences',
       selectSpace: 'Sélectionnez un espace de compétences pour commencer',

@@ -128,6 +128,27 @@ export default {
       emptySection: 'Noch keine verfügbaren Inhalte',
       manageOrCreate: 'Verwalten / erstellen',
     },
+    devSettingPanython: {
+      createDataset: 'Wissensdatenbank erstellen',
+      createDatasetDescription:
+        'Erstellen Sie eine Wissensdatenbank, wählen Sie Parsing-Einstellungen und importieren Sie Dokumente.',
+      createChat: 'Chat-Assistent erstellen',
+      createChatDescription:
+        'Konfigurieren Sie Chat-Assistenten, Modelle, Prompts und verknüpfte Wissensdatenbanken.',
+      createSearch: 'Such-Assistent erstellen',
+      createSearchDescription:
+        'Konfigurieren Sie Such-Assistenten, Suchbereiche und Ergebnisdarstellung.',
+      agents: 'Agenten',
+      agentsDescription: 'Verwalten Sie vordefinierte Agenten und Workflows.',
+      memory: 'Speicherpflege',
+      memoryDescription:
+        'Verwalten Sie Speicher, Nachrichtenaufbereitung und Memo-Erweiterungen.',
+      files: 'Dateiverwaltung',
+      filesDescription: 'Verwalten Sie Systemdateien und Skill-Dateien.',
+      configuration: 'Konfiguration',
+      configurationDescription:
+        'Verwalten Sie Datenquellen und externe Verbindungseinstellungen.',
+    },
     memories: {
       llmTooltip:
         'Analysiert Gesprächsinhalte, extrahiert Schlüsselinformationen und generiert strukturierte Gedächtniszusammenfassungen.',

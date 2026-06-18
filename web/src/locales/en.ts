@@ -150,6 +150,27 @@ export default {
       emptySection: 'No available content yet',
       manageOrCreate: 'Manage / Create',
     },
+    devSettingPanython: {
+      createDataset: 'Create knowledge base',
+      createDatasetDescription:
+        'Create a knowledge base, choose parsing settings, and import documents.',
+      createChat: 'Create chat assistant',
+      createChatDescription:
+        'Create and configure chat assistants, models, prompts, and datasets.',
+      createSearch: 'Create search assistant',
+      createSearchDescription:
+        'Create and configure search assistants, scopes, and result layout.',
+      agents: 'Agents',
+      agentsDescription: 'Manage predefined agents and workflow orchestration.',
+      memory: 'Memory curation',
+      memoryDescription:
+        'Manage memories, message curation, and memo extensions.',
+      files: 'File management',
+      filesDescription: 'Manage system files and skill files.',
+      configuration: 'Configuration',
+      configurationDescription:
+        'Manage data sources and external connection settings.',
+    },
     skills: {
       title: 'Skills',
       selectSpace: 'Select a skill space to get started',

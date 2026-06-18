@@ -140,6 +140,27 @@ export default {
       emptySection: 'Henüz kullanılabilir içerik yok',
       manageOrCreate: 'Yönet / oluştur',
     },
+    devSettingPanython: {
+      createDataset: 'Bilgi tabanı oluştur',
+      createDatasetDescription:
+        'Bir bilgi tabanı oluşturun, ayrıştırma ayarlarını seçin ve belgeleri içe aktarın.',
+      createChat: 'Sohbet asistanı oluştur',
+      createChatDescription:
+        'Sohbet asistanlarını, modelleri, istemleri ve bağlı bilgi tabanlarını yapılandırın.',
+      createSearch: 'Arama asistanı oluştur',
+      createSearchDescription:
+        'Arama asistanlarını, kapsamları ve sonuç görünümünü yapılandırın.',
+      agents: 'Ajanlar',
+      agentsDescription: 'Ön tanımlı ajanları ve iş akışlarını yönetin.',
+      memory: 'Hafıza düzenleme',
+      memoryDescription:
+        'Hafızaları, mesaj düzenlemeyi ve not genişletmelerini yönetin.',
+      files: 'Dosya yönetimi',
+      filesDescription: 'Sistem dosyalarını ve beceri dosyalarını yönetin.',
+      configuration: 'Yapılandırma',
+      configurationDescription:
+        'Veri kaynaklarını ve harici bağlantı ayarlarını yönetin.',
+    },
     skills: {
       title: 'Beceriler',
       selectSpace: 'Başlamak için bir beceri alanı seçin',

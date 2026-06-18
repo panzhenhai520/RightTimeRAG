@@ -129,6 +129,26 @@ export default {
       emptySection: 'Nessun contenuto disponibile',
       manageOrCreate: 'Gestisci / crea',
     },
+    devSettingPanython: {
+      createDataset: 'Crea base di conoscenza',
+      createDatasetDescription:
+        'Crea una base di conoscenza, scegli le impostazioni di parsing e importa documenti.',
+      createChat: 'Crea assistente chat',
+      createChatDescription:
+        'Configura assistenti chat, modelli, prompt e basi di conoscenza collegate.',
+      createSearch: 'Crea assistente ricerca',
+      createSearchDescription:
+        'Configura assistenti di ricerca, ambiti e presentazione dei risultati.',
+      agents: 'Agenti',
+      agentsDescription: 'Gestisci agenti predefiniti e workflow.',
+      memory: 'Gestione memoria',
+      memoryDescription: 'Gestisci memorie, messaggi e future estensioni memo.',
+      files: 'Gestione file',
+      filesDescription: 'Gestisci file di sistema e file delle competenze.',
+      configuration: 'Configurazione',
+      configurationDescription:
+        'Gestisci origini dati e impostazioni di connessione esterne.',
+    },
     memory: {
       memory: 'Memoria',
       createMemory: 'Crea memoria',

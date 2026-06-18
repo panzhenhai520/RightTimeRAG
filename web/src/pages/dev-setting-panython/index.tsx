@@ -4,37 +4,43 @@ import { useRegister } from '@/hooks/use-login-request';
 import { DEV_FEATURE_SESSION_KEY, Routes } from '@/routes';
 import { rsaPsw } from '@/utils';
 import { FormEvent, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 const devEntries = [
   {
-    title: '新建聊天助手',
-    description: '创建并配置聊天助手、模型、提示词和关联知识库。',
+    titleKey: 'devSettingPanython.createDataset',
+    descriptionKey: 'devSettingPanython.createDatasetDescription',
+    path: `${Routes.Datasets}?isCreate=true`,
+  },
+  {
+    titleKey: 'devSettingPanython.createChat',
+    descriptionKey: 'devSettingPanython.createChatDescription',
     path: `${Routes.Chats}?isCreate=true`,
   },
   {
-    title: '新建搜索助手',
-    description: '创建并配置搜索助手、搜索范围和结果呈现方式。',
+    titleKey: 'devSettingPanython.createSearch',
+    descriptionKey: 'devSettingPanython.createSearchDescription',
     path: `${Routes.Searches}?isCreate=true`,
   },
   {
-    title: '智能体',
-    description: '管理预定义智能体和流程编排。',
+    titleKey: 'devSettingPanython.agents',
+    descriptionKey: 'devSettingPanython.agentsDescription',
     path: Routes.Agents,
   },
   {
-    title: '记忆整理',
-    description: '管理记忆、消息整理和后续备忘录扩展。',
+    titleKey: 'devSettingPanython.memory',
+    descriptionKey: 'devSettingPanython.memoryDescription',
     path: Routes.Memories,
   },
   {
-    title: '文件管理',
-    description: '管理系统文件和技能文件。',
+    titleKey: 'devSettingPanython.files',
+    descriptionKey: 'devSettingPanython.filesDescription',
     path: Routes.Files,
   },
   {
-    title: '配置管理',
-    description: '管理数据源和外部连接配置。',
+    titleKey: 'devSettingPanython.configuration',
+    descriptionKey: 'devSettingPanython.configurationDescription',
     path: `${Routes.UserSetting}${Routes.DataSource}`,
   },
 ];
@@ -104,6 +110,8 @@ function RegisterUserCard() {
 }
 
 export default function DevSettingPanython() {
+  const { t } = useTranslation();
+
   useEffect(() => {
     window.sessionStorage.setItem(DEV_FEATURE_SESSION_KEY, '1');
   }, []);
@@ -126,10 +134,10 @@ export default function DevSettingPanython() {
             className="rounded-lg border border-border bg-bg-card p-5"
           >
             <h2 className="text-lg font-medium text-text-primary">
-              {entry.title}
+              {t(entry.titleKey)}
             </h2>
             <p className="mt-2 min-h-10 text-sm text-text-secondary">
-              {entry.description}
+              {t(entry.descriptionKey)}
             </p>
             <Button asChild className="mt-5 bg-[#6f3f2f] text-white">
               <Link to={entry.path}>打开</Link>

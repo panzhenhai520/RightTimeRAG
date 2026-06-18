@@ -49,9 +49,18 @@ export const useCreateMemory = () => {
   return { createMemory };
 };
 
-export const useFetchMemoryList = () => {
+type FixedPaginationOptions = {
+  page?: number;
+  pageSize?: number;
+};
+
+export const useFetchMemoryList = (options?: FixedPaginationOptions) => {
   const { handleInputChange, searchString, pagination, setPagination } =
     useHandleSearchChange();
+  const requestPagination = {
+    current: options?.page ?? pagination.current,
+    pageSize: options?.pageSize ?? pagination.pageSize,
+  };
   const { filterValue, handleFilterSubmit } = useHandleFilterSubmit();
   const debouncedSearchString = useDebounce(searchString, { wait: 500 });
 
@@ -64,8 +73,8 @@ export const useFetchMemoryList = () => {
   const owner = filterValue.owner;
   const requestParams: Record<string, any> = {
     keywords: debouncedSearchString,
-    page_size: pagination.pageSize,
-    page: pagination.current,
+    page_size: requestPagination.pageSize,
+    page: requestPagination.current,
     memory_type: memoryType.length > 0 ? memoryType.join(',') : undefined,
     storage_type: storageType.length === 1 ? storageType[0] : undefined,
   };
@@ -81,7 +90,7 @@ export const useFetchMemoryList = () => {
       'memoryList',
       {
         debouncedSearchString,
-        ...pagination,
+        ...requestPagination,
       },
       filterValue,
     ],
@@ -112,7 +121,11 @@ export const useFetchMemoryList = () => {
     data,
     isLoading,
     isError,
-    pagination,
+    pagination: {
+      ...pagination,
+      current: requestPagination.current,
+      pageSize: requestPagination.pageSize,
+    },
     searchString,
     handleInputChange,
     setPagination,

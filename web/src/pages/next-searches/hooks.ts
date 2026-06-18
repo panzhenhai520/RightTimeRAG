@@ -86,9 +86,18 @@ interface SearchListResponse {
   message: string;
 }
 
-export const useFetchSearchList = () => {
+type FixedPaginationOptions = {
+  page?: number;
+  pageSize?: number;
+};
+
+export const useFetchSearchList = (options?: FixedPaginationOptions) => {
   const { handleInputChange, searchString, pagination, setPagination } =
     useHandleSearchChange();
+  const requestPagination = {
+    current: options?.page ?? pagination.current,
+    pageSize: options?.pageSize ?? pagination.pageSize,
+  };
   const debouncedSearchString = useDebounce(searchString, { wait: 500 });
 
   const { data, isLoading, isError, refetch } = useQuery<
@@ -99,7 +108,7 @@ export const useFetchSearchList = () => {
       'searchList',
       {
         debouncedSearchString,
-        ...pagination,
+        ...requestPagination,
       },
     ],
     queryFn: async () => {
@@ -107,8 +116,8 @@ export const useFetchSearchList = () => {
         {
           params: {
             keywords: debouncedSearchString,
-            page_size: pagination.pageSize,
-            page: pagination.current,
+            page_size: requestPagination.pageSize,
+            page: requestPagination.current,
           },
         },
         true,
@@ -124,7 +133,11 @@ export const useFetchSearchList = () => {
     data,
     isLoading,
     isError,
-    pagination,
+    pagination: {
+      ...pagination,
+      current: requestPagination.current,
+      pageSize: requestPagination.pageSize,
+    },
     searchString,
     handleInputChange,
     setPagination,

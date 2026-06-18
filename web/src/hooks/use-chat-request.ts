@@ -61,9 +61,18 @@ export const useGetChatSearchParams = () => {
   };
 };
 
-export const useFetchChatList = () => {
+type FixedPaginationOptions = {
+  page?: number;
+  pageSize?: number;
+};
+
+export const useFetchChatList = (options?: FixedPaginationOptions) => {
   const { searchString, handleInputChange } = useHandleSearchChange();
   const { pagination, setPagination } = useGetPaginationWithRouter();
+  const requestPagination = {
+    current: options?.page ?? pagination.current,
+    pageSize: options?.pageSize ?? pagination.pageSize,
+  };
   const debouncedSearchString = useDebounce(searchString, { wait: 500 });
 
   const {
@@ -75,7 +84,7 @@ export const useFetchChatList = () => {
       ChatApiAction.FetchChatList,
       {
         debouncedSearchString,
-        ...pagination,
+        ...requestPagination,
       },
     ],
     initialData: { chats: [], total: 0 },
@@ -86,8 +95,8 @@ export const useFetchChatList = () => {
         {
           params: {
             keywords: debouncedSearchString,
-            page_size: pagination.pageSize,
-            page: pagination.current,
+            page_size: requestPagination.pageSize,
+            page: requestPagination.current,
           },
           data: {},
         },
@@ -111,7 +120,12 @@ export const useFetchChatList = () => {
     refetch,
     searchString,
     handleInputChange: onInputChange,
-    pagination: { ...pagination, total: data?.total },
+    pagination: {
+      ...pagination,
+      current: requestPagination.current,
+      pageSize: requestPagination.pageSize,
+      total: data?.total,
+    },
     setPagination,
   };
 };

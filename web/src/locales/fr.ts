@@ -139,6 +139,7 @@ export default {
       recentMemosDescription:
         'Consultez les notes et mémoires générées depuis les conversations.',
       emptySection: 'Aucun contenu disponible pour le moment',
+      manageOrCreate: 'Gérer / créer',
     },
     skills: {
       title: 'Compétences',

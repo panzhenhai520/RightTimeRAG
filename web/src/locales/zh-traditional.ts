@@ -88,6 +88,7 @@ export default {
       recentMemos: '最近備忘錄',
       recentMemosDescription: '查看由會話整理生成的紀要和長期記憶。',
       emptySection: '暫無可用內容',
+      manageOrCreate: '管理 / 新建',
     },
     knowledgeList: {
       welcome: '歡迎回來',

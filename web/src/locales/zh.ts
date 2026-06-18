@@ -128,6 +128,7 @@ export default {
       recentMemos: '最近备忘录',
       recentMemosDescription: '查看由会话整理生成的纪要和长期记忆。',
       emptySection: '暂无可用内容',
+      manageOrCreate: '管理 / 新建',
     },
     skills: {
       title: '技能',

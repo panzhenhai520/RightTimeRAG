@@ -128,9 +128,18 @@ const buildAgentListParams = ({
   return params;
 };
 
-export const useFetchAgentListByPage = () => {
+type FixedPaginationOptions = {
+  page?: number;
+  pageSize?: number;
+};
+
+export const useFetchAgentListByPage = (options?: FixedPaginationOptions) => {
   const { searchString, handleInputChange } = useHandleSearchChange();
   const { pagination, setPagination } = useGetPaginationWithRouter();
+  const requestPagination = {
+    current: options?.page ?? pagination.current,
+    pageSize: options?.pageSize ?? pagination.pageSize,
+  };
   const debouncedSearchString = useDebounce(searchString, { wait: 500 });
   const { filterValue, handleFilterSubmit } = useHandleFilterSubmit();
   const canvasCategory = Array.isArray(filterValue.canvasCategory)
@@ -140,8 +149,8 @@ export const useFetchAgentListByPage = () => {
   const tags = Array.isArray(filterValue.tags) ? filterValue.tags : undefined;
 
   const requestParams = buildAgentListParams({
-    page: pagination.current,
-    pageSize: pagination.pageSize,
+    page: requestPagination.current,
+    pageSize: requestPagination.pageSize,
     keywords: debouncedSearchString,
     canvasCategory: canvasCategory.length === 1 ? canvasCategory[0] : undefined,
     ownerIds: Array.isArray(owner) ? owner : undefined,
@@ -156,7 +165,7 @@ export const useFetchAgentListByPage = () => {
       AgentApiAction.FetchAgentListByPage,
       {
         debouncedSearchString,
-        ...pagination,
+        ...requestPagination,
         filterValue,
       },
     ],
@@ -192,7 +201,12 @@ export const useFetchAgentListByPage = () => {
     loading,
     searchString,
     handleInputChange: onInputChange,
-    pagination: { ...pagination, total: data?.total },
+    pagination: {
+      ...pagination,
+      current: requestPagination.current,
+      pageSize: requestPagination.pageSize,
+      total: data?.total,
+    },
     setPagination,
     filterValue,
     handleFilterSubmit,

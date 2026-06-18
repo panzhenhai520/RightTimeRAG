@@ -6,11 +6,17 @@ import { useEffect, useMemo } from 'react';
 export function Agents({
   setListLength,
   setLoading,
+  pageSize,
+  displayLimit,
 }: {
   setListLength: (length: number) => void;
   setLoading?: (loading: boolean) => void;
+  pageSize?: number;
+  displayLimit?: number;
 }) {
-  const { data, loading } = useFetchAgentListByPage();
+  const { data, loading } = useFetchAgentListByPage(
+    pageSize ? { page: 1, pageSize } : undefined,
+  );
   const { navigateToAgentExplore } = useNavigatePage();
   const publishedAgents = useMemo(
     () => data.filter((agent) => agent.release || agent.release_time),
@@ -24,7 +30,7 @@ export function Agents({
 
   return (
     <>
-      {publishedAgents.slice(0, 10).map((x) => (
+      {publishedAgents.slice(0, displayLimit ?? pageSize ?? 10).map((x) => (
         <HomeCard
           key={x.id}
           data={{ name: x.title, ...x } as any}

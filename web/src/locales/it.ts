@@ -127,6 +127,7 @@ export default {
       recentMemosDescription:
         'Consulta note e memoria a lungo termine generate dalle chat.',
       emptySection: 'Nessun contenuto disponibile',
+      manageOrCreate: 'Gestisci / crea',
     },
     memory: {
       memory: 'Memoria',

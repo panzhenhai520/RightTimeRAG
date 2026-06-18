@@ -11,12 +11,16 @@ import { useRenameChat } from '../next-chats/hooks/use-rename-chat';
 export function ChatList({
   setListLength,
   setLoading,
+  pageSize,
 }: {
   setListLength: (length: number) => void;
   setLoading?: (loading: boolean) => void;
+  pageSize?: number;
 }) {
   const { t } = useTranslation();
-  const { data, loading } = useFetchChatList();
+  const { data, loading } = useFetchChatList(
+    pageSize ? { page: 1, pageSize } : undefined,
+  );
   const { navigateToChat } = useNavigatePage();
 
   const {
@@ -33,7 +37,7 @@ export function ChatList({
   }, [data, setListLength, loading, setLoading]);
   return (
     <>
-      {data.chats.slice(0, 10).map((x) => (
+      {data.chats.slice(0, pageSize ?? 10).map((x) => (
         <HomeCard
           key={x.id}
           data={{

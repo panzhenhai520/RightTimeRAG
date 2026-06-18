@@ -144,9 +144,20 @@ export const useTestRetrieval = () => {
   };
 };
 
-export const useFetchNextKnowledgeListByPage = () => {
+type FixedPaginationOptions = {
+  page?: number;
+  pageSize?: number;
+};
+
+export const useFetchNextKnowledgeListByPage = (
+  options?: FixedPaginationOptions,
+) => {
   const { searchString, handleInputChange } = useHandleSearchChange();
   const { pagination, setPagination } = useGetPaginationWithRouter();
+  const requestPagination = {
+    current: options?.page ?? pagination.current,
+    pageSize: options?.pageSize ?? pagination.pageSize,
+  };
   const debouncedSearchString = useDebounce(searchString, { wait: 500 });
   const { filterValue, handleFilterSubmit } = useHandleFilterSubmit();
 
@@ -155,7 +166,7 @@ export const useFetchNextKnowledgeListByPage = () => {
       KnowledgeApiAction.FetchKnowledgeListByPage,
       {
         debouncedSearchString,
-        ...pagination,
+        ...requestPagination,
         filterValue,
       },
     ],
@@ -166,8 +177,8 @@ export const useFetchNextKnowledgeListByPage = () => {
     gcTime: 0,
     queryFn: async () => {
       const { data } = await listDataset({
-        page_size: pagination.pageSize,
-        page: pagination.current,
+        page_size: requestPagination.pageSize,
+        page: requestPagination.current,
         ext: {
           keywords: debouncedSearchString,
           owner_ids: filterValue.owner as string[],
@@ -190,7 +201,12 @@ export const useFetchNextKnowledgeListByPage = () => {
     ...data,
     searchString,
     handleInputChange: onInputChange,
-    pagination: { ...pagination, total: data?.total_datasets },
+    pagination: {
+      ...pagination,
+      current: requestPagination.current,
+      pageSize: requestPagination.pageSize,
+      total: data?.total_datasets,
+    },
     setPagination,
     loading,
     filterValue,

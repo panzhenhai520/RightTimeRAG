@@ -10,11 +10,17 @@ import { SearchDropdown } from '../next-searches/search-dropdown';
 export function SearchList({
   setListLength,
   setLoading,
+  pageSize,
 }: {
   setListLength: (length: number) => void;
   setLoading?: (loading: boolean) => void;
+  pageSize?: number;
 }) {
-  const { data, refetch: refetchList, isLoading } = useFetchSearchList();
+  const {
+    data,
+    refetch: refetchList,
+    isLoading,
+  } = useFetchSearchList(pageSize ? { page: 1, pageSize } : undefined);
   const { navigateToSearch } = useNavigatePage();
   const {
     openCreateModal,
@@ -36,7 +42,7 @@ export function SearchList({
   }, [data, setListLength, isLoading, setLoading]);
   return (
     <>
-      {data?.data.search_apps.slice(0, 10).map((x) => (
+      {data?.data.search_apps.slice(0, pageSize ?? 10).map((x) => (
         <HomeCard
           key={x.id}
           data={x}

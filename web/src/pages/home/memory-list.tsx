@@ -10,11 +10,17 @@ import { MemoryDropdown } from '../memories/memory-dropdown';
 export function MemoryList({
   setListLength,
   setLoading,
+  pageSize,
 }: {
   setListLength: (length: number) => void;
   setLoading?: (loading: boolean) => void;
+  pageSize?: number;
 }) {
-  const { data, refetch: refetchList, isLoading } = useFetchMemoryList();
+  const {
+    data,
+    refetch: refetchList,
+    isLoading,
+  } = useFetchMemoryList(pageSize ? { page: 1, pageSize } : undefined);
   const { navigateToMemory } = useNavigatePage();
   // const {
   //   openCreateModal,
@@ -44,7 +50,7 @@ export function MemoryList({
   }, [data, setListLength, isLoading, setLoading]);
   return (
     <>
-      {data?.data.memory_list.slice(0, 10).map((x) => (
+      {data?.data.memory_list.slice(0, pageSize ?? 10).map((x) => (
         <HomeCard
           key={x.id}
           data={{

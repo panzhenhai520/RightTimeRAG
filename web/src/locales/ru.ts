@@ -133,6 +133,7 @@ export default {
       recentMemosDescription:
         'Просматривайте заметки и долгосрочную память, созданные из диалогов.',
       emptySection: 'Пока нет доступного содержимого',
+      manageOrCreate: 'Управление / создать',
     },
     memories: {
       llmTooltip:

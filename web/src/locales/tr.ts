@@ -138,6 +138,7 @@ export default {
       recentMemosDescription:
         'Sohbetlerden oluşturulan notları ve uzun süreli hafızayı inceleyin.',
       emptySection: 'Henüz kullanılabilir içerik yok',
+      manageOrCreate: 'Yönet / oluştur',
     },
     skills: {
       title: 'Beceriler',

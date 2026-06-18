@@ -148,6 +148,7 @@ export default {
       recentMemosDescription:
         'Review meeting-style notes and long-term memory generated from chats.',
       emptySection: 'No available content yet',
+      manageOrCreate: 'Manage / Create',
     },
     skills: {
       title: 'Skills',

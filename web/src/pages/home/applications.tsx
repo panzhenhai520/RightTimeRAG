@@ -14,6 +14,7 @@ type WorkspaceSectionProps = {
   description: string;
   icon: string;
   route?: Routes;
+  emptyActionRoute?: string;
   children: ReactNode;
   listLength: number;
   loading: boolean;
@@ -24,6 +25,7 @@ function WorkspaceSection({
   description,
   icon,
   route,
+  emptyActionRoute,
   children,
   listLength,
   loading,
@@ -55,15 +57,30 @@ function WorkspaceSection({
         )}
       </header>
 
-      {listLength <= 0 && !loading ? (
+      <div
+        className={
+          listLength <= 0 && !loading
+            ? 'hidden'
+            : 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'
+        }
+      >
+        {children}
+        {route && listLength > 0 && (
+          <SeeAllAppCard click={() => navigate(route)} />
+        )}
+      </div>
+
+      {listLength <= 0 && !loading && (
         <div className="rounded-lg bg-bg-card/45 px-4 py-8 text-center text-sm text-text-secondary">
-          {t('homeDashboard.emptySection')}
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {children}
-          {route && listLength > 0 && (
-            <SeeAllAppCard click={() => navigate(route)} />
+          <div>{t('homeDashboard.emptySection')}</div>
+          {emptyActionRoute && (
+            <button
+              type="button"
+              className="mt-4 rounded-full bg-accent-primary px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+              onClick={() => navigate(emptyActionRoute)}
+            >
+              {t('homeDashboard.manageOrCreate')}
+            </button>
           )}
         </div>
       )}
@@ -89,10 +106,12 @@ export function Applications() {
         description={t('homeDashboard.chatAssistantsDescription')}
         icon="chats"
         route={Routes.Chats}
+        emptyActionRoute={Routes.DevSettingPanython}
         listLength={chatLength}
         loading={chatLoading}
       >
         <ChatList
+          pageSize={8}
           setListLength={(length: number) => setChatLength(length)}
           setLoading={(loading: boolean) => setChatLoading(loading)}
         />
@@ -103,10 +122,12 @@ export function Applications() {
         description={t('homeDashboard.searchToolsDescription')}
         icon="searches"
         route={Routes.Searches}
+        emptyActionRoute={Routes.DevSettingPanython}
         listLength={searchLength}
         loading={searchLoading}
       >
         <SearchList
+          pageSize={8}
           setListLength={(length: number) => setSearchLength(length)}
           setLoading={(loading: boolean) => setSearchLoading(loading)}
         />
@@ -116,10 +137,13 @@ export function Applications() {
         title={t('homeDashboard.publishedAgents')}
         description={t('homeDashboard.publishedAgentsDescription')}
         icon="agents"
+        emptyActionRoute={Routes.DevSettingPanython}
         listLength={agentLength}
         loading={agentLoading}
       >
         <Agents
+          pageSize={50}
+          displayLimit={8}
           setListLength={(length: number) => setAgentLength(length)}
           setLoading={(loading: boolean) => setAgentLoading(loading)}
         />
@@ -129,10 +153,12 @@ export function Applications() {
         title={t('homeDashboard.recentMemos')}
         description={t('homeDashboard.recentMemosDescription')}
         icon="memory"
+        emptyActionRoute={Routes.DevSettingPanython}
         listLength={memoryLength}
         loading={memoryLoading}
       >
         <MemoryList
+          pageSize={8}
           setListLength={(length: number) => setMemoryLength(length)}
           setLoading={(loading: boolean) => setMemoryLoading(loading)}
         />

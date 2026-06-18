@@ -126,6 +126,7 @@ export default {
       recentMemosDescription:
         'Aus Gesprächen erzeugte Notizen und Langzeitgedächtnis ansehen.',
       emptySection: 'Noch keine verfügbaren Inhalte',
+      manageOrCreate: 'Verwalten / erstellen',
     },
     memories: {
       llmTooltip:

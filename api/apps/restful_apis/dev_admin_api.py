@@ -125,7 +125,7 @@ async def save_tts_engine_settings():
 def _user_label(users_by_id, user_id):
     user = users_by_id.get(user_id)
     if not user:
-        return user_id
+        return ""
     return user.get("nickname") or user.get("email") or user_id
 
 
@@ -193,9 +193,15 @@ def _relationship_payload():
             UserTenant.invited_by,
             UserTenant.update_time,
         )
+        .where(UserTenant.status == StatusEnum.VALID.value)
         .order_by(UserTenant.update_time.desc())
         .dicts()
     )
+    memberships = [
+        item
+        for item in memberships
+        if item["user_id"] in users_by_id and item["tenant_id"] in users_by_id
+    ]
 
     tenant_ids = {item["tenant_id"] for item in memberships}
     tenant_ids.update({user["id"] for user in users})
@@ -228,6 +234,7 @@ def _relationship_payload():
         .order_by(Dialog.update_time.desc())
         .dicts()
     )
+    dialogs = [dialog for dialog in dialogs if dialog["tenant_id"] in users_by_id]
     knowledgebases = list(
         Knowledgebase.select(
             Knowledgebase.id,
@@ -244,6 +251,7 @@ def _relationship_payload():
         .order_by(Knowledgebase.update_time.desc())
         .dicts()
     )
+    knowledgebases = [kb for kb in knowledgebases if kb["tenant_id"] in users_by_id]
     kb_by_id = {kb["id"]: kb for kb in knowledgebases}
     for dialog in dialogs:
         dialog["tenant_label"] = _user_label(users_by_id, dialog["tenant_id"])
@@ -285,11 +293,15 @@ def delete_user(user_id):
     if denied:
         return denied
     try:
-        user = User.get_or_none(
-            User.id == user_id,
-            User.status == StatusEnum.VALID.value,
+        user = User.get_or_none(User.id == user_id)
+        has_residual_rows = (
+            UserTenant.select()
+            .where((UserTenant.user_id == user_id) | (UserTenant.tenant_id == user_id))
+            .exists()
+            or Tenant.get_or_none(Tenant.id == user_id) is not None
+            or TenantLLM.select().where(TenantLLM.tenant_id == user_id).exists()
         )
-        if not user:
+        if not user and not has_residual_rows:
             return get_data_error_result(message="User not found.")
         if user_id == current_user.id:
             return get_json_result(
@@ -305,17 +317,18 @@ def delete_user(user_id):
                 code=RetCode.OPERATING_ERROR,
             )
 
-        before = user.to_safe_dict()
+        before = user.to_safe_dict() if user else {"id": user_id, "missing_user": True}
         now = datetime.now()
         timestamp = current_timestamp()
         with DB.atomic():
-            User.update(
-                {
-                    "status": StatusEnum.INVALID.value,
-                    "update_time": timestamp,
-                    "update_date": datetime_format(now),
-                }
-            ).where(User.id == user_id).execute()
+            if user:
+                User.update(
+                    {
+                        "status": StatusEnum.INVALID.value,
+                        "update_time": timestamp,
+                        "update_date": datetime_format(now),
+                    }
+                ).where(User.id == user_id).execute()
             Tenant.update(
                 {
                     "status": StatusEnum.INVALID.value,
@@ -350,7 +363,7 @@ def delete_user(user_id):
                 "user_delete",
                 "user",
                 user_id,
-                target_label=_safe_user_label(user),
+                target_label=_safe_user_label(user) if user else user_id,
                 tenant_id=user_id,
                 details={"before": before},
             )

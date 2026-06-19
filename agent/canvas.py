@@ -31,6 +31,10 @@ from agent.component.base import ComponentBase
 from agent.dsl_migration import normalize_chunker_dsl
 from api.db.services.file_service import FileService
 from api.db.services.llm_service import LLMBundle
+from api.db.services.panython_tts_settings_service import (
+    PanythonTTSSettingsService,
+    build_tts_kwargs,
+)
 from api.db.services.task_service import has_canceled
 from api.db.joint_services.tenant_model_service import get_tenant_default_model_by_type
 from common.constants import LLMType
@@ -759,10 +763,14 @@ class Canvas(Graph):
             return text
         if not tts_mdl or not text:
             return None
+        engine_settings = PanythonTTSSettingsService.get_settings()
+        if not engine_settings.get("tts_enabled"):
+            return None
         text = clean_tts_text(text)
         if not text:
             return None
-        return synthesize_with_cache(tts_mdl, text)
+        tts_kwargs = build_tts_kwargs(None, text, engine_settings)
+        return synthesize_with_cache(tts_mdl, text, **tts_kwargs)
 
     def get_history(self, window_size):
         convs = []

@@ -134,7 +134,9 @@ def _relationship_payload():
 
     tenant_ids = {item["tenant_id"] for item in memberships}
     tenant_ids.update({user["id"] for user in users})
-    counts_by_tenant = {tenant_id: _asset_counts(tenant_id) for tenant_id in tenant_ids}
+    counts_by_tenant = {
+        tenant_id: _asset_counts(tenant_id) for tenant_id in tenant_ids
+    }
 
     for item in memberships:
         item["user_label"] = _user_label(users_by_id, item["user_id"])
@@ -148,10 +150,12 @@ def _relationship_payload():
             Dialog.id,
             Dialog.tenant_id,
             Dialog.name,
+            Dialog.description,
             Dialog.llm_id,
             Dialog.tenant_llm_id,
             Dialog.rerank_id,
             Dialog.tenant_rerank_id,
+            Dialog.kb_ids,
             Dialog.status,
             Dialog.update_time,
         )
@@ -159,14 +163,40 @@ def _relationship_payload():
         .order_by(Dialog.update_time.desc())
         .dicts()
     )
+    knowledgebases = list(
+        Knowledgebase.select(
+            Knowledgebase.id,
+            Knowledgebase.tenant_id,
+            Knowledgebase.name,
+            Knowledgebase.permission,
+            Knowledgebase.doc_num,
+            Knowledgebase.chunk_num,
+            Knowledgebase.token_num,
+            Knowledgebase.status,
+            Knowledgebase.update_time,
+        )
+        .where(Knowledgebase.status == StatusEnum.VALID.value)
+        .order_by(Knowledgebase.update_time.desc())
+        .dicts()
+    )
+    kb_by_id = {kb["id"]: kb for kb in knowledgebases}
     for dialog in dialogs:
         dialog["tenant_label"] = _user_label(users_by_id, dialog["tenant_id"])
+        dialog["kb_ids"] = dialog.get("kb_ids") or []
+        dialog["kb_names"] = [
+            kb_by_id[kb_id]["name"]
+            for kb_id in dialog["kb_ids"]
+            if kb_id in kb_by_id
+        ]
+    for kb in knowledgebases:
+        kb["tenant_label"] = _user_label(users_by_id, kb["tenant_id"])
 
     return {
         "current_user_id": current_user.id,
         "users": users,
         "memberships": memberships,
         "dialogs": dialogs,
+        "knowledgebases": knowledgebases,
         "asset_counts": counts_by_tenant,
     }
 
@@ -195,15 +225,28 @@ async def upsert_tenant_relation():
         tenant_id = (req.get("tenant_id") or "").strip()
         role = (req.get("role") or UserTenantRole.NORMAL.value).strip()
 
-        if role not in {UserTenantRole.OWNER.value, UserTenantRole.ADMIN.value, UserTenantRole.NORMAL.value}:
+        if role not in {
+            UserTenantRole.OWNER.value,
+            UserTenantRole.ADMIN.value,
+            UserTenantRole.NORMAL.value,
+        }:
             return get_data_error_result(message="Invalid role.")
-        if not User.get_or_none(User.id == user_id, User.status == StatusEnum.VALID.value):
+        if not User.get_or_none(
+            User.id == user_id,
+            User.status == StatusEnum.VALID.value,
+        ):
             return get_data_error_result(message="User not found.")
-        if not User.get_or_none(User.id == tenant_id, User.status == StatusEnum.VALID.value):
+        if not User.get_or_none(
+            User.id == tenant_id,
+            User.status == StatusEnum.VALID.value,
+        ):
             return get_data_error_result(message="Tenant not found.")
 
         now = datetime.now()
-        relation = UserTenant.get_or_none(UserTenant.user_id == user_id, UserTenant.tenant_id == tenant_id)
+        relation = UserTenant.get_or_none(
+            UserTenant.user_id == user_id,
+            UserTenant.tenant_id == tenant_id,
+        )
         with DB.atomic():
             if relation:
                 relation.role = role
@@ -265,10 +308,16 @@ async def transfer_dialog_tenant(dialog_id):
     try:
         req = await get_request_json()
         tenant_id = (req.get("tenant_id") or "").strip()
-        if not User.get_or_none(User.id == tenant_id, User.status == StatusEnum.VALID.value):
+        if not User.get_or_none(
+            User.id == tenant_id,
+            User.status == StatusEnum.VALID.value,
+        ):
             return get_data_error_result(message="Tenant not found.")
 
-        dialog = Dialog.get_or_none(Dialog.id == dialog_id, Dialog.status == StatusEnum.VALID.value)
+        dialog = Dialog.get_or_none(
+            Dialog.id == dialog_id,
+            Dialog.status == StatusEnum.VALID.value,
+        )
         if not dialog:
             return get_data_error_result(message="Dialog not found.")
 
@@ -287,6 +336,69 @@ async def transfer_dialog_tenant(dialog_id):
             "update_date": datetime_format(datetime.now()),
         }
         Dialog.update(update_data).where(Dialog.id == dialog_id).execute()
+        return get_json_result(data=_relationship_payload())
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+@manager.route("/dev/tenant-relations/dialogs/<dialog_id>/knowledgebases", methods=["PUT"])  # noqa: F821
+@login_required
+async def update_dialog_knowledgebases(dialog_id):
+    denied = _require_superuser()
+    if denied:
+        return denied
+    try:
+        req = await get_request_json()
+        kb_ids = req.get("kb_ids") or []
+        if not isinstance(kb_ids, list):
+            return get_data_error_result(message="kb_ids must be a list.")
+        kb_ids = list(
+            dict.fromkeys(
+                str(kb_id).strip()
+                for kb_id in kb_ids
+                if str(kb_id).strip()
+            )
+        )
+
+        dialog = Dialog.get_or_none(
+            Dialog.id == dialog_id,
+            Dialog.status == StatusEnum.VALID.value,
+        )
+        if not dialog:
+            return get_data_error_result(message="Dialog not found.")
+
+        if kb_ids:
+            valid_kbs = list(
+                Knowledgebase.select(Knowledgebase.id, Knowledgebase.tenant_id)
+                .where(
+                    Knowledgebase.id.in_(kb_ids),
+                    Knowledgebase.status == StatusEnum.VALID.value,
+                )
+                .dicts()
+            )
+            valid_ids = {kb["id"] for kb in valid_kbs}
+            missing_ids = [kb_id for kb_id in kb_ids if kb_id not in valid_ids]
+            if missing_ids:
+                return get_data_error_result(
+                    message=f"Knowledgebase not found: {', '.join(missing_ids)}"
+                )
+            foreign_ids = [
+                kb["id"]
+                for kb in valid_kbs
+                if kb["tenant_id"] != dialog.tenant_id
+            ]
+            if foreign_ids:
+                return get_data_error_result(
+                    message="Knowledgebase must belong to the same tenant as the dialog."
+                )
+
+        Dialog.update(
+            {
+                "kb_ids": kb_ids,
+                "update_time": current_timestamp(),
+                "update_date": datetime_format(datetime.now()),
+            }
+        ).where(Dialog.id == dialog_id).execute()
         return get_json_result(data=_relationship_payload())
     except Exception as exc:
         return server_error_response(exc)

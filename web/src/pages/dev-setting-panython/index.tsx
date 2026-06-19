@@ -156,11 +156,26 @@ type DialogOwnerRow = {
   tenant_id: string;
   tenant_label: string;
   name: string;
+  description?: string;
   llm_id: string;
   tenant_llm_id?: number | null;
   rerank_id?: string;
   tenant_rerank_id?: number | null;
+  kb_ids?: string[];
+  kb_names?: string[];
   update_time?: number;
+};
+
+type KnowledgebaseRow = {
+  id: string;
+  tenant_id: string;
+  tenant_label: string;
+  name: string;
+  permission: string;
+  doc_num: number;
+  chunk_num: number;
+  token_num: number;
+  status: string;
 };
 
 type TenantRelationPayload = {
@@ -168,11 +183,16 @@ type TenantRelationPayload = {
   users: UserRow[];
   memberships: MembershipRow[];
   dialogs: DialogOwnerRow[];
+  knowledgebases: KnowledgebaseRow[];
   asset_counts: Record<string, AssetCounts>;
 };
 
-function shortId(id: string) {
-  return id ? `${id.slice(0, 8)}...${id.slice(-4)}` : '-';
+function userDisplayName(user?: Partial<UserRow> | null) {
+  return user?.nickname || user?.email || '未命名用户';
+}
+
+function userLabelById(users: UserRow[], id: string) {
+  return userDisplayName(users.find((user) => user.id === id)) || '未知租户';
 }
 
 function formatCounts(counts: AssetCounts = {}) {
@@ -217,6 +237,9 @@ function TenantRelationsCard() {
   const [dialogTargets, setDialogTargets] = useState<Record<string, string>>(
     {},
   );
+  const [dialogKbTargets, setDialogKbTargets] = useState<
+    Record<string, string[]>
+  >({});
 
   const loadRelations = useCallback(async () => {
     setLoading(true);
@@ -233,6 +256,33 @@ function TenantRelationsCard() {
   useEffect(() => {
     loadRelations();
   }, [loadRelations]);
+
+  useEffect(() => {
+    if (!data?.dialogs) return;
+    setDialogKbTargets((previous) => {
+      const next = { ...previous };
+      data.dialogs.forEach((dialog) => {
+        if (!next[dialog.id]) {
+          next[dialog.id] = dialog.kb_ids ?? [];
+        }
+      });
+      return next;
+    });
+  }, [data?.dialogs]);
+
+  const users = data?.users ?? [];
+  const memberships = (data?.memberships ?? []).filter(
+    (item) => item.status === '1',
+  );
+  const dialogs = data?.dialogs ?? [];
+  const knowledgebases = data?.knowledgebases ?? [];
+  const tenantIds = Array.from(
+    new Set([
+      ...memberships.map((item) => item.tenant_id),
+      ...dialogs.map((item) => item.tenant_id),
+      ...knowledgebases.map((item) => item.tenant_id),
+    ]),
+  );
 
   const handleUpsertRelation = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -275,7 +325,7 @@ function TenantRelationsCard() {
     if (!targetTenantId || targetTenantId === dialog.tenant_id) return;
     if (
       !window.confirm(
-        `确认把聊天助手「${dialog.name}」迁移到目标租户 ${shortId(targetTenantId)}？`,
+        `确认把聊天助手「${dialog.name}」迁移到租户「${userLabelById(users, targetTenantId)}」？迁移后只能选择该租户下的知识库。`,
       )
     ) {
       return;
@@ -291,9 +341,32 @@ function TenantRelationsCard() {
     }
   };
 
-  const users = data?.users ?? [];
-  const memberships = data?.memberships ?? [];
-  const dialogs = data?.dialogs ?? [];
+  const handleUpdateDialogKbs = async (dialog: DialogOwnerRow) => {
+    const kbIds = dialogKbTargets[dialog.id] ?? [];
+    const res = await request({
+      url: `${tenantRelationsApi}/dialogs/${dialog.id}/knowledgebases`,
+      method: 'put',
+      data: { kb_ids: kbIds },
+    });
+    if (res.data?.code === 0) {
+      setData(res.data.data);
+      message.success('聊天助手知识库已更新');
+    } else {
+      message.error(res.data?.message || '更新失败');
+    }
+  };
+
+  const toggleDialogKb = (dialogId: string, kbId: string, checked: boolean) => {
+    setDialogKbTargets((previous) => {
+      const current = previous[dialogId] ?? [];
+      return {
+        ...previous,
+        [dialogId]: checked
+          ? Array.from(new Set([...current, kbId]))
+          : current.filter((id) => id !== kbId),
+      };
+    });
+  };
 
   return (
     <article className="rounded-lg border border-border bg-bg-card p-5">
@@ -303,10 +376,7 @@ function TenantRelationsCard() {
             租户关系维护
           </h2>
           <p className="mt-2 text-sm text-text-secondary">
-            查看用户、租户、聊天助手归属关系。删除上级关系前必须先清空或迁移下级资产。
-          </p>
-          <p className="mt-1 text-xs text-text-secondary">
-            当前用户 ID：{shortId(data?.current_user_id ?? '')}
+            这里按租户展示成员、聊天助手和助手可访问知识库。系统里的“租户”本质上是一个用户空间，用户加入某个租户后，就能使用该租户下发布的助手和知识库。
           </p>
         </div>
         <Button
@@ -331,7 +401,7 @@ function TenantRelationsCard() {
           <option value="">选择用户</option>
           {users.map((user) => (
             <option key={user.id} value={user.id}>
-              {user.nickname || user.email} / {shortId(user.id)}
+              {userDisplayName(user)}
             </option>
           ))}
         </select>
@@ -343,7 +413,7 @@ function TenantRelationsCard() {
           <option value="">选择租户</option>
           {users.map((user) => (
             <option key={user.id} value={user.id}>
-              {user.nickname || user.email} / {shortId(user.id)}
+              {userDisplayName(user)}
             </option>
           ))}
         </select>
@@ -357,147 +427,228 @@ function TenantRelationsCard() {
           <option value="owner">owner</option>
         </select>
         <Button type="submit" disabled={!userId || !tenantId}>
-          保存关系
+          保存用户归属
         </Button>
       </form>
 
-      <section className="mt-6">
-        <h3 className="mb-2 text-sm font-semibold text-text-primary">
-          用户-租户关系
-        </h3>
-        <div className="overflow-x-auto rounded-md border border-border/60">
-          <table className="min-w-full text-left text-xs">
-            <thead className="bg-bg-base text-text-secondary">
-              <tr>
-                <th className="px-3 py-2">用户</th>
-                <th className="px-3 py-2">租户</th>
-                <th className="px-3 py-2">角色</th>
-                <th className="px-3 py-2">状态</th>
-                <th className="px-3 py-2">下级资产</th>
-                <th className="px-3 py-2">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {memberships.map((item) => (
-                <tr key={item.id} className="border-t border-border/40">
-                  <td className="px-3 py-2">
-                    <div>{item.user_label}</div>
-                    <div className="text-text-secondary" title={item.user_id}>
-                      {shortId(item.user_id)}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    <div>{item.tenant_label}</div>
-                    <div className="text-text-secondary" title={item.tenant_id}>
-                      {shortId(item.tenant_id)}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">{item.role}</td>
-                  <td className="px-3 py-2">
-                    {item.status === '1' ? '有效' : '已删除'}
-                  </td>
-                  <td className="px-3 py-2">
-                    {formatCounts(item.asset_counts)}
-                  </td>
-                  <td className="px-3 py-2">
-                    <Button
-                      size="xs"
-                      variant="danger"
-                      disabled={item.status !== '1' || !item.can_delete}
-                      title={
-                        item.can_delete
-                          ? '删除关系'
-                          : `仍有下级资产：${item.delete_blockers.join(' / ')}`
-                      }
-                      onClick={() => handleDeleteRelation(item)}
-                    >
-                      删除
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <section className="mt-6 grid gap-4">
+        {tenantIds.map((tenantId) => {
+          const tenant = users.find((user) => user.id === tenantId);
+          const tenantName = userDisplayName(tenant);
+          const tenantMembers = memberships.filter(
+            (item) => item.tenant_id === tenantId,
+          );
+          const tenantDialogs = dialogs.filter(
+            (dialog) => dialog.tenant_id === tenantId,
+          );
+          const tenantKbs = knowledgebases.filter(
+            (kb) => kb.tenant_id === tenantId,
+          );
 
-      <section className="mt-6">
-        <h3 className="mb-2 text-sm font-semibold text-text-primary">
-          聊天助手归属
-        </h3>
-        <div className="overflow-x-auto rounded-md border border-border/60">
-          <table className="min-w-full text-left text-xs">
-            <thead className="bg-bg-base text-text-secondary">
-              <tr>
-                <th className="px-3 py-2">助手</th>
-                <th className="px-3 py-2">当前租户</th>
-                <th className="px-3 py-2">模型</th>
-                <th className="px-3 py-2">迁移到</th>
-                <th className="px-3 py-2">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dialogs.map((dialog) => (
-                <tr key={dialog.id} className="border-t border-border/40">
-                  <td className="px-3 py-2">
-                    <div>{dialog.name}</div>
-                    <div className="text-text-secondary" title={dialog.id}>
-                      {shortId(dialog.id)}
+          return (
+            <article
+              key={tenantId}
+              className="rounded-lg border border-border/70 bg-bg-base/40 p-4"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-text-primary">
+                    租户：{tenantName}
+                  </h3>
+                  <p className="mt-1 text-xs text-text-secondary">
+                    {formatCounts(data?.asset_counts?.[tenantId] ?? {})}
+                  </p>
+                </div>
+                <span className="rounded-full bg-bg-card px-3 py-1 text-xs text-text-secondary">
+                  {tenantMembers.length} 个用户 / {tenantDialogs.length}{' '}
+                  个聊天助手 / {tenantKbs.length} 个知识库
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+                <section className="rounded-md bg-bg-card p-3">
+                  <h4 className="text-sm font-medium text-text-primary">
+                    属于该租户的用户
+                  </h4>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {tenantMembers.length === 0 ? (
+                      <span className="text-xs text-text-secondary">
+                        暂无用户归属到该租户
+                      </span>
+                    ) : (
+                      tenantMembers.map((member) => (
+                        <span
+                          key={member.id}
+                          className="inline-flex items-center gap-2 rounded-full bg-bg-base px-3 py-1 text-xs"
+                          title={`${member.user_label} 属于 ${tenantName}`}
+                        >
+                          <span>{member.user_label}</span>
+                          <span className="text-text-secondary">
+                            {member.role}
+                          </span>
+                          <button
+                            type="button"
+                            className="text-state-error disabled:cursor-not-allowed disabled:opacity-40"
+                            disabled={!member.can_delete}
+                            title={
+                              member.can_delete
+                                ? '移除用户归属'
+                                : `仍有下级资产：${member.delete_blockers.join(' / ')}`
+                            }
+                            onClick={() => handleDeleteRelation(member)}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))
+                    )}
+                  </div>
+
+                  <h4 className="mt-5 text-sm font-medium text-text-primary">
+                    该租户的知识库
+                  </h4>
+                  <div className="mt-3 grid gap-2">
+                    {tenantKbs.length === 0 ? (
+                      <span className="text-xs text-text-secondary">
+                        暂无知识库
+                      </span>
+                    ) : (
+                      tenantKbs.map((kb) => (
+                        <div
+                          key={kb.id}
+                          className="rounded-md border border-border/60 bg-bg-base px-3 py-2 text-xs"
+                        >
+                          <div className="font-medium text-text-primary">
+                            {kb.name}
+                          </div>
+                          <div className="mt-1 text-text-secondary">
+                            {kb.doc_num} 文件 / {kb.chunk_num} 切片 /{' '}
+                            {kb.permission}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </section>
+
+                <section className="grid gap-3">
+                  {tenantDialogs.length === 0 ? (
+                    <div className="rounded-md bg-bg-card p-4 text-sm text-text-secondary">
+                      该租户下暂无聊天助手。
                     </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    <div>{dialog.tenant_label}</div>
-                    <div
-                      className="text-text-secondary"
-                      title={dialog.tenant_id}
-                    >
-                      {shortId(dialog.tenant_id)}
-                    </div>
-                  </td>
-                  <td className="max-w-[260px] truncate px-3 py-2">
-                    <div title={dialog.llm_id}>{dialog.llm_id || '-'}</div>
-                    <div className="text-text-secondary">
-                      chat #{dialog.tenant_llm_id ?? '-'} / rerank #
-                      {dialog.tenant_rerank_id ?? '-'}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    <select
-                      className="h-8 min-w-[180px] rounded-md bg-bg-input px-2 text-xs outline-none"
-                      value={dialogTargets[dialog.id] ?? ''}
-                      onChange={(event) =>
-                        setDialogTargets((previous) => ({
-                          ...previous,
-                          [dialog.id]: event.target.value,
-                        }))
-                      }
-                    >
-                      <option value="">选择目标租户</option>
-                      {users.map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.nickname || user.email} / {shortId(user.id)}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-3 py-2">
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      disabled={
-                        !dialogTargets[dialog.id] ||
-                        dialogTargets[dialog.id] === dialog.tenant_id
-                      }
-                      onClick={() => handleTransferDialog(dialog)}
-                    >
-                      迁移
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  ) : (
+                    tenantDialogs.map((dialog) => {
+                      const selectedKbIds =
+                        dialogKbTargets[dialog.id] ?? dialog.kb_ids ?? [];
+                      return (
+                        <div
+                          key={dialog.id}
+                          className="rounded-md border border-border/70 bg-bg-card p-4"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <h4 className="truncate text-sm font-semibold text-text-primary">
+                                聊天助手：{dialog.name}
+                              </h4>
+                              <p className="mt-1 text-xs text-text-secondary">
+                                租户「{tenantName}」的成员可以使用该助手。
+                              </p>
+                              <p className="mt-1 max-w-2xl truncate text-xs text-text-secondary">
+                                当前知识库：
+                                {dialog.kb_names?.length
+                                  ? dialog.kb_names.join('、')
+                                  : '未绑定知识库'}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <select
+                                className="h-8 min-w-[180px] rounded-md bg-bg-input px-2 text-xs outline-none"
+                                value={dialogTargets[dialog.id] ?? ''}
+                                onChange={(event) =>
+                                  setDialogTargets((previous) => ({
+                                    ...previous,
+                                    [dialog.id]: event.target.value,
+                                  }))
+                                }
+                              >
+                                <option value="">迁移到其他租户</option>
+                                {users.map((user) => (
+                                  <option key={user.id} value={user.id}>
+                                    {userDisplayName(user)}
+                                  </option>
+                                ))}
+                              </select>
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                disabled={
+                                  !dialogTargets[dialog.id] ||
+                                  dialogTargets[dialog.id] === dialog.tenant_id
+                                }
+                                onClick={() => handleTransferDialog(dialog)}
+                              >
+                                保存归属
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 rounded-md bg-bg-base/60 p-3">
+                            <div className="mb-2 text-xs font-medium text-text-primary">
+                              可访问知识库
+                            </div>
+                            {tenantKbs.length === 0 ? (
+                              <div className="text-xs text-text-secondary">
+                                该租户下暂无可绑定知识库。
+                              </div>
+                            ) : (
+                              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                                {tenantKbs.map((kb) => (
+                                  <label
+                                    key={kb.id}
+                                    className="flex items-start gap-2 rounded-md bg-bg-card px-3 py-2 text-xs"
+                                  >
+                                    <input
+                                      className="mt-0.5"
+                                      type="checkbox"
+                                      checked={selectedKbIds.includes(kb.id)}
+                                      onChange={(event) =>
+                                        toggleDialogKb(
+                                          dialog.id,
+                                          kb.id,
+                                          event.target.checked,
+                                        )
+                                      }
+                                    />
+                                    <span>
+                                      <span className="block font-medium text-text-primary">
+                                        {kb.name}
+                                      </span>
+                                      <span className="text-text-secondary">
+                                        {kb.doc_num} 文件 / {kb.chunk_num} 切片
+                                      </span>
+                                    </span>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                            <div className="mt-3 flex justify-end">
+                              <Button
+                                size="xs"
+                                onClick={() => handleUpdateDialogKbs(dialog)}
+                              >
+                                保存知识库权限
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </section>
+              </div>
+            </article>
+          );
+        })}
       </section>
     </article>
   );

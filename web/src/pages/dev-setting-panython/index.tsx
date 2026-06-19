@@ -1,6 +1,7 @@
 import { Button, ButtonLoading } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import message from '@/components/ui/message';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRegister } from '@/hooks/use-login-request';
 import { DEV_FEATURE_SESSION_KEY, Routes } from '@/routes';
 import { rsaPsw } from '@/utils';
@@ -46,9 +47,6 @@ const devEntries = [
     path: `${Routes.UserSetting}${Routes.DataSource}`,
   },
 ];
-
-const primaryDevEntries = devEntries.slice(0, -1);
-const configurationEntry = devEntries[devEntries.length - 1];
 
 const tenantRelationsApi = '/api/v1/dev/tenant-relations';
 const ttsEngineSettingsApi = '/api/v1/dev/tts-engine-settings';
@@ -107,6 +105,27 @@ const ttsDialectOptions = [
   ['minnan', '闽南'],
   ['tianjin', '天津'],
   ['shandong', '山东'],
+];
+
+const ttsVoiceProfileOptions = [
+  ['female_mandarin_01', '女声 / 普通话 / 标准'],
+  ['male_mandarin_01', '男声 / 普通话 / 标准'],
+  ['female_cantonese_01', '女声 / 粤语 / 标准'],
+  ['male_cantonese_01', '男声 / 粤语 / 标准'],
+  ['female_english_01', '女声 / 英语 / 标准'],
+  ['male_english_01', '男声 / 英语 / 标准'],
+];
+
+const ttsEngineOptions = [
+  ['CosyVoice3', 'CosyVoice 3'],
+  ['CosyVoice2', 'CosyVoice 2'],
+];
+
+const ttsSpeedOptions = [
+  [0.8, '偏慢 0.8x'],
+  [1, '正常 1.0x'],
+  [1.15, '稍快 1.15x'],
+  [1.3, '较快 1.3x'],
 ];
 
 type UserRow = {
@@ -171,6 +190,22 @@ function formatCounts(counts: AssetCounts = {}) {
       .map(([key, value]) => `${labels[key] ?? key}:${value}`)
       .join(' / ') || '无下级资产'
   );
+}
+
+function inferVoiceProfileConfig(profile: string) {
+  const next: Partial<TtsEngineSettings> = {};
+  if (profile.startsWith('female_')) {
+    next.default_gender = 'female';
+  } else if (profile.startsWith('male_')) {
+    next.default_gender = 'male';
+  }
+
+  if (profile.includes('_cantonese_')) {
+    next.default_dialect = 'cantonese';
+  } else if (profile.includes('_mandarin_')) {
+    next.default_dialect = 'mandarin';
+  }
+  return next;
 }
 
 function TenantRelationsCard() {
@@ -261,7 +296,7 @@ function TenantRelationsCard() {
   const dialogs = data?.dialogs ?? [];
 
   return (
-    <article className="rounded-lg border border-border bg-bg-card p-5 md:col-span-2">
+    <article className="rounded-lg border border-border bg-bg-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-medium text-text-primary">
@@ -667,11 +702,17 @@ function TtsEngineSettingsCard() {
 
         <label className="grid gap-2 text-sm">
           <span className="text-text-secondary">引擎名称</span>
-          <Input
+          <select
+            className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
             value={settings.engine}
             onChange={(event) => updateSetting('engine', event.target.value)}
-            placeholder="CosyVoice3"
-          />
+          >
+            {ttsEngineOptions.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 
@@ -701,17 +742,27 @@ function TtsEngineSettingsCard() {
       <section className="mt-5 grid gap-4 md:grid-cols-3">
         <label className="grid gap-2 text-sm">
           <span className="text-text-secondary">默认语速</span>
-          <Input
-            type="number"
-            min="0.5"
-            max="2"
-            step="0.05"
+          <select
+            className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
             value={settings.default_speed}
             onChange={(event) =>
               updateSetting('default_speed', Number(event.target.value))
             }
             disabled={!settings.supports_speed}
-          />
+          >
+            {!ttsSpeedOptions.some(
+              ([value]) => Number(value) === Number(settings.default_speed),
+            ) && (
+              <option value={settings.default_speed}>
+                当前 {settings.default_speed}x
+              </option>
+            )}
+            {ttsSpeedOptions.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="grid gap-2 text-sm">
@@ -766,13 +817,32 @@ function TtsEngineSettingsCard() {
 
         <label className="grid gap-2 text-sm">
           <span className="text-text-secondary">默认音色 Profile</span>
-          <Input
+          <select
+            className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
             value={settings.default_voice_profile}
-            onChange={(event) =>
-              updateSetting('default_voice_profile', event.target.value)
-            }
+            onChange={(event) => {
+              const profile = event.target.value;
+              setSettings((previous) => ({
+                ...previous,
+                default_voice_profile: profile,
+                ...inferVoiceProfileConfig(profile),
+              }));
+            }}
             disabled={!settings.supports_voice_profile}
-          />
+          >
+            {!ttsVoiceProfileOptions.some(
+              ([value]) => value === settings.default_voice_profile,
+            ) && (
+              <option value={settings.default_voice_profile}>
+                当前：{settings.default_voice_profile}
+              </option>
+            )}
+            {ttsVoiceProfileOptions.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="grid gap-2 text-sm">
@@ -844,14 +914,14 @@ function DevEntryCard({ entry }: { entry: (typeof devEntries)[number] }) {
   const { t } = useTranslation();
 
   return (
-    <article className="rounded-lg border border-border bg-bg-card p-5">
+    <article className="flex h-44 flex-col rounded-lg border border-border bg-bg-card p-5">
       <h2 className="text-lg font-medium text-text-primary">
         {t(entry.titleKey)}
       </h2>
-      <p className="mt-2 min-h-10 text-sm text-text-secondary">
+      <p className="mt-2 line-clamp-3 text-sm leading-5 text-text-secondary">
         {t(entry.descriptionKey)}
       </p>
-      <Button asChild className="mt-5 bg-[#6f3f2f] text-white">
+      <Button asChild className="mt-auto w-24 bg-[#6f3f2f] text-white">
         <Link to={entry.path}>打开</Link>
       </Button>
     </article>
@@ -875,21 +945,36 @@ export default function DevSettingPanython() {
           </p>
         </header>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {primaryDevEntries.map((entry) => (
-            <DevEntryCard key={entry.path} entry={entry} />
-          ))}
-        </div>
+        <Tabs defaultValue="menus" className="w-full">
+          <TabsList className="mb-4 grid w-full grid-cols-4 lg:w-[640px]">
+            <TabsTrigger value="menus">功能入口</TabsTrigger>
+            <TabsTrigger value="tts">TTS 语音</TabsTrigger>
+            <TabsTrigger value="users">用户注册</TabsTrigger>
+            <TabsTrigger value="tenants">租户关系</TabsTrigger>
+          </TabsList>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(280px,380px)_minmax(0,1fr)]">
-          <DevEntryCard entry={configurationEntry} />
-          <TtsEngineSettingsCard />
-        </div>
+          <TabsContent value="menus">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {devEntries.map((entry) => (
+                <DevEntryCard key={entry.path} entry={entry} />
+              ))}
+            </div>
+          </TabsContent>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <RegisterUserCard />
-          <TenantRelationsCard />
-        </div>
+          <TabsContent value="tts">
+            <TtsEngineSettingsCard />
+          </TabsContent>
+
+          <TabsContent value="users">
+            <div className="max-w-xl">
+              <RegisterUserCard />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="tenants">
+            <TenantRelationsCard />
+          </TabsContent>
+        </Tabs>
       </div>
     </section>
   );

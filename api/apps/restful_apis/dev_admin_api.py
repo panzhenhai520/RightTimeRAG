@@ -382,16 +382,6 @@ async def update_dialog_knowledgebases(dialog_id):
                 return get_data_error_result(
                     message=f"Knowledgebase not found: {', '.join(missing_ids)}"
                 )
-            foreign_ids = [
-                kb["id"]
-                for kb in valid_kbs
-                if kb["tenant_id"] != dialog.tenant_id
-            ]
-            if foreign_ids:
-                return get_data_error_result(
-                    message="Knowledgebase must belong to the same tenant as the dialog."
-                )
-
         Dialog.update(
             {
                 "kb_ids": kb_ids,

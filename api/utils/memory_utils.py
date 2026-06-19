@@ -16,10 +16,28 @@
 from typing import List
 from common.constants import MemoryType
 
+
+CHAT_MEMO_NAME_PREFIX = "chat-memo-"
+
+
+def is_chat_memo_name(name: str | None) -> bool:
+    return str(name or "").startswith(CHAT_MEMO_NAME_PREFIX)
+
+
+def get_memory_display_name(name: str | None, description: str | None) -> str:
+    if is_chat_memo_name(name):
+        return (description or "").strip()
+    return name or ""
+
+
 def format_ret_data_from_memory(memory):
+    is_chat_memo = is_chat_memo_name(memory.name)
+    display_name = get_memory_display_name(memory.name, memory.description)
     return {
         "id": memory.id,
         "name": memory.name,
+        "display_name": display_name,
+        "is_chat_memo": is_chat_memo,
         "avatar": memory.avatar,
         "tenant_id": memory.tenant_id,
         "owner_name": memory.owner_name if hasattr(memory, "owner_name") else None,

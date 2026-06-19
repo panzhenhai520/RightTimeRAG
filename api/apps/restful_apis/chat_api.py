@@ -108,6 +108,16 @@ _TTS_PROCESS_BLOCK_PATTERN = re.compile(r"<(?:retrieving|think)>[\s\S]*?</(?:ret
 _TTS_PROCESS_TAG_PATTERN = re.compile(r"</?(?:retrieving|think)>", re.I)
 _TTS_SYNC_JOB_PREFIX = "panython:tts:sync:"
 _TTS_SYNC_JOB_TTL_SECONDS = int(os.environ.get("RAGFLOW_TTS_SYNC_JOB_TTL_SECONDS", "3600"))
+_CHAT_MEMO_TOPIC_MAX_CHARS = int(os.environ.get("RAGFLOW_CHAT_MEMO_TOPIC_MAX_CHARS", "80"))
+_CHAT_MEMO_TOPIC_SAMPLE_CHARS = int(os.environ.get("RAGFLOW_CHAT_MEMO_TOPIC_SAMPLE_CHARS", "8000"))
+_CHAT_MEMO_ERROR_MARKERS = (
+    "ERROR:",
+    "CONNECTION_ERROR",
+    "INVALID_REQUEST",
+    "Traceback",
+    "layer-slice token span exceeds context",
+    "kv payload staging failed",
+)
 
 
 def _is_context_span_error(exc: Exception | str) -> bool:
@@ -227,6 +237,16 @@ def _chat_memo_name(chat_id: str, session_id: str) -> str:
     return f"chat-memo-{chat_id}-{session_id}"[:128]
 
 
+def _strip_memo_process_text(content: str) -> str:
+    content = re.sub(r"<retrieving>[\s\S]*?</retrieving>", "", content or "", flags=re.IGNORECASE)
+    content = re.sub(r"<think>[\s\S]*?</think>", "", content, flags=re.IGNORECASE)
+    return content.strip()
+
+
+def _has_memo_error_content(content: str) -> bool:
+    return any(marker.lower() in (content or "").lower() for marker in _CHAT_MEMO_ERROR_MARKERS)
+
+
 def _format_conversation_transcript(messages: list[dict]) -> str:
     lines = []
     for message in messages or []:
@@ -236,10 +256,61 @@ def _format_conversation_transcript(messages: list[dict]) -> str:
         content = message.get("content") or ""
         if not isinstance(content, str):
             content = json.dumps(content, ensure_ascii=False)
-        content = re.sub(r"<think>[\s\S]*?</think>", "", content, flags=re.IGNORECASE).strip()
+        content = _strip_memo_process_text(content)
+        if _has_memo_error_content(content):
+            continue
         if content:
             lines.append(f"{role}: {content}")
     return "\n\n".join(lines)
+
+
+def _sanitize_chat_memo_topic(topic: str | None) -> str:
+    topic = _strip_memo_process_text(str(topic or ""))
+    topic = re.sub(r"^[#\-\s\"'“”‘’]+|[#\-\s\"'“”‘’。.!！]+$", "", topic).strip()
+    topic = re.sub(r"\s+", " ", topic)
+    if _has_memo_error_content(topic):
+        return ""
+    return topic[:_CHAT_MEMO_TOPIC_MAX_CHARS].strip()
+
+
+def _fallback_chat_memo_topic(transcript: str) -> str:
+    for line in transcript.splitlines():
+        line = line.strip()
+        if not line.lower().startswith("user:"):
+            continue
+        topic = _sanitize_chat_memo_topic(line.split(":", 1)[1])
+        if topic:
+            return topic
+    compact = _sanitize_chat_memo_topic(transcript)
+    return compact or "Chat memo"
+
+
+def _memo_topic_sample(transcript: str) -> str:
+    transcript = transcript.strip()
+    if len(transcript) <= _CHAT_MEMO_TOPIC_SAMPLE_CHARS:
+        return transcript
+    half = _CHAT_MEMO_TOPIC_SAMPLE_CHARS // 2
+    return f"{transcript[:half]}\n\n...\n\n{transcript[-half:]}"
+
+
+async def _resolve_chat_memo_topic(transcript: str, chat_config: dict, requested_topic: str | None) -> str:
+    explicit_topic = _sanitize_chat_memo_topic(requested_topic)
+    if explicit_topic:
+        return explicit_topic
+
+    fallback = _fallback_chat_memo_topic(transcript)
+    try:
+        chat_mdl = LLMBundle(current_user.id, chat_config)
+        generated_topic = await chat_mdl.async_chat(
+            "You generate short memo titles. Return only one concise title in the same language as the conversation. "
+            "Do not use Markdown, quotes, prefixes, or explanations. Keep it within 24 Chinese characters or 10 English words.",
+            [{"role": "user", "content": _memo_topic_sample(transcript)}],
+            {"temperature": 0.1, "max_tokens": 64},
+        )
+        return _sanitize_chat_memo_topic(generated_topic) or fallback
+    except Exception as exc:  # noqa: BLE001 - memo title generation must not block saving
+        logging.warning("Failed to generate chat memo topic; using fallback: %s", exc)
+        return fallback
 
 
 def _validate_name(name, *, required=True):
@@ -1640,6 +1711,7 @@ async def memorize_chat_session():
     req = await get_request_json()
     chat_id = req["chat_id"]
     session_id = req["session_id"]
+    requested_topic = req.get("topic")
 
     try:
         if not await _ensure_owned_chat(chat_id):
@@ -1656,6 +1728,7 @@ async def memorize_chat_session():
         memory_name = _chat_memo_name(chat_id, session_id)
         existing = await thread_pool_exec(MemoryService.query, tenant_id=current_user.id, name=memory_name)
         created = False
+        chat_config = None
         if existing:
             memory = existing[0]
         else:
@@ -1675,6 +1748,14 @@ async def memorize_chat_session():
                 return get_data_error_result(message=str(memory))
             created = True
 
+        if not chat_config:
+            chat_config = await thread_pool_exec(get_tenant_default_model_by_type, current_user.id, LLMType.CHAT)
+        topic = _sanitize_chat_memo_topic(requested_topic) or _sanitize_chat_memo_topic(getattr(memory, "description", ""))
+        if not topic:
+            topic = await _resolve_chat_memo_topic(transcript, chat_config, requested_topic)
+        if topic and topic != (getattr(memory, "description", "") or "").strip():
+            await thread_pool_exec(MemoryService.update_memory, current_user.id, memory.id, {"description": topic})
+
         success, msg = await queue_save_to_memory_task(
             [memory.id],
             {
@@ -1688,6 +1769,6 @@ async def memorize_chat_session():
         if not success:
             return get_json_result(code=RetCode.SERVER_ERROR, message=msg)
 
-        return get_json_result(data={"memory_id": memory.id, "created": created}, message=msg)
+        return get_json_result(data={"memory_id": memory.id, "created": created, "topic": topic}, message=msg)
     except Exception as ex:
         return server_error_response(ex)

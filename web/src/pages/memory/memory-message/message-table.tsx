@@ -44,7 +44,6 @@ import dayjs from 'dayjs';
 import { t } from 'i18next';
 import { pick } from 'lodash';
 import {
-  Copy,
   Eraser,
   ListChevronsDownUp,
   ListChevronsUpDown,
@@ -52,7 +51,6 @@ import {
 } from 'lucide-react';
 import * as React from 'react';
 import { useMemo, useState } from 'react';
-import { CopyToClipboard } from 'react-copy-to-clipboard';
 import { useMessageAction } from './hook';
 import { IMessageInfo } from './interface';
 
@@ -75,6 +73,10 @@ function getTaskStatus(progress: number) {
   }
 }
 
+function hasForgetAt(value: unknown) {
+  return Boolean(value && String(value) !== 'None');
+}
+
 export function MemoryTable({
   messages,
   total,
@@ -87,7 +89,6 @@ export function MemoryTable({
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
-  const [copied, setCopied] = useState(false);
   const {
     showDeleteDialog,
     setShowDeleteDialog,
@@ -103,7 +104,7 @@ export function MemoryTable({
   } = useMessageAction();
 
   const disabledRowFunc = (row: Row<IMessageInfo>) => {
-    return row.original.forget_at !== 'None' && !!row.original.forget_at;
+    return hasForgetAt(row.original.forget_at);
   };
 
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -203,7 +204,11 @@ export function MemoryTable({
         accessorKey: 'forget_at',
         header: () => <span>{t('memory.messages.forgetAt')}</span>,
         cell: ({ row }) => (
-          <div className="text-sm ">{row.getValue('forget_at')}</div>
+          <div className="text-sm ">
+            {hasForgetAt(row.getValue('forget_at'))
+              ? row.getValue('forget_at')
+              : t('memory.messages.notForgotten')}
+          </div>
         ),
       },
       // {
@@ -428,27 +433,8 @@ export function MemoryTable({
               </div>
             )}
             {selectedMessageContent?.content_embed && (
-              <div className="flex gap-2 items-center">
-                <CopyToClipboard
-                  text={selectedMessageContent?.content_embed}
-                  onCopy={() => {
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 1000);
-                  }}
-                >
-                  <Button
-                    variant={'ghost'}
-                    className="border border-border-button "
-                  >
-                    {t('memory.messages.contentEmbed')}
-                    <Copy />
-                  </Button>
-                </CopyToClipboard>
-                {copied && (
-                  <span className="text-xs text-text-secondary">
-                    {t('memory.messages.copied')}
-                  </span>
-                )}
+              <div className="rounded-md border border-border-button bg-bg-card px-3 py-2 text-xs text-text-secondary">
+                {t('memory.messages.contentEmbedHint')}
               </div>
             )}
           </div>

@@ -103,7 +103,7 @@ class MemoryService(CommonService):
         if filter_dict.get("storage_type"):
             memories = memories.where(cls.model.storage_type == filter_dict["storage_type"])
         if keywords:
-            memories = memories.where(cls.model.name.contains(keywords))
+            memories = memories.where(cls.model.name.contains(keywords) | cls.model.description.contains(keywords))
         count = memories.count()
         memories = memories.order_by(cls.model.update_time.desc())
         memories = memories.paginate(page, page_size)

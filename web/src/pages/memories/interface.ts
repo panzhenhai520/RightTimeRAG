@@ -25,6 +25,8 @@ export interface ICreateMemoryProps {
 }
 export interface IMemory extends ICreateMemoryProps {
   id: string;
+  display_name?: string;
+  is_chat_memo?: boolean;
   avatar: string;
   tenant_id: string;
   owner_name: string;

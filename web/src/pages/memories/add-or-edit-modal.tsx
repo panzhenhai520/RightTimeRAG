@@ -5,6 +5,7 @@ import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { createMemoryFields } from './constants';
 import { IMemory } from './interface';
+import { getMemoryDisplayName } from './utils';
 
 type IProps = {
   open: boolean;
@@ -41,6 +42,15 @@ export const AddOrEditModal = memo(function AddOrEditModal(props: IProps) {
       return createMemoryFields(t);
     }
   }, [isCreate, t]);
+  const defaultValues = useMemo(() => {
+    if (!isCreate && initialMemory?.is_chat_memo) {
+      return {
+        ...initialMemory,
+        name: getMemoryDisplayName(initialMemory, t),
+      };
+    }
+    return initialMemory;
+  }, [initialMemory, isCreate, t]);
 
   return (
     <Modal
@@ -61,7 +71,7 @@ export const AddOrEditModal = memo(function AddOrEditModal(props: IProps) {
       <DynamicForm.Root
         fields={fields}
         onSubmit={() => {}}
-        defaultValues={initialMemory}
+        defaultValues={defaultValues}
       >
         <div className="flex justify-end gap-2 pb-5">
           <DynamicForm.CancelButton handleCancel={onClose} />

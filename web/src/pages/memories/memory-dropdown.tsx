@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useDeleteMemory } from './hooks';
 import { IMemory } from './interface';
+import { getMemoryDisplayName } from './utils';
 
 export function MemoryDropdown({
   children,
@@ -27,6 +28,7 @@ export function MemoryDropdown({
 }) {
   const { t } = useTranslation();
   const { deleteMemory } = useDeleteMemory();
+  const displayName = getMemoryDisplayName(memory, t);
   const handleShowChatRenameModal: MouseEventHandler<HTMLDivElement> =
     useCallback(
       (e) => {
@@ -69,8 +71,8 @@ export function MemoryDropdown({
           content={{
             node: (
               <ConfirmDeleteDialogNode
-                avatar={{ avatar: memory.avatar, name: memory.name }}
-                name={memory.name}
+                avatar={{ avatar: memory.avatar, name: displayName }}
+                name={displayName}
                 warnText={t('memories.delMemoryWarn')}
               />
             ),

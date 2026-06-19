@@ -33,11 +33,15 @@ export function ConversationDropdown({
   const { conversationId, isNew } = useGetChatSearchParams();
   const navigate = useNavigate();
 
-  const handleAddToMemory: MouseEventHandler<HTMLDivElement> =
-    useCallback(async (e) => {
+  const handleAddToMemory: MouseEventHandler<HTMLDivElement> = useCallback(
+    async (e) => {
       e.stopPropagation();
       if (conversation.is_new || !conversation.chat_id || !conversation.id) {
         toast.info(t('chat.addToMemoryPreparing'));
+        return;
+      }
+      const topic = window.prompt(t('chat.addToMemoryTopicPrompt'), '');
+      if (topic === null) {
         return;
       }
 
@@ -45,6 +49,7 @@ export function ConversationDropdown({
         const { data } = await request.post(api.memorizeChat, {
           chat_id: conversation.chat_id,
           session_id: conversation.id,
+          topic: topic.trim(),
         });
 
         if (data?.code === 0) {
@@ -63,7 +68,9 @@ export function ConversationDropdown({
       } catch {
         toast.error(t('chat.addToMemoryFailed'));
       }
-    }, [conversation.chat_id, conversation.id, conversation.is_new, navigate, t]);
+    },
+    [conversation.chat_id, conversation.id, conversation.is_new, navigate, t],
+  );
 
   const handleDelete: MouseEventHandler<HTMLDivElement> =
     useCallback(async () => {

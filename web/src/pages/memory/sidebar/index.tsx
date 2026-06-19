@@ -7,6 +7,7 @@ import { formatPureDate } from '@/utils/date';
 import { MemoryStick, Settings } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getMemoryDisplayName } from '../../memories/utils';
 import { useFetchMemoryBaseConfiguration } from '../hooks/use-memory-setting';
 import { useHandleMenuClick } from './hooks';
 
@@ -16,6 +17,7 @@ export function SideBar() {
   // refreshCount: be for avatar img sync update on top left
   const { data } = useFetchMemoryBaseConfiguration();
   const { t } = useTranslation();
+  const displayName = getMemoryDisplayName(data, t);
 
   const items = useMemo(() => {
     const list = [
@@ -38,15 +40,17 @@ export function SideBar() {
       <div className="flex gap-2.5 max-w-[200px] items-center">
         <RAGFlowAvatar
           avatar={data.avatar}
-          name={data.name}
+          name={displayName}
           className="size-16"
         ></RAGFlowAvatar>
         <div className=" text-text-secondary text-xs space-y-1 overflow-hidden">
           <h3 className="text-lg font-semibold line-clamp-1 text-text-primary text-ellipsis overflow-hidden">
-            {data.name}
+            {displayName}
           </h3>
           <div className="flex justify-between">
-            <span className="truncate ">{data.description}</span>
+            <span className="truncate ">
+              {data.is_chat_memo ? '' : data.description}
+            </span>
             {/* <span>{formatBytes(data.size)}</span> */}
           </div>
           <div>

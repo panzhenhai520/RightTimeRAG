@@ -124,11 +124,16 @@ export function SingleChatBox({
       toast.info(t('chat.addToMemoryPreparing'));
       return;
     }
+    const topic = window.prompt(t('chat.addToMemoryTopicPrompt'), '');
+    if (topic === null) {
+      return;
+    }
     setAddToMemoryLoading(true);
     try {
       const { data } = await request.post(api.memorizeChat, {
         chat_id: currentDialog.id,
         session_id: conversationId,
+        topic: topic.trim(),
       });
       if (data?.code === 0) {
         toast.success(t('chat.addToMemorySuccess'));

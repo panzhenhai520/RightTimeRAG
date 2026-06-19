@@ -20,7 +20,7 @@ from api.db.services.user_service import UserTenantService
 from api.db.services.canvas_service import UserCanvasService
 from api.db.services.task_service import TaskService
 from api.db.joint_services.memory_message_service import get_memory_size_cache, judge_system_prompt_is_default, queue_save_to_memory_task, query_message
-from api.utils.memory_utils import format_ret_data_from_memory, get_memory_type_human
+from api.utils.memory_utils import format_ret_data_from_memory, get_memory_display_name, get_memory_type_human, is_chat_memo_name
 from api.utils.tenant_utils import ensure_tenant_model_id_for_params
 from api.constants import MEMORY_NAME_LIMIT, MEMORY_SIZE_LIMIT
 from memory.services.messages import MessageService
@@ -261,7 +261,12 @@ async def list_memory(filter_params: dict, keywords: str, page: int=1, page_size
     filter_dict["memory_type"] = memory_types
 
     memory_list, count = MemoryService.get_by_filter(filter_dict, keywords, page, page_size)
-    [memory.update({"memory_type": get_memory_type_human(memory["memory_type"])}) for memory in memory_list]
+    for memory in memory_list:
+        memory.update({
+            "memory_type": get_memory_type_human(memory["memory_type"]),
+            "is_chat_memo": is_chat_memo_name(memory.get("name")),
+            "display_name": get_memory_display_name(memory.get("name"), memory.get("description")),
+        })
     return {
         "memory_list": memory_list, "total_count": count
     }

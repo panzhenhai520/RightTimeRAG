@@ -285,9 +285,12 @@ export const useRenameMemory = () => {
       setLoading(true);
       if (memory?.id) {
         try {
+          const payload = memory.is_chat_memo
+            ? { description: data.name }
+            : { name: data.name };
           await updateMemory({
             // ...memoryDataTemp,
-            name: data.name,
+            ...payload,
             id: memory?.id,
           } as unknown as IMemoryAppDetailProps);
         } catch (e) {
@@ -307,6 +310,7 @@ export const useRenameMemory = () => {
   );
   return {
     memoryRenameLoading: loading,
+    searchRenameLoading: loading,
     initialMemory: memory,
     onMemoryRenameOk,
     openCreateModal,

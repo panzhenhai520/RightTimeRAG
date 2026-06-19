@@ -143,6 +143,12 @@ const ttsFieldLabelClass = 'truncate text-text-secondary';
 const ttsSelectClass =
   'h-9 w-full border-0 border-b border-border-button bg-transparent px-0 pr-8 text-sm text-text-primary outline-none disabled:cursor-not-allowed disabled:opacity-50';
 
+const userGroupRoleOptions = [
+  ['normal', 'devSettingPanython.roleNormal'],
+  ['admin', 'devSettingPanython.roleAdmin'],
+  ['owner', 'devSettingPanython.roleOwner'],
+];
+
 type UserRow = {
   id: string;
   email: string;
@@ -234,6 +240,11 @@ function formatCounts(
       .map(([key, value]) => `${labels[key] ?? key}:${value}`)
       .join(' / ') || t('devSettingPanython.noDependentAssets')
   );
+}
+
+function roleLabel(role: string, t: ReturnType<typeof useTranslation>['t']) {
+  const matched = userGroupRoleOptions.find(([value]) => value === role);
+  return matched ? t(matched[1]) : role;
 }
 
 function inferVoiceProfileConfig(profile: string) {
@@ -428,9 +439,21 @@ function TenantRelationsCard() {
       </div>
 
       <form
-        className="mt-5 grid gap-3 rounded-md bg-bg-base/60 p-3 md:grid-cols-[1fr_1fr_120px_auto]"
+        className="mt-5 grid gap-3 rounded-md bg-bg-base/60 p-3 md:grid-cols-[1fr_1fr_180px_auto]"
         onSubmit={handleUpsertRelation}
       >
+        <select
+          className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
+          value={tenantId}
+          onChange={(event) => setTenantId(event.target.value)}
+        >
+          <option value="">{t('devSettingPanython.selectUserGroup')}</option>
+          {users.map((user) => (
+            <option key={user.id} value={user.id}>
+              {userDisplayName(user, t('devSettingPanython.unnamedUser'))}
+            </option>
+          ))}
+        </select>
         <select
           className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
           value={userId}
@@ -445,29 +468,40 @@ function TenantRelationsCard() {
         </select>
         <select
           className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
-          value={tenantId}
-          onChange={(event) => setTenantId(event.target.value)}
-        >
-          <option value="">{t('devSettingPanython.selectTenant')}</option>
-          {users.map((user) => (
-            <option key={user.id} value={user.id}>
-              {userDisplayName(user, t('devSettingPanython.unnamedUser'))}
-            </option>
-          ))}
-        </select>
-        <select
-          className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
           value={role}
           onChange={(event) => setRole(event.target.value)}
         >
-          <option value="normal">normal</option>
-          <option value="admin">admin</option>
-          <option value="owner">owner</option>
+          {userGroupRoleOptions.map(([value, label]) => (
+            <option key={value} value={value}>
+              {t(label)}
+            </option>
+          ))}
         </select>
         <Button type="submit" disabled={!userId || !tenantId}>
-          {t('devSettingPanython.saveUserTenant')}
+          {t('devSettingPanython.saveUserGroupMembership')}
         </Button>
       </form>
+
+      <div className="mt-3 grid gap-2 rounded-md border border-border/60 bg-bg-base/40 p-3 text-xs text-text-secondary md:grid-cols-3">
+        <div>
+          <span className="font-medium text-text-primary">
+            {t('devSettingPanython.roleNormal')}:
+          </span>{' '}
+          {t('devSettingPanython.roleNormalDescription')}
+        </div>
+        <div>
+          <span className="font-medium text-text-primary">
+            {t('devSettingPanython.roleAdmin')}:
+          </span>{' '}
+          {t('devSettingPanython.roleAdminDescription')}
+        </div>
+        <div>
+          <span className="font-medium text-text-primary">
+            {t('devSettingPanython.roleOwner')}:
+          </span>{' '}
+          {t('devSettingPanython.roleOwnerDescription')}
+        </div>
+      </div>
 
       <section className="mt-6 grid gap-4">
         {tenantIds.map((tenantId) => {
@@ -494,8 +528,8 @@ function TenantRelationsCard() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h3 className="text-base font-semibold text-text-primary">
-                    {t('devSettingPanython.tenantLabel', {
-                      tenant: tenantName,
+                    {t('devSettingPanython.userGroupLabel', {
+                      group: tenantName,
                     })}
                   </h3>
                   <p className="mt-1 text-xs text-text-secondary">
@@ -514,26 +548,30 @@ function TenantRelationsCard() {
               <div className="mt-4 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
                 <section className="rounded-md bg-bg-card p-3">
                   <h4 className="text-sm font-medium text-text-primary">
-                    {t('devSettingPanython.usersInTenant')}
+                    {t('devSettingPanython.groupMembers')}
                   </h4>
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="mt-3 space-y-2">
                     {tenantMembers.length === 0 ? (
                       <span className="text-xs text-text-secondary">
                         {t('devSettingPanython.noTenantUsers')}
                       </span>
                     ) : (
                       tenantMembers.map((member) => (
-                        <span
+                        <div
                           key={member.id}
-                          className="inline-flex items-center gap-2 rounded-full bg-bg-base px-3 py-1 text-xs"
+                          className="flex items-center justify-between gap-2 rounded-md bg-bg-base px-3 py-2 text-xs"
                           title={t('devSettingPanython.userBelongsToTenant', {
                             user: member.user_label,
                             tenant: tenantName,
                           })}
                         >
-                          <span>{member.user_label}</span>
-                          <span className="text-text-secondary">
-                            {member.role}
+                          <span className="min-w-0">
+                            <span className="block truncate text-text-primary">
+                              {member.user_label}
+                            </span>
+                            <span className="text-text-secondary">
+                              {roleLabel(member.role, t)}
+                            </span>
                           </span>
                           <button
                             type="button"
@@ -551,13 +589,13 @@ function TenantRelationsCard() {
                           >
                             ×
                           </button>
-                        </span>
+                        </div>
                       ))
                     )}
                   </div>
 
                   <h4 className="mt-5 text-sm font-medium text-text-primary">
-                    {t('devSettingPanython.tenantKnowledgebases')}
+                    {t('devSettingPanython.groupKnowledgebases')}
                   </h4>
                   <div className="mt-3 grid gap-2">
                     {tenantKbs.length === 0 ? (
@@ -586,7 +624,11 @@ function TenantRelationsCard() {
                   </div>
                 </section>
 
-                <section className="grid gap-3">
+                <section className="relative grid gap-3 border-l border-border/70 pl-4">
+                  <span className="absolute -left-[5px] top-2 h-2.5 w-2.5 rounded-full bg-[#6f3f2f] dark:bg-[#9bc7dd]" />
+                  <h4 className="text-sm font-medium text-text-primary">
+                    {t('devSettingPanython.groupAssistants')}
+                  </h4>
                   {tenantDialogs.length === 0 ? (
                     <div className="rounded-md bg-bg-card p-4 text-sm text-text-secondary">
                       {t('devSettingPanython.noDialogsInTenant')}
@@ -601,8 +643,9 @@ function TenantRelationsCard() {
                       return (
                         <div
                           key={dialog.id}
-                          className="rounded-md border border-border/70 bg-bg-card p-3"
+                          className="relative rounded-md border border-border/70 bg-bg-card p-3"
                         >
+                          <span className="absolute -left-[21px] top-5 h-px w-4 bg-border/70" />
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="min-w-0">
                               <h4 className="truncate text-sm font-semibold text-text-primary">

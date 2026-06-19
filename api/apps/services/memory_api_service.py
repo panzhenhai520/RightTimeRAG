@@ -19,7 +19,13 @@ from api.db.services.memory_service import MemoryService
 from api.db.services.user_service import UserTenantService
 from api.db.services.canvas_service import UserCanvasService
 from api.db.services.task_service import TaskService
-from api.db.joint_services.memory_message_service import get_memory_size_cache, judge_system_prompt_is_default, queue_save_to_memory_task, query_message
+from api.db.joint_services.memory_message_service import (
+    get_memory_size_cache,
+    judge_system_prompt_is_default,
+    queue_save_to_memory_task,
+    query_message,
+    _sanitize_memory_text,
+)
 from api.utils.memory_utils import format_ret_data_from_memory, get_memory_display_name, get_memory_type_human, is_chat_memo_name
 from api.utils.tenant_utils import ensure_tenant_model_id_for_params
 from api.constants import MEMORY_NAME_LIMIT, MEMORY_SIZE_LIMIT
@@ -31,7 +37,7 @@ from common.time_utils import current_timestamp, timestamp_to_date
 
 
 def _compact_memory_preview(content: str | None, max_chars: int = 420) -> str:
-    content = (content or "").strip()
+    content = _sanitize_memory_text(content).strip()
     content = content.removeprefix("User Input:").strip()
     if content.endswith("Agent Response:"):
         content = content[: -len("Agent Response:")].strip()
@@ -324,9 +330,11 @@ async def get_memory_messages(memory_id, agent_ids: list[str], keywords: str, pa
                 # the 'digest' field carries the source_id when a task is created, so use 'digest' as key
                 extract_task_mapping.update({int(task["digest"]): task})
     for message in messages["message_list"]:
+        message["content"] = _sanitize_memory_text(message.get("content"))
         message["agent_name"] = agent_name_mapping.get(message["agent_id"], "Unknown")
         message["task"] = extract_task_mapping.get(message["message_id"], {})
         for extract_msg in message["extract"]:
+            extract_msg["content"] = _sanitize_memory_text(extract_msg.get("content"))
             extract_msg["agent_name"] = agent_name_mapping.get(extract_msg["agent_id"], "Unknown")
     return {"messages": messages, "storage_type": memory.storage_type}
 

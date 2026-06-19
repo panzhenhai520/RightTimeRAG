@@ -51,7 +51,9 @@ export default function MemoryMessage() {
       id: data?.id,
       embd_id: data?.embd_id,
       llm_id: data?.llm_id,
-      name: data?.name || '',
+      name: data?.is_chat_memo
+        ? data?.display_name || data?.description || ''
+        : data?.name || '',
       description: data?.description || '',
       avatar: data?.avatar || '',
       memory_size: data?.memory_size,

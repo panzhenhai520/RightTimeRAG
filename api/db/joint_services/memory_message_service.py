@@ -13,7 +13,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import json
 import logging
+import re
 from typing import List
 
 from common import settings
@@ -35,6 +37,59 @@ from memory.utils.msg_util import get_json_result_from_llm_response
 from rag.utils.redis_conn import REDIS_CONN
 
 
+_MEMORY_PROCESS_BLOCK_PATTERN = re.compile(r"<(?:retrieving|think)>[\s\S]*?</(?:retrieving|think)>", re.I)
+_MEMORY_PROCESS_TAG_PATTERN = re.compile(r"</?(?:retrieving|think)>", re.I)
+_MEMORY_ERROR_MARKERS = (
+    "ERROR:",
+    "CONNECTION_ERROR",
+    "INVALID_REQUEST",
+    "Traceback",
+    "layer-slice token span exceeds context",
+    "kv payload staging failed",
+)
+
+
+def _sanitize_memory_text(value) -> str:
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        value = json.dumps(value, ensure_ascii=False)
+
+    text = _MEMORY_PROCESS_BLOCK_PATTERN.sub("", value)
+    text = _MEMORY_PROCESS_TAG_PATTERN.sub("", text)
+
+    lines = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            if lines and lines[-1] != "":
+                lines.append("")
+            continue
+        lower = line.lower()
+        if any(marker.lower() in lower for marker in _MEMORY_ERROR_MARKERS):
+            continue
+        lines.append(line)
+    return "\n".join(lines).strip()
+
+
+def _sanitize_memory_message_dict(message_dict: dict | None) -> dict:
+    sanitized = dict(message_dict or {})
+    sanitized["user_input"] = _sanitize_memory_text(sanitized.get("user_input", ""))
+    sanitized["agent_response"] = _sanitize_memory_text(sanitized.get("agent_response", ""))
+    return sanitized
+
+
+def _build_raw_memory_content(message_dict: dict) -> str:
+    parts = []
+    user_input = _sanitize_memory_text(message_dict.get("user_input", ""))
+    agent_response = _sanitize_memory_text(message_dict.get("agent_response", ""))
+    if user_input:
+        parts.append(f"User Input: {user_input}")
+    if agent_response:
+        parts.append(f"Agent Response: {agent_response}")
+    return "\n".join(parts).strip()
+
+
 async def save_to_memory(memory_id: str, message_dict: dict):
     """
     :param memory_id:
@@ -46,6 +101,10 @@ async def save_to_memory(memory_id: str, message_dict: dict):
         "agent_response": str
     }
     """
+    message_dict = _sanitize_memory_message_dict(message_dict)
+    if not message_dict.get("user_input") and not message_dict.get("agent_response"):
+        return False, "No clean memory content to save."
+
     memory = MemoryService.get_by_memory_id(memory_id)
     if not memory:
         return False, f"Memory '{memory_id}' not found."
@@ -69,7 +128,7 @@ async def save_to_memory(memory_id: str, message_dict: dict):
         "user_id": message_dict.get("user_id", ""),
         "agent_id": message_dict["agent_id"],
         "session_id": message_dict["session_id"],
-        "content": f"User Input: {message_dict.get('user_input')}\nAgent Response: {message_dict.get('agent_response')}",
+        "content": _build_raw_memory_content(message_dict),
         "valid_at": timestamp_to_date(current_timestamp()),
         "invalid_at": None,
         "forget_at": None,
@@ -92,6 +151,13 @@ async def save_to_memory(memory_id: str, message_dict: dict):
 
 
 async def save_extracted_to_memory_only(memory_id: str, message_dict, source_message_id: int, task_id: str=None):
+    message_dict = _sanitize_memory_message_dict(message_dict)
+    if not message_dict.get("user_input") and not message_dict.get("agent_response"):
+        msg = "No clean memory content to extract."
+        if task_id:
+            TaskService.update_progress(task_id, {"progress": 1.0, "progress_msg": timestamp_to_date(current_timestamp())+ " " + msg})
+        return True, msg
+
     memory = MemoryService.get_by_memory_id(memory_id)
     if not memory:
         msg = f"Memory '{memory_id}' not found."
@@ -143,6 +209,11 @@ async def save_extracted_to_memory_only(memory_id: str, message_dict, source_mes
 
 async def extract_by_llm(tenant_id: str, tenant_llm_id: int, extract_conf: dict, memory_type: List[str], user_input: str,
                          agent_response: str, system_prompt: str = "", user_prompt: str="", task_id: str=None, llm_id: str = "") -> List[dict]:
+    user_input = _sanitize_memory_text(user_input)
+    agent_response = _sanitize_memory_text(agent_response)
+    if not user_input and not agent_response:
+        return []
+
     if not system_prompt:
         system_prompt = PromptAssembler.assemble_system_prompt({"memory_type": memory_type})
     conversation_content = f"User Input: {user_input}\nAgent Response: {agent_response}"
@@ -364,6 +435,10 @@ async def queue_save_to_memory_task(memory_ids: list[str], message_dict: dict):
         "agent_response": str
     }
     """
+    message_dict = _sanitize_memory_message_dict(message_dict)
+    if not message_dict.get("user_input") and not message_dict.get("agent_response"):
+        return False, "No clean memory content to save."
+
     def new_task(_memory_id: str, _source_id: int):
         return {
             "id": get_uuid(),
@@ -390,7 +465,7 @@ async def queue_save_to_memory_task(memory_ids: list[str], message_dict: dict):
             "user_id": message_dict.get("user_id", ""),
             "agent_id": message_dict["agent_id"],
             "session_id": message_dict["session_id"],
-            "content": f"User Input: {message_dict.get('user_input')}\nAgent Response: {message_dict.get('agent_response')}",
+            "content": _build_raw_memory_content(message_dict),
             "valid_at": timestamp_to_date(current_timestamp()),
             "invalid_at": None,
             "forget_at": None,

@@ -8,7 +8,12 @@ import {
 } from '@/hooks/logic-hooks';
 import { useGetChatSearchParams } from '@/hooks/use-chat-request';
 import { IMessage } from '@/interfaces/database/chat';
+import i18n from '@/locales/config';
 import api from '@/utils/api';
+import {
+  buildLongTaskPreview,
+  classify_generation_task,
+} from '@/utils/generation-task';
 import { trim } from 'lodash';
 import { useCallback, useEffect } from 'react';
 import { useParams } from 'react-router';
@@ -169,14 +174,33 @@ export const useSendMessage = (controller: AbortController) => {
 
       addNewestQuestion({
         content: value,
-        files: files,
+        files: files as IMessage['files'],
         id,
         role: MessageType.User,
         conversationId: targetConversationId,
       });
 
       if (done) {
+        const classification = classify_generation_task(value);
         setValue('');
+        if (classification.shouldGenerateDocument) {
+          addNewestAnswer({
+            id,
+            conversationId: targetConversationId,
+            answer: buildLongTaskPreview(classification),
+            data: {
+              longTask: {
+                ...classification,
+                query: value.trim(),
+                chatId,
+                source: 'chat',
+              },
+            },
+          });
+          clearFiles();
+          return;
+        }
+
         sendMessage({
           currentConversationId: targetConversationId,
           messages: currentMessages,
@@ -184,7 +208,7 @@ export const useSendMessage = (controller: AbortController) => {
             id,
             content: value.trim(),
             role: MessageType.User,
-            files,
+            files: files as IMessage['files'],
             conversationId: targetConversationId,
           },
           enableInternet,
@@ -210,14 +234,60 @@ export const useSendMessage = (controller: AbortController) => {
       value,
       createConversationBeforeSendMessage,
       addNewestQuestion,
+      addNewestAnswer,
       files,
       done,
       clearFiles,
       setValue,
       sendMessage,
       messageContainerRef,
+      chatId,
     ],
   );
+
+  const continueMessage = useCallback(() => {
+    if (!done || !conversationId) return;
+
+    const id = uuid();
+    const content = i18n.t('chat.continueInstruction', {
+      defaultValue:
+        'Continue from where the previous answer stopped. Do not repeat content already shown.',
+    });
+
+    addNewestQuestion({
+      content,
+      id,
+      role: MessageType.User,
+      conversationId,
+    });
+
+    sendMessage({
+      currentConversationId: conversationId,
+      message: {
+        id,
+        content,
+        role: MessageType.User,
+        conversationId,
+      },
+      messages: derivedMessages,
+      enableThinking: false,
+      enableInternet: false,
+    });
+
+    if (messageContainerRef.current) {
+      const el = messageContainerRef.current;
+      requestAnimationFrame(() => {
+        el.scrollTo({ top: el.scrollHeight });
+      });
+    }
+  }, [
+    addNewestQuestion,
+    conversationId,
+    derivedMessages,
+    done,
+    messageContainerRef,
+    sendMessage,
+  ]);
 
   useEffect(() => {
     //  #1289
@@ -232,6 +302,7 @@ export const useSendMessage = (controller: AbortController) => {
     value,
     setValue,
     regenerateMessage,
+    continueMessage,
     sendLoading: !done,
     scrollRef,
     messageContainerRef,

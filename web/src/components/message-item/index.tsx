@@ -27,6 +27,7 @@ import {
 import { CheckCircle2, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DocumentDownloadButton } from '../document-download-button';
+import { GenerationTaskActions } from '../generation-task-actions';
 import MarkdownContent from '../markdown-content';
 import { EvidenceAuditPanel } from '../next-message-item/evidence-audit-panel';
 import { ReferenceDocumentList } from '../next-message-item/reference-document-list';
@@ -51,6 +52,7 @@ interface IProps extends Partial<IRemoveMessageById>, IRegenerateMessage {
   index: number;
   showLikeButton?: boolean;
   showLoudspeaker?: boolean;
+  continueMessage?: (item: IMessage) => void;
 }
 
 class InlineRenderBoundary extends Component<
@@ -103,6 +105,7 @@ const MessageItem = ({
   showLikeButton = true,
   showLoudspeaker = true,
   visibleAvatar = true,
+  continueMessage,
 }: IProps) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -442,6 +445,13 @@ const MessageItem = ({
                   </div>
                 ))}
               </div>
+            )}
+            {isAssistant && (
+              <GenerationTaskActions
+                item={item}
+                loading={loading}
+                onContinue={continueMessage}
+              />
             )}
           </section>
         </div>

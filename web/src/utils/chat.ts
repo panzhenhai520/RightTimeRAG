@@ -108,6 +108,20 @@ export function stripProcessBlocks(text: string = '') {
     .trim();
 }
 
+export function getTtsReadableContent(text: string = '') {
+  return stripProcessBlocks(
+    (text || '')
+      .replace(
+        /<details[^>]*class=["'][^"']*(?:think|retrieving)[^"']*["'][^>]*>[\s\S]*?<\/details>/gi,
+        '',
+      )
+      .replace(
+        /<section[^>]*class=["'][^"']*(?:think|retrieving)[^"']*["'][^>]*>[\s\S]*?<\/section>/gi,
+        '',
+      ),
+  );
+}
+
 export const extractTaggedBlocks = (text: string = '', tagName: string) => {
   const pattern = new RegExp(`<${tagName}>[\\s\\S]*?</${tagName}>`, 'gi');
   return text.match(pattern)?.join('') ?? '';

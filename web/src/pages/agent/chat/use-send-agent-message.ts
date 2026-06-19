@@ -1,3 +1,4 @@
+import { NextMessageInputOnPressEnterParameter } from '@/components/message-input/next';
 import sonnerMessage from '@/components/ui/message';
 import { MessageType } from '@/constants/chat';
 import {
@@ -16,6 +17,10 @@ import {
 import { Message } from '@/interfaces/database/chat';
 import i18n from '@/locales/config';
 import api from '@/utils/api';
+import {
+  buildLongTaskPreview,
+  classify_generation_task,
+} from '@/utils/generation-task';
 import { get } from 'lodash';
 import trim from 'lodash/trim';
 import {
@@ -336,7 +341,7 @@ export const useSendAgentMessage = ({
         clearUploadResponseList();
 
         if (receiveMessageError(res)) {
-          sonnerMessage.error(res?.data?.message);
+          sonnerMessage.error((res?.data as any)?.message);
 
           // cancel loading
           setValue(message.content);
@@ -410,17 +415,42 @@ export const useSendAgentMessage = ({
   ]);
 
   const handlePressEnter = useCallback(
-    ({ exploreSessionId }: { exploreSessionId?: string } = {}) => {
+    ({
+      exploreSessionId,
+    }: Partial<NextMessageInputOnPressEnterParameter> & {
+      exploreSessionId?: string;
+    } = {}) => {
       if (trim(value) === '') return;
       const msgBody = buildRequestBody(value);
+      const classification = classify_generation_task(value);
+      addNewestOneQuestion({ ...msgBody, files: fileList });
       if (done) {
         setValue('');
+        if (classification.shouldGenerateDocument) {
+          addNewestOneAnswer({
+            id: msgBody.id,
+            answer: buildLongTaskPreview(classification),
+            data: {
+              longTask: {
+                ...classification,
+                query: value.trim(),
+                agentId,
+                source: 'agent',
+              },
+            },
+          });
+          clearUploadResponseList();
+          setTimeout(() => {
+            scrollToBottom();
+          }, 100);
+          return;
+        }
+
         sendMessage({
           message: msgBody,
           exploreSessionId,
         });
       }
-      addNewestOneQuestion({ ...msgBody, files: fileList });
       setTimeout(() => {
         scrollToBottom();
       }, 100);
@@ -429,12 +459,31 @@ export const useSendAgentMessage = ({
       value,
       done,
       addNewestOneQuestion,
+      addNewestOneAnswer,
       fileList,
       setValue,
       sendMessage,
       scrollToBottom,
+      agentId,
+      clearUploadResponseList,
     ],
   );
+
+  const continueMessage = useCallback(() => {
+    if (!done) return;
+
+    const msgBody = buildRequestBody(
+      i18n.t('chat.continueInstruction', {
+        defaultValue:
+          'Continue from where the previous answer stopped. Do not repeat content already shown.',
+      }),
+    );
+    addNewestOneQuestion(msgBody);
+    sendMessage({ message: msgBody });
+    setTimeout(() => {
+      scrollToBottom();
+    }, 100);
+  }, [addNewestOneQuestion, done, scrollToBottom, sendMessage]);
 
   const sendedTaskMessage = useRef(false);
 
@@ -527,6 +576,7 @@ export const useSendAgentMessage = ({
     scrollRef,
     messageContainerRef,
     handlePressEnter,
+    continueMessage,
     handleInputChange,
     removeMessageById,
     stopOutputMessage: stopConversation,

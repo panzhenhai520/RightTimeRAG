@@ -352,7 +352,7 @@ async def async_chat_solo(dialog, messages, stream=True, **kwargs):
                 flags = {"start_to_think": True} if value == "<think>" else {"end_to_think": True}
                 yield {"answer": "", "reference": {}, "audio_binary": None, "prompt": "", "created_at": time.time(), "final": False, **flags}
                 continue
-            yield {"answer": value, "reference": {}, "audio_binary": tts(tts_mdl, value), "prompt": "", "created_at": time.time(), "final": False}
+            yield {"answer": value, "reference": {}, "audio_binary": visible_tts(tts_mdl, value, state.in_think), "prompt": "", "created_at": time.time(), "final": False}
     else:
         if llm_type == "chat":
             answer = await chat_mdl.async_chat(prompt_config.get("system", ""), msg, gen_conf)
@@ -360,7 +360,7 @@ async def async_chat_solo(dialog, messages, stream=True, **kwargs):
             answer = await chat_mdl.async_chat(prompt_config.get("system", ""), msg, gen_conf, images=image_files)
         user_content = msg[-1].get("content", "[content not available]")
         logging.debug("User: {}|Assistant: {}".format(user_content, answer))
-        yield {"answer": answer, "reference": {}, "audio_binary": tts(tts_mdl, answer), "prompt": "", "created_at": time.time()}
+        yield {"answer": answer, "reference": {}, "audio_binary": visible_tts(tts_mdl, answer), "prompt": "", "created_at": time.time()}
 
 
 def get_models(dialog):
@@ -2471,7 +2471,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     retrieval_ts = timer()
     if not knowledges and prompt_config.get("empty_response"):
         empty_res = prompt_config["empty_response"]
-        yield {"answer": empty_res, "reference": kbinfos, "prompt": "\n\n### Query:\n%s" % " ".join(questions), "audio_binary": tts(tts_mdl, empty_res), "final": True}
+        yield {"answer": empty_res, "reference": kbinfos, "prompt": "\n\n### Query:\n%s" % " ".join(questions), "audio_binary": visible_tts(tts_mdl, empty_res), "final": True}
         return
 
     kwargs["knowledge"] = "\n------\n" + "\n\n------\n\n".join(knowledges)
@@ -2746,7 +2746,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                     continue
                 if _is_context_span_error(value):
                     raise RuntimeError(value)
-                yield {"answer": value, "reference": {}, "audio_binary": tts(tts_mdl, value), "final": False}
+                yield {"answer": value, "reference": {}, "audio_binary": visible_tts(tts_mdl, value, state.in_think), "final": False}
         except Exception as exc:
             if not _is_context_span_error(exc):
                 raise
@@ -2761,7 +2761,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                     continue
                 if _is_context_span_error(value):
                     raise RuntimeError(value)
-                yield {"answer": value, "reference": {}, "audio_binary": tts(tts_mdl, value), "final": False}
+                yield {"answer": value, "reference": {}, "audio_binary": visible_tts(tts_mdl, value, state.in_think), "final": False}
         full_answer = last_state.full_text if last_state else ""
         if full_answer:
             final = await decorate_answer(_extract_visible_answer(thought + full_answer))
@@ -2782,7 +2782,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         user_content = msg[-1].get("content", "[content not available]")
         logging.debug("User: {}|Assistant: {}".format(user_content, answer))
         res = await decorate_answer(answer)
-        res["audio_binary"] = tts(tts_mdl, answer)
+        res["audio_binary"] = visible_tts(tts_mdl, answer)
         yield res
 
     return
@@ -3307,6 +3307,15 @@ def tts(tts_mdl, text):
     if not text:
         return None
     return synthesize_with_cache(tts_mdl, text)
+
+
+def visible_tts(tts_mdl, text, in_think: bool = False):
+    if in_think:
+        return None
+    text = _strip_process_blocks(text)
+    if not text:
+        return None
+    return tts(tts_mdl, text)
 
 
 class _ThinkStreamState:

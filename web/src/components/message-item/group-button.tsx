@@ -9,6 +9,7 @@ import { useSetModalState } from '@/hooks/common-hooks';
 import { IRemoveMessageById } from '@/hooks/logic-hooks';
 import { cn } from '@/lib/utils';
 import {
+  Loader2,
   LucidePauseCircle,
   LucideRefreshCw,
   LucideThumbsDown,
@@ -48,7 +49,16 @@ export const AssistantGroupButton = ({
     showModal: showPromptModal,
   } = useSetModalState();
   const { t } = useTranslation();
-  const { handleRead, ref, isPlaying } = useSpeech(content, audioBinary);
+  const { handleRead, ref, isPlaying, isLoading, speechState } = useSpeech(
+    content,
+    audioBinary,
+  );
+  const speechTooltip =
+    speechState === 'loading'
+      ? t('chat.ttsGenerating')
+      : speechState === 'playing'
+        ? t('chat.ttsPlaying')
+        : t('chat.read');
 
   const handleLike = useCallback(() => {
     onFeedbackOk({ thumbup: true });
@@ -69,15 +79,23 @@ export const AssistantGroupButton = ({
                 <Button
                   variant="transparent"
                   size="icon-xs"
-                  className="border-0"
+                  className={cn('border-0', isPlaying && 'text-accent-primary')}
                   onClick={handleRead}
+                  aria-label={speechTooltip}
+                  title={speechTooltip}
                 >
                   <span>
-                    {isPlaying ? <LucidePauseCircle /> : <LucideVolume2 />}
+                    {isLoading ? (
+                      <Loader2 className="animate-spin" />
+                    ) : isPlaying ? (
+                      <LucidePauseCircle className="animate-pulse" />
+                    ) : (
+                      <LucideVolume2 />
+                    )}
                   </span>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{t('chat.read')}</TooltipContent>
+              <TooltipContent>{speechTooltip}</TooltipContent>
             </Tooltip>
 
             <audio src="" ref={ref}></audio>

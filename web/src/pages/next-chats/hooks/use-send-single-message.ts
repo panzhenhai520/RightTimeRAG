@@ -7,7 +7,12 @@ import {
 } from '@/hooks/logic-hooks';
 import { useGetChatSearchParams } from '@/hooks/use-chat-request';
 import { IMessage } from '@/interfaces/database/chat';
+import i18n from '@/locales/config';
 import api from '@/utils/api';
+import {
+  buildLongTaskPreview,
+  classify_generation_task,
+} from '@/utils/generation-task';
 import { useCallback, useEffect } from 'react';
 import { useParams } from 'react-router';
 import { v4 as uuid } from 'uuid';
@@ -123,14 +128,33 @@ export function useSendSingleMessage({
 
       addNewestQuestion({
         content: value,
-        files: files,
+        files: files as IMessage['files'],
         id,
         role: MessageType.User,
         conversationId: targetConversationId,
       });
 
       if (done) {
+        const classification = classify_generation_task(value);
         setValue('');
+        if (classification.shouldGenerateDocument) {
+          addNewestAnswer({
+            id,
+            conversationId: targetConversationId,
+            answer: buildLongTaskPreview(classification),
+            data: {
+              longTask: {
+                ...classification,
+                query: value.trim(),
+                chatId,
+                source: 'chat',
+              },
+            },
+          });
+          clearFiles();
+          return;
+        }
+
         sendMessage({
           currentConversationId: targetConversationId,
           messages: currentMessages,
@@ -138,7 +162,7 @@ export function useSendSingleMessage({
             id,
             content: value.trim(),
             role: MessageType.User,
-            files: files,
+            files: files as IMessage['files'],
             conversationId: targetConversationId,
           },
           enableInternet,
@@ -148,8 +172,48 @@ export function useSendSingleMessage({
       }
       clearFiles();
     },
-    [addNewestQuestion, value, files, done, clearFiles, setValue, sendMessage],
+    [
+      addNewestQuestion,
+      addNewestAnswer,
+      value,
+      files,
+      done,
+      clearFiles,
+      setValue,
+      sendMessage,
+      chatId,
+    ],
   );
+
+  const continueMessage = useCallback(() => {
+    if (!done || !conversationId) return;
+
+    const id = uuid();
+    const content = i18n.t('chat.continueInstruction', {
+      defaultValue:
+        'Continue from where the previous answer stopped. Do not repeat content already shown.',
+    });
+
+    addNewestQuestion({
+      content,
+      id,
+      role: MessageType.User,
+      conversationId,
+    });
+
+    sendMessage({
+      currentConversationId: conversationId,
+      messages: derivedMessages,
+      message: {
+        id,
+        content,
+        role: MessageType.User,
+        conversationId,
+      },
+      enableThinking: false,
+      enableInternet: false,
+    });
+  }, [addNewestQuestion, conversationId, derivedMessages, done, sendMessage]);
 
   return {
     scrollRef,
@@ -162,6 +226,7 @@ export function useSendSingleMessage({
     removeMessageById,
     removeMessagesAfterCurrentMessage,
     handlePressEnter,
+    continueMessage,
     sendLoading: !done,
   };
 }

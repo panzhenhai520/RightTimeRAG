@@ -1059,6 +1059,34 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
       retrieved: 'Retrieved',
       thinking: 'Thinking...',
       thought: 'Thought',
+      longTaskDetectedTitle: 'Long-form task detected',
+      longTaskSummary:
+        'This request is better handled as a staged document generation task to avoid chat-window truncation.',
+      longTaskReason: 'Reason',
+      longTaskReasonLength:
+        'The request contains an explicit long length target.',
+      longTaskReasonType: 'The request matches a long-form generation task.',
+      longTaskOutline: 'Outline',
+      longTaskButtonHint:
+        'Use the button below to generate a Markdown document by sections.',
+      generateMarkdownDocument: 'Generate Markdown document',
+      markdownDocumentReady: 'Markdown document is ready.',
+      markdownDocumentFailed: 'Failed to generate Markdown document.',
+      continueGenerating: 'Continue generating',
+      continueInstruction:
+        'Continue from where the previous answer stopped. Do not repeat content already shown.',
+      longTaskNovelOutline1: 'Premise, setting, and central conflict',
+      longTaskNovelOutline2: 'Main characters and relationship arcs',
+      longTaskNovelOutline3: 'Chapter-by-chapter plot progression',
+      longTaskNovelOutline4: 'Turning points, climax, and ending',
+      longTaskResearchOutline1: 'Research objective and scope',
+      longTaskResearchOutline2: 'Key facts, evidence, and assumptions',
+      longTaskResearchOutline3: 'Analysis framework and findings',
+      longTaskResearchOutline4: 'Conclusions, risks, and next steps',
+      longTaskReportOutline1: 'Executive summary and background',
+      longTaskReportOutline2: 'Main arguments and supporting evidence',
+      longTaskReportOutline3: 'Detailed section analysis',
+      longTaskReportOutline4: 'Conclusion and action recommendations',
       evidenceAudit: 'Evidence audit',
       evidenceAuditStats:
         'Retrieved {{chunks}} chunks / {{docs}} docs, cited {{selected}}',
@@ -1185,6 +1213,8 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
       uploadFailed: 'Upload failed',
       regenerate: 'Regenerate',
       read: 'Read content',
+      ttsGenerating: 'Generating speech...',
+      ttsPlaying: 'Reading aloud',
       tts: 'Text to speech',
       ttsTip:
         'Ensure you select a TTS model on the Settings page before enabling this toggle to play text as audio.',

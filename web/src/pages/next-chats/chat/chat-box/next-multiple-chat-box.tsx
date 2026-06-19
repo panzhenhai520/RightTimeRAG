@@ -108,14 +108,19 @@ const ChatCard = forwardRef(function ChatCard(
   const { id: dialogId } = useParams();
   const { patchChat } = usePatchChat();
 
-  const { removeMessageById, derivedMessages, handlePressEnter, sendLoading } =
-    useSendSingleMessage({
-      controller,
-      value,
-      setValue,
-      files,
-      clearFiles,
-    });
+  const {
+    removeMessageById,
+    derivedMessages,
+    handlePressEnter,
+    continueMessage,
+    sendLoading,
+  } = useSendSingleMessage({
+    controller,
+    value,
+    setValue,
+    files,
+    clearFiles,
+  });
 
   const { regenerateMessage } = useSendMessage(controller);
 
@@ -258,6 +263,7 @@ const ChatCard = forwardRef(function ChatCard(
                   index={i}
                   removeMessageById={removeMessageById}
                   regenerateMessage={regenerateMessage}
+                  continueMessage={continueMessage}
                   sendLoading={sendLoading}
                   clickDocumentButton={clickDocumentButton}
                 ></MessageItem>

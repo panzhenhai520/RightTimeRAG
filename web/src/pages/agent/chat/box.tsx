@@ -31,6 +31,7 @@ function AgentChatBox() {
     derivedMessages,
     handleInputChange,
     handlePressEnter,
+    continueMessage,
     stopOutputMessage,
     sendFormMessage,
     findReferenceByMessageId,
@@ -88,6 +89,7 @@ function AgentChatBox() {
                   index={i}
                   showLikeButton={false}
                   sendLoading={sendLoading}
+                  continueMessage={continueMessage}
                 >
                   {message.role === MessageType.Assistant &&
                     derivedMessages.length - 1 === i && (

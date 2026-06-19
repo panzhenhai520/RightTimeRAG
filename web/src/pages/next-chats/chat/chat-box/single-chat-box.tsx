@@ -48,6 +48,7 @@ export function SingleChatBox({
     handleInputChange,
     handlePressEnter,
     regenerateMessage,
+    continueMessage,
     removeMessageById,
     handleUploadFile,
     removeFile,
@@ -100,7 +101,8 @@ export function SingleChatBox({
 
           return {
             ...m,
-            ...(hasProcessBlocks(localContent) && !hasProcessBlocks(serverContent)
+            ...(hasProcessBlocks(localContent) &&
+            !hasProcessBlocks(serverContent)
               ? {
                   content: mergeFinalAnswerWithProcess(
                     localContent,
@@ -174,6 +176,7 @@ export function SingleChatBox({
               index={i}
               removeMessageById={removeMessageById}
               regenerateMessage={regenerateMessage}
+              continueMessage={continueMessage}
               sendLoading={sendLoading}
             />
           ))}

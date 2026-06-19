@@ -14,6 +14,7 @@ import {
   DeleteOutlined,
   DislikeOutlined,
   LikeOutlined,
+  LoadingOutlined,
   PauseCircleOutlined,
   SoundOutlined,
   SyncOutlined,
@@ -61,7 +62,16 @@ export const AssistantGroupButton = ({
     showModal: showPromptModal,
   } = useSetModalState();
   const { t } = useTranslation();
-  const { handleRead, ref, isPlaying } = useSpeech(content, audioBinary);
+  const { handleRead, ref, isPlaying, isLoading, speechState } = useSpeech(
+    content,
+    audioBinary,
+  );
+  const speechTooltip =
+    speechState === 'loading'
+      ? t('chat.ttsGenerating')
+      : speechState === 'playing'
+        ? t('chat.ttsPlaying')
+        : t('chat.read');
 
   const handleLike = useCallback(() => {
     onFeedbackOk({ thumbup: true });
@@ -88,14 +98,26 @@ export const AssistantGroupButton = ({
           ></CopyToClipboard>
         </ToggleGroupItem>
         {showLoudspeaker && (
-          <ToggleGroupItem value="b" onClick={handleRead}>
+          <ToggleGroupItem
+            value="b"
+            onClick={handleRead}
+            aria-label={speechTooltip}
+            title={speechTooltip}
+            className={isPlaying ? 'text-accent-primary' : undefined}
+          >
             <Tooltip>
               <TooltipTrigger asChild>
                 <span>
-                  {isPlaying ? <PauseCircleOutlined /> : <SoundOutlined />}
+                  {isLoading ? (
+                    <LoadingOutlined spin />
+                  ) : isPlaying ? (
+                    <PauseCircleOutlined className="animate-pulse" />
+                  ) : (
+                    <SoundOutlined />
+                  )}
                 </span>
               </TooltipTrigger>
-              <TooltipContent>{t('chat.read')}</TooltipContent>
+              <TooltipContent>{speechTooltip}</TooltipContent>
             </Tooltip>
             <audio src="" ref={ref}></audio>
           </ToggleGroupItem>

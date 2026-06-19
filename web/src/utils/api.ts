@@ -159,6 +159,7 @@ export default {
   thumbup: (chatId: string, sessionId: string, msgId: string) =>
     `${restAPIv1}/chats/${chatId}/sessions/${sessionId}/messages/${msgId}/feedback`,
   completionUrl: `${restAPIv1}/chat/completions`,
+  generationMarkdown: `${restAPIv1}/chat/generation/markdown`,
   chatsTts: `${restAPIv1}/chat/audio/speech`,
   searchCompletion: (searchId: string) =>
     `${restAPIv1}/searches/${searchId}/completions`,

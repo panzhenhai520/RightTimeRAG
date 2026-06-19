@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DocumentDownloadButton } from '../document-download-button';
+import { GenerationTaskActions } from '../generation-task-actions';
 import MarkdownContent from '../next-markdown-content';
 import { RAGFlowAvatar } from '../ragflow-avatar';
 import SvgIcon from '../svg-icon';
@@ -84,6 +85,7 @@ interface IProps
   showLoudspeaker?: boolean;
   showLog?: boolean;
   isShare?: boolean;
+  continueMessage?: (item: IMessage) => void;
 }
 
 class InlineRenderBoundary extends Component<
@@ -142,6 +144,7 @@ function MessageItem({
   children,
   showLog,
   isShare,
+  continueMessage,
 }: IProps) {
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -324,7 +327,9 @@ function MessageItem({
   );
 
   const renderContent = useCallback(() => {
-    if (!answerContent && !(item.data || (sendLoading && !isShare))) {
+    const hasInteractiveData = item.data && !item.data.longTask;
+
+    if (!answerContent && !(hasInteractiveData || (sendLoading && !isShare))) {
       return null;
     }
 
@@ -338,7 +343,7 @@ function MessageItem({
         })}
         dir={getDirAttribute(answerContent.replace(citationMarkerReg, ''))}
       >
-        {item.data ? (
+        {hasInteractiveData ? (
           children
         ) : sendLoading && isEmpty(answerContent) ? (
           <>{!isShare && 'running...'}</>
@@ -674,6 +679,13 @@ function MessageItem({
                   </div>
                 ))}
               </div>
+            )}
+            {isAssistant && (
+              <GenerationTaskActions
+                item={item}
+                loading={loading}
+                onContinue={continueMessage}
+              />
             )}
             {/* {isAssistant && item.attachment && item.attachment.doc_id && (
               <div className="w-full flex items-center justify-end">

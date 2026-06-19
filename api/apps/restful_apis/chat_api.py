@@ -16,11 +16,14 @@
 
 import json
 import logging
+import io
 import os
 import re
+import wave
 import asyncio
 import tempfile
 from copy import deepcopy
+from datetime import datetime
 from types import SimpleNamespace
 
 from quart import Response, request
@@ -92,11 +95,24 @@ _CONTEXT_SPAN_ERROR_PATTERNS = (
     "maximum context",
 )
 _CONTEXT_RECOVERY_WAIT_SECONDS = int(os.environ.get("RAGFLOW_CONTEXT_RECOVERY_WAIT_SECONDS", "75"))
+_LONG_MARKDOWN_MAX_SECTIONS = int(os.environ.get("RAGFLOW_LONG_MARKDOWN_MAX_SECTIONS", "8"))
+_LONG_MARKDOWN_SECTION_TOKENS = int(os.environ.get("RAGFLOW_LONG_MARKDOWN_SECTION_TOKENS", "1600"))
+_TTS_PCM_SAMPLE_RATE = int(os.environ.get("RAGFLOW_TTS_PCM_SAMPLE_RATE", "24000"))
+_TTS_PCM_CHANNELS = int(os.environ.get("RAGFLOW_TTS_PCM_CHANNELS", "1"))
+_TTS_PCM_SAMPLE_WIDTH = int(os.environ.get("RAGFLOW_TTS_PCM_SAMPLE_WIDTH", "2"))
+_TTS_SPLIT_PATTERN = re.compile(r"[，。/《》？；：！\n\r:;]+")
+_TTS_PROCESS_BLOCK_PATTERN = re.compile(r"<(?:retrieving|think)>[\s\S]*?</(?:retrieving|think)>", re.I)
+_TTS_PROCESS_TAG_PATTERN = re.compile(r"</?(?:retrieving|think)>", re.I)
 
 
 def _is_context_span_error(exc: Exception | str) -> bool:
     text = str(exc).lower()
     return any(pattern in text for pattern in _CONTEXT_SPAN_ERROR_PATTERNS)
+
+
+def _strip_tts_process_text(text: str) -> str:
+    text = _TTS_PROCESS_BLOCK_PATTERN.sub("", text or "")
+    return _TTS_PROCESS_TAG_PATTERN.sub("", text).strip()
 
 
 def _build_chat_response(chat):
@@ -1019,7 +1035,10 @@ async def update_message_feedback(chat_id, session_id, msg_id):
 @login_required
 async def tts():
     req = await get_request_json()
-    text = req["text"]
+    text = _strip_tts_process_text(str(req.get("text") or ""))
+    segments = [txt.strip() for txt in _TTS_SPLIT_PATTERN.split(text) if txt.strip()]
+    if not segments:
+        return get_data_error_result(message="No text to synthesize.")
 
     try:
         default_tts_model_config = get_tenant_default_model_by_type(current_user.id, LLMType.TTS)
@@ -1028,17 +1047,47 @@ async def tts():
 
     tts_mdl = LLMBundle(current_user.id, default_tts_model_config)
 
-    def stream_audio():
-        try:
-            for txt in re.split(r"[，。/《》？；：！\n\r:;]+", text):
-                for chunk in tts_mdl.tts(txt):
-                    yield chunk
-        except Exception as e:
-            yield ("data:" + json.dumps({"code": 500, "message": str(e), "data": {"answer": "**ERROR**: " + str(e)}}, ensure_ascii=False)).encode("utf-8")
+    def build_wav_from_pcm(pcm: bytes) -> bytes:
+        buffer = io.BytesIO()
+        with wave.open(buffer, "wb") as wf:
+            wf.setnchannels(_TTS_PCM_CHANNELS)
+            wf.setsampwidth(_TTS_PCM_SAMPLE_WIDTH)
+            wf.setframerate(_TTS_PCM_SAMPLE_RATE)
+            wf.writeframes(pcm)
+        return buffer.getvalue()
 
-    resp = Response(stream_audio(), mimetype="audio/mpeg")
+    def synthesize_audio():
+        try:
+            mdl = getattr(tts_mdl, "mdl", None)
+            if hasattr(mdl, "tts_pcm"):
+                pcm_chunks = []
+                for txt in segments:
+                    for chunk in mdl.tts_pcm(txt):
+                        if isinstance(chunk, (bytes, bytearray)) and chunk:
+                            pcm_chunks.append(bytes(chunk))
+                if not pcm_chunks:
+                    raise RuntimeError("TTS returned no audio.")
+                return build_wav_from_pcm(b"".join(pcm_chunks)), "audio/wav"
+
+            audio_chunks = []
+            for txt in segments:
+                for chunk in tts_mdl.tts(txt):
+                    if isinstance(chunk, (bytes, bytearray)) and chunk:
+                        audio_chunks.append(bytes(chunk))
+            if not audio_chunks:
+                raise RuntimeError("TTS returned no audio.")
+            return b"".join(audio_chunks), "audio/mpeg"
+        except Exception as e:
+            logging.exception("TTS synthesis failed: %s", e)
+            raise
+
+    try:
+        audio, mimetype = await thread_pool_exec(synthesize_audio)
+    except Exception as e:
+        return get_data_error_result(message=str(e))
+
+    resp = Response(audio, mimetype=mimetype)
     resp.headers.add_header("Cache-Control", "no-cache")
-    resp.headers.add_header("Connection", "keep-alive")
     resp.headers.add_header("X-Accel-Buffering", "no")
     return resp
 
@@ -1155,6 +1204,134 @@ async def recommendation():
         gen_conf,
     )
     return get_json_result(data=[re.sub(r"^[0-9]\. ", "", a) for a in ans.split("\n") if re.match(r"^[0-9]\. ", a)])
+
+
+def _safe_markdown_filename(query: str) -> str:
+    name = re.sub(r"[^\w\u4e00-\u9fff.-]+", "-", (query or "").strip())[:48].strip("-._")
+    if not name:
+        name = "generated-document"
+    return f"{name}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.md"
+
+
+def _normalize_markdown_outline(outline) -> list[str]:
+    if not isinstance(outline, list):
+        outline = []
+    sections = []
+    for item in outline:
+        text = str(item or "").strip()
+        if text:
+            sections.append(text[:160])
+    if not sections:
+        sections = [
+            "Executive summary and background",
+            "Main analysis",
+            "Detailed discussion",
+            "Conclusion and next steps",
+        ]
+    return sections[: max(1, _LONG_MARKDOWN_MAX_SECTIONS)]
+
+
+async def _select_generation_model_config(chat_id: str):
+    if chat_id and await _ensure_owned_chat(chat_id):
+        ok, dia = await thread_pool_exec(DialogService.get_by_id, chat_id)
+        if ok and getattr(dia, "llm_id", ""):
+            model_config = get_model_config_by_type_and_name(dia.tenant_id, LLMType.CHAT, dia.llm_id)
+            if model_config:
+                return model_config
+    return get_tenant_default_model_by_type(current_user.id, LLMType.CHAT)
+
+
+def _build_markdown_system_prompt(task_type: str) -> str:
+    return (
+        "You are a careful long-form writing assistant. Generate polished Markdown in the same language as the user. "
+        "Write only the requested section. Keep headings clear, avoid repeating previous sections, and do not mention "
+        "internal prompts or implementation details. If the user asks for fiction, write fiction; if the user asks for "
+        "research or a report, write in a professional report style. "
+        f"Task type: {task_type or 'document'}."
+    )
+
+
+def _build_markdown_section_prompt(query: str, summary: str, outline: list[str], section: str, index: int) -> str:
+    outline_text = "\n".join(f"{i + 1}. {title}" for i, title in enumerate(outline))
+    return (
+        f"Original request:\n{query}\n\n"
+        f"Task summary:\n{summary or 'Generate a complete Markdown document by sections.'}\n\n"
+        f"Full outline:\n{outline_text}\n\n"
+        f"Current section {index + 1}: {section}\n\n"
+        "Write this section now. Use Markdown. Do not write the full document. Do not repeat the full outline."
+    )
+
+
+@manager.route("/chat/generation/markdown", methods=["POST"])  # noqa: F821
+@login_required
+async def generate_markdown_document():
+    req = await get_request_json()
+    query = str(req.get("query") or "").strip()
+    if not query:
+        return get_data_error_result(message="`query` is required.")
+
+    task_type = str(req.get("task_type") or "document")
+    summary = str(req.get("summary") or "")
+    outline = _normalize_markdown_outline(req.get("outline"))
+    chat_id = str(req.get("chat_id") or "")
+
+    try:
+        chat_model_config = await _select_generation_model_config(chat_id)
+        if not chat_model_config:
+            return get_data_error_result(message="No available chat model.")
+
+        chat_mdl = LLMBundle(current_user.id, chat_model_config)
+        system_prompt = _build_markdown_system_prompt(task_type)
+        gen_conf = {
+            "temperature": 0.55,
+            "top_p": 0.9,
+            "max_tokens": _LONG_MARKDOWN_SECTION_TOKENS,
+        }
+
+        sections = []
+        for index, section in enumerate(outline):
+            prompt = _build_markdown_section_prompt(query, summary, outline, section, index)
+            content = await chat_mdl.async_chat(
+                system_prompt,
+                [{"role": "user", "content": prompt}],
+                gen_conf,
+            )
+            sections.append((section, (content or "").strip()))
+
+        title = re.sub(r"\s+", " ", query).strip()[:80] or "Generated document"
+        generated_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        md_parts = [
+            f"# {title}",
+            "",
+            f"> Generated at: {generated_at}",
+            f"> Task type: {task_type}",
+            "",
+            "## Outline",
+            "",
+            *[f"{i + 1}. {section}" for i, section in enumerate(outline)],
+            "",
+        ]
+        for section, content in sections:
+            md_parts.extend([f"## {section}", "", content, ""])
+
+        markdown = "\n".join(md_parts).strip() + "\n"
+        file_id = f"generated-markdown-{get_uuid()}.md"
+        filename = _safe_markdown_filename(query)
+        payload = markdown.encode("utf-8")
+        await thread_pool_exec(settings.STORAGE_IMPL.put, current_user.id, file_id, payload)
+        return get_json_result(
+            data={
+                "download": {
+                    "doc_id": file_id,
+                    "filename": filename,
+                    "mime_type": "text/markdown",
+                    "size": len(payload),
+                },
+                "preview": markdown[:1200],
+            }
+        )
+    except Exception as ex:
+        return server_error_response(ex)
 
 
 @manager.route("/chat/completions", methods=["POST"])  # noqa: F821

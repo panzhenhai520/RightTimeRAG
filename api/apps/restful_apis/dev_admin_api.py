@@ -23,9 +23,11 @@ from api.db import UserTenantRole
 from api.db.db_models import (
     DB,
     Dialog,
+    File,
     Knowledgebase,
     Memory,
     Search,
+    Tenant,
     TenantLLM,
     User,
     UserCanvas,
@@ -157,15 +159,11 @@ def _delete_blockers(relation, counts):
 def _user_delete_blockers(user_id):
     status = StatusEnum.VALID.value
     blockers = []
-    joined_groups = UserTenant.select().where(
-        UserTenant.user_id == user_id,
-        UserTenant.tenant_id != user_id,
-        UserTenant.status == status,
-    ).count()
-    if joined_groups:
-        blockers.append(f"joined_groups:{joined_groups}")
     owned_counts = _asset_counts(user_id)
-    blockers.extend(f"{key}:{value}" for key, value in owned_counts.items() if value)
+    for key in ("members", "datasets", "dialogs", "searches", "agents", "memories"):
+        value = owned_counts.get(key, 0)
+        if value:
+            blockers.append(f"{key}:{value}")
     return blockers
 
 
@@ -179,6 +177,7 @@ def _relationship_payload():
             User.status,
             User.update_time,
         )
+        .where(User.status == StatusEnum.VALID.value)
         .order_by(User.update_time.desc())
         .dicts()
     )
@@ -317,6 +316,13 @@ def delete_user(user_id):
                     "update_date": datetime_format(now),
                 }
             ).where(User.id == user_id).execute()
+            Tenant.update(
+                {
+                    "status": StatusEnum.INVALID.value,
+                    "update_time": timestamp,
+                    "update_date": datetime_format(now),
+                }
+            ).where(Tenant.id == user_id).execute()
             UserTenant.update(
                 {
                     "status": StatusEnum.INVALID.value,
@@ -326,6 +332,19 @@ def delete_user(user_id):
             ).where(
                 ((UserTenant.user_id == user_id) | (UserTenant.tenant_id == user_id)),
                 UserTenant.status == StatusEnum.VALID.value,
+            ).execute()
+            TenantLLM.update(
+                {
+                    "status": StatusEnum.INVALID.value,
+                    "update_time": timestamp,
+                    "update_date": datetime_format(now),
+                }
+            ).where(
+                TenantLLM.tenant_id == user_id,
+                TenantLLM.status == StatusEnum.VALID.value,
+            ).execute()
+            File.delete().where(
+                (File.tenant_id == user_id) | (File.created_by == user_id)
             ).execute()
             _write_operation_log(
                 "user_delete",

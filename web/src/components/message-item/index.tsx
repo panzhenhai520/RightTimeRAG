@@ -48,6 +48,7 @@ interface IProps extends Partial<IRemoveMessageById>, IRegenerateMessage {
   nickname?: string;
   avatar?: string;
   avatarDialog?: string | null;
+  ttsConfig?: Record<string, unknown>;
   clickDocumentButton?: (documentId: string, chunk: IReferenceChunk) => void;
   index: number;
   showLikeButton?: boolean;
@@ -97,6 +98,7 @@ const MessageItem = ({
   avatar,
   nickname,
   avatarDialog,
+  ttsConfig,
   sendLoading = false,
   clickDocumentButton,
   index,
@@ -251,6 +253,7 @@ const MessageItem = ({
                   prompt={item.prompt}
                   showLikeButton={showLikeButton}
                   audioBinary={item.audio_binary}
+                  ttsConfig={ttsConfig}
                   showLoudspeaker={showLoudspeaker}
                 ></AssistantGroupButton>
               )

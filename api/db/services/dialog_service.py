@@ -40,6 +40,7 @@ from api.db.services.knowledgebase_service import KnowledgebaseService
 from api.db.services.langfuse_service import TenantLangfuseService
 from api.db.services.llm_service import LLMBundle
 from api.db.services.memory_service import MemoryService
+from api.db.services.panython_tts_settings_service import PanythonTTSSettingsService, build_tts_kwargs
 from common.metadata_utils import apply_meta_data_filter
 from api.utils.reference_metadata_utils import (
     enrich_chunks_with_document_metadata,
@@ -134,6 +135,18 @@ def _should_use_web_search(prompt_config, internet=None):
         return False
     normalized = _normalize_internet_flag(internet)
     return normalized is True
+
+
+def _tts_globally_enabled() -> bool:
+    try:
+        return bool(PanythonTTSSettingsService.get_settings().get("tts_enabled"))
+    except Exception as exc:  # noqa: BLE001 - TTS must not break chat
+        logging.warning("Failed to read Panython TTS settings: %s", exc)
+        return False
+
+
+def _should_enable_tts(prompt_config: dict | None) -> bool:
+    return bool((prompt_config or {}).get("tts")) and _tts_globally_enabled()
 
 
 def _resolve_reference_metadata(config, request_payload=None):
@@ -327,8 +340,9 @@ async def async_chat_solo(dialog, messages, stream=True, **kwargs):
         prompt_config["system"] = PURE_LLM_SYSTEM_PROMPT
         prompt_config["quote"] = False
         prompt_config["reasoning"] = False
+    tts_config = prompt_config.get("tts_config") or {}
     tts_mdl = None
-    if prompt_config.get("tts"):
+    if _should_enable_tts(prompt_config):
         default_tts_model = get_tenant_default_model_by_type(dialog.tenant_id, LLMType.TTS)
         tts_mdl = LLMBundle(dialog.tenant_id, default_tts_model)
     msg = [{"role": m["role"], "content": re.sub(r"##\d+\$\$", "", m["content"])} for m in messages if m["role"] != "system"]
@@ -352,7 +366,7 @@ async def async_chat_solo(dialog, messages, stream=True, **kwargs):
                 flags = {"start_to_think": True} if value == "<think>" else {"end_to_think": True}
                 yield {"answer": "", "reference": {}, "audio_binary": None, "prompt": "", "created_at": time.time(), "final": False, **flags}
                 continue
-            yield {"answer": value, "reference": {}, "audio_binary": visible_tts(tts_mdl, value, state.in_think), "prompt": "", "created_at": time.time(), "final": False}
+            yield {"answer": value, "reference": {}, "audio_binary": visible_tts(tts_mdl, value, state.in_think, tts_config), "prompt": "", "created_at": time.time(), "final": False}
     else:
         if llm_type == "chat":
             answer = await chat_mdl.async_chat(prompt_config.get("system", ""), msg, gen_conf)
@@ -360,7 +374,7 @@ async def async_chat_solo(dialog, messages, stream=True, **kwargs):
             answer = await chat_mdl.async_chat(prompt_config.get("system", ""), msg, gen_conf, images=image_files)
         user_content = msg[-1].get("content", "[content not available]")
         logging.debug("User: {}|Assistant: {}".format(user_content, answer))
-        yield {"answer": answer, "reference": {}, "audio_binary": visible_tts(tts_mdl, answer), "prompt": "", "created_at": time.time()}
+        yield {"answer": answer, "reference": {}, "audio_binary": visible_tts(tts_mdl, answer, tts_config=tts_config), "prompt": "", "created_at": time.time()}
 
 
 def get_models(dialog):
@@ -390,7 +404,7 @@ def get_models(dialog):
         rerank_model_config = get_model_config_by_type_and_name(dialog.tenant_id, LLMType.RERANK, dialog.rerank_id)
         rerank_mdl = LLMBundle(dialog.tenant_id, rerank_model_config)
 
-    if dialog.prompt_config.get("tts"):
+    if _should_enable_tts(dialog.prompt_config):
         default_tts_model_config = get_tenant_default_model_by_type(dialog.tenant_id, LLMType.TTS)
         tts_mdl = LLMBundle(dialog.tenant_id, default_tts_model_config)
     return kbs, embd_mdl, rerank_mdl, chat_mdl, tts_mdl
@@ -2233,6 +2247,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         attachments_ = "\n\n".join(text_attachments)
 
     prompt_config = dialog.prompt_config
+    tts_config = (prompt_config or {}).get("tts_config") or {}
     include_reference_metadata, metadata_fields = _resolve_reference_metadata(prompt_config, request_payload=kwargs)
     field_map = KnowledgebaseService.get_field_map(dialog.kb_ids)
     logging.debug(f"field_map retrieved: {field_map}")
@@ -2471,7 +2486,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     retrieval_ts = timer()
     if not knowledges and prompt_config.get("empty_response"):
         empty_res = prompt_config["empty_response"]
-        yield {"answer": empty_res, "reference": kbinfos, "prompt": "\n\n### Query:\n%s" % " ".join(questions), "audio_binary": visible_tts(tts_mdl, empty_res), "final": True}
+        yield {"answer": empty_res, "reference": kbinfos, "prompt": "\n\n### Query:\n%s" % " ".join(questions), "audio_binary": visible_tts(tts_mdl, empty_res, tts_config=tts_config), "final": True}
         return
 
     kwargs["knowledge"] = "\n------\n" + "\n\n------\n\n".join(knowledges)
@@ -2746,7 +2761,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                     continue
                 if _is_context_span_error(value):
                     raise RuntimeError(value)
-                yield {"answer": value, "reference": {}, "audio_binary": visible_tts(tts_mdl, value, state.in_think), "final": False}
+                yield {"answer": value, "reference": {}, "audio_binary": visible_tts(tts_mdl, value, state.in_think, tts_config), "final": False}
         except Exception as exc:
             if not _is_context_span_error(exc):
                 raise
@@ -2761,7 +2776,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                     continue
                 if _is_context_span_error(value):
                     raise RuntimeError(value)
-                yield {"answer": value, "reference": {}, "audio_binary": visible_tts(tts_mdl, value, state.in_think), "final": False}
+                yield {"answer": value, "reference": {}, "audio_binary": visible_tts(tts_mdl, value, state.in_think, tts_config), "final": False}
         full_answer = last_state.full_text if last_state else ""
         if full_answer:
             final = await decorate_answer(_extract_visible_answer(thought + full_answer))
@@ -2782,7 +2797,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         user_content = msg[-1].get("content", "[content not available]")
         logging.debug("User: {}|Assistant: {}".format(user_content, answer))
         res = await decorate_answer(answer)
-        res["audio_binary"] = visible_tts(tts_mdl, answer)
+        res["audio_binary"] = visible_tts(tts_mdl, answer, tts_config=tts_config)
         yield res
 
     return
@@ -3300,22 +3315,26 @@ def clean_tts_text(text: str) -> str:
     return text
 
 
-def tts(tts_mdl, text):
+def tts(tts_mdl, text, tts_config=None):
     if not tts_mdl or not text:
         return None
     text = clean_tts_text(text)
     if not text:
         return None
-    return synthesize_with_cache(tts_mdl, text)
+    engine_settings = PanythonTTSSettingsService.get_settings()
+    if not engine_settings.get("tts_enabled"):
+        return None
+    tts_kwargs = build_tts_kwargs(tts_config, text, engine_settings)
+    return synthesize_with_cache(tts_mdl, text, **tts_kwargs)
 
 
-def visible_tts(tts_mdl, text, in_think: bool = False):
+def visible_tts(tts_mdl, text, in_think: bool = False, tts_config=None):
     if in_think:
         return None
     text = _strip_process_blocks(text)
     if not text:
         return None
-    return tts(tts_mdl, text)
+    return tts(tts_mdl, text, tts_config)
 
 
 class _ThinkStreamState:

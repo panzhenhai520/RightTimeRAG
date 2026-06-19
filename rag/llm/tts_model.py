@@ -355,21 +355,25 @@ class XinferenceTTS(HTTPBasedTTS):
             if chunk:
                 yield chunk
 
-    def _build_payload(self, text, voice, response_format=None, **kwargs):
+    def _build_payload(self, text, voice, response_format=None, speed=None, instructions=None, **kwargs):
         payload = super()._build_payload(text, voice, **kwargs)
         if response_format:
             payload["response_format"] = response_format
+        if speed is not None:
+            payload["speed"] = float(speed)
+        if instructions:
+            payload["instructions"] = str(instructions)
         return payload
 
-    def tts(self, text, voice="中文女", stream=True):
+    def tts(self, text, voice="中文女", stream=True, speed=None, instructions=None):
         text = self.normalize_text(text)
-        payload = self._build_payload(text, voice)
+        payload = self._build_payload(text, voice, speed=speed, instructions=instructions)
         response = self._send_request("/v1/audio/speech", payload, stream=stream)
         return self._process_response(response)
 
-    def tts_pcm(self, text, voice="中文女", stream=True):
+    def tts_pcm(self, text, voice="中文女", stream=True, speed=None, instructions=None):
         text = self.normalize_text(text)
-        payload = self._build_payload(text, voice, response_format="pcm")
+        payload = self._build_payload(text, voice, response_format="pcm", speed=speed, instructions=instructions)
         response = self._send_request("/v1/audio/speech", payload, stream=stream)
         return self._process_response(response)
 

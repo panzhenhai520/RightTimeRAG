@@ -36,6 +36,7 @@ from api.utils.api_utils import (
     server_error_response,
 )
 from api.utils.tenant_utils import ensure_tenant_model_id_for_params
+from api.db.services.panython_tts_settings_service import PanythonTTSSettingsService
 from common.constants import RetCode, StatusEnum
 from common.misc_utils import get_uuid
 from common.time_utils import current_timestamp, datetime_format
@@ -49,6 +50,28 @@ def _require_superuser():
             code=RetCode.FORBIDDEN,
         )
     return None
+
+
+@manager.route("/dev/tts-engine-settings", methods=["GET"])  # noqa: F821
+@login_required
+def get_tts_engine_settings():
+    try:
+        return get_json_result(data=PanythonTTSSettingsService.get_settings())
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+@manager.route("/dev/tts-engine-settings", methods=["PUT"])  # noqa: F821
+@login_required
+async def save_tts_engine_settings():
+    denied = _require_superuser()
+    if denied:
+        return denied
+    try:
+        req = await get_request_json()
+        return get_json_result(data=PanythonTTSSettingsService.save_settings(req or {}))
+    except Exception as exc:
+        return server_error_response(exc)
 
 
 def _user_label(users_by_id, user_id):

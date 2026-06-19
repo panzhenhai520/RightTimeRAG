@@ -165,6 +165,11 @@ export function SingleChatBox({
               nickname={userInfo.nickname}
               avatar={userInfo.avatar}
               avatarDialog={currentDialog.icon}
+              ttsConfig={
+                currentDialog.prompt_config?.tts
+                  ? currentDialog.prompt_config?.tts_config
+                  : undefined
+              }
               reference={buildMessageItemReference(
                 {
                   messages: derivedMessages,

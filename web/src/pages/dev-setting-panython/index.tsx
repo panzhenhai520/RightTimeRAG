@@ -48,6 +48,63 @@ const devEntries = [
 ];
 
 const tenantRelationsApi = '/api/v1/dev/tenant-relations';
+const ttsEngineSettingsApi = '/api/v1/dev/tts-engine-settings';
+
+type TtsEngineSettings = {
+  tts_enabled: boolean;
+  engine: string;
+  supports_speed: boolean;
+  supports_emotion: boolean;
+  supports_dialect: boolean;
+  supports_voice_profile: boolean;
+  supports_sync_caption: boolean;
+  default_speed: number;
+  default_emotion: string;
+  default_dialect: string;
+  default_gender: string;
+  default_voice_profile: string;
+  buffer_ms: number;
+  segment_max_chars_zh: number;
+  segment_max_words_en: number;
+};
+
+const defaultTtsEngineSettings: TtsEngineSettings = {
+  tts_enabled: false,
+  engine: 'CosyVoice3',
+  supports_speed: true,
+  supports_emotion: true,
+  supports_dialect: true,
+  supports_voice_profile: true,
+  supports_sync_caption: true,
+  default_speed: 1,
+  default_emotion: 'professional',
+  default_dialect: 'mandarin',
+  default_gender: 'female',
+  default_voice_profile: 'female_mandarin_01',
+  buffer_ms: 1200,
+  segment_max_chars_zh: 45,
+  segment_max_words_en: 18,
+};
+
+const ttsEmotionOptions = [
+  ['professional', '专业'],
+  ['calm', '平静'],
+  ['friendly', '亲切'],
+  ['formal', '正式'],
+  ['lively', '活泼'],
+  ['serious', '严肃'],
+];
+
+const ttsDialectOptions = [
+  ['mandarin', '普通话'],
+  ['cantonese', '粤语/广东话'],
+  ['sichuan', '四川'],
+  ['shanghai', '上海'],
+  ['dongbei', '东北'],
+  ['minnan', '闽南'],
+  ['tianjin', '天津'],
+  ['shandong', '山东'],
+];
 
 type UserRow = {
   id: string;
@@ -472,6 +529,314 @@ function RegisterUserCard() {
   );
 }
 
+function TtsEngineSettingsCard() {
+  const [settings, setSettings] = useState<TtsEngineSettings>(
+    defaultTtsEngineSettings,
+  );
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+
+  const loadSettings = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await request.get(ttsEngineSettingsApi);
+      if (res.data?.code === 0) {
+        setSettings({
+          ...defaultTtsEngineSettings,
+          ...res.data.data,
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  const updateSetting = <K extends keyof TtsEngineSettings>(
+    key: K,
+    value: TtsEngineSettings[K],
+  ) => {
+    setSettings((previous) => ({
+      ...previous,
+      [key]: value,
+    }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await request.put(ttsEngineSettingsApi, settings);
+      if (res.data?.code === 0) {
+        setSettings({
+          ...defaultTtsEngineSettings,
+          ...res.data.data,
+        });
+        message.success('TTS 引擎配置已保存');
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePreview = async () => {
+    if (!settings.tts_enabled) {
+      message.warning('请先启用 TTS 语音能力');
+      return;
+    }
+    setPreviewing(true);
+    try {
+      const res = await request.post(
+        '/api/v1/chat/audio/speech',
+        {
+          text: '欢迎访问时和专业AI顾问。This is a speech preview.',
+          tts_config: {
+            speed: settings.default_speed,
+            emotion: settings.default_emotion,
+            dialect: settings.default_dialect,
+            gender: settings.default_gender,
+            voice_profile: settings.default_voice_profile,
+          },
+        },
+        { responseType: 'blob' },
+      );
+      const url = window.URL.createObjectURL(res.data);
+      const audio = new Audio(url);
+      audio.onended = () => window.URL.revokeObjectURL(url);
+      await audio.play();
+    } catch (error) {
+      void error;
+      message.error('试听生成失败');
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const capabilityItems: Array<[keyof TtsEngineSettings, string]> = [
+    ['supports_speed', '语速'],
+    ['supports_emotion', '情绪'],
+    ['supports_dialect', '方言'],
+    ['supports_voice_profile', '音色 Profile'],
+    ['supports_sync_caption', '声文同步'],
+  ];
+
+  return (
+    <article className="rounded-lg border border-border bg-bg-card p-5 md:col-span-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-medium text-text-primary">
+            TTS 语音引擎
+          </h2>
+          <p className="mt-2 text-sm text-text-secondary">
+            只有在这里启用
+            TTS，并声明引擎支持对应能力后，聊天助手和智能体才显示语音参数配置。
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          loading={loading}
+          onClick={loadSettings}
+        >
+          刷新
+        </Button>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <label className="flex items-center gap-3 rounded-md bg-bg-base/60 p-3 text-sm">
+          <input
+            type="checkbox"
+            checked={settings.tts_enabled}
+            onChange={(event) =>
+              updateSetting('tts_enabled', event.target.checked)
+            }
+          />
+          <span>
+            启用 TTS 语音能力
+            <span className="ml-2 text-xs text-text-secondary">
+              关闭后不缓存、不排队、不延迟文字输出。
+            </span>
+          </span>
+        </label>
+
+        <label className="grid gap-2 text-sm">
+          <span className="text-text-secondary">引擎名称</span>
+          <Input
+            value={settings.engine}
+            onChange={(event) => updateSetting('engine', event.target.value)}
+            placeholder="CosyVoice3"
+          />
+        </label>
+      </div>
+
+      <section className="mt-5">
+        <h3 className="mb-3 text-sm font-semibold text-text-primary">
+          引擎能力声明
+        </h3>
+        <div className="grid gap-3 md:grid-cols-5">
+          {capabilityItems.map(([key, label]) => (
+            <label
+              key={key}
+              className="flex items-center gap-2 rounded-md bg-bg-base/60 px-3 py-2 text-sm"
+            >
+              <input
+                type="checkbox"
+                checked={Boolean(settings[key])}
+                onChange={(event) =>
+                  updateSetting(key, event.target.checked as never)
+                }
+              />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-5 grid gap-4 md:grid-cols-3">
+        <label className="grid gap-2 text-sm">
+          <span className="text-text-secondary">默认语速</span>
+          <Input
+            type="number"
+            min="0.5"
+            max="2"
+            step="0.05"
+            value={settings.default_speed}
+            onChange={(event) =>
+              updateSetting('default_speed', Number(event.target.value))
+            }
+            disabled={!settings.supports_speed}
+          />
+        </label>
+
+        <label className="grid gap-2 text-sm">
+          <span className="text-text-secondary">默认情绪</span>
+          <select
+            className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
+            value={settings.default_emotion}
+            onChange={(event) =>
+              updateSetting('default_emotion', event.target.value)
+            }
+            disabled={!settings.supports_emotion}
+          >
+            {ttsEmotionOptions.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="grid gap-2 text-sm">
+          <span className="text-text-secondary">默认中文方言</span>
+          <select
+            className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
+            value={settings.default_dialect}
+            onChange={(event) =>
+              updateSetting('default_dialect', event.target.value)
+            }
+            disabled={!settings.supports_dialect}
+          >
+            {ttsDialectOptions.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="grid gap-2 text-sm">
+          <span className="text-text-secondary">默认性别</span>
+          <select
+            className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
+            value={settings.default_gender}
+            onChange={(event) =>
+              updateSetting('default_gender', event.target.value)
+            }
+          >
+            <option value="female">女声</option>
+            <option value="male">男声</option>
+          </select>
+        </label>
+
+        <label className="grid gap-2 text-sm">
+          <span className="text-text-secondary">默认音色 Profile</span>
+          <Input
+            value={settings.default_voice_profile}
+            onChange={(event) =>
+              updateSetting('default_voice_profile', event.target.value)
+            }
+            disabled={!settings.supports_voice_profile}
+          />
+        </label>
+
+        <label className="grid gap-2 text-sm">
+          <span className="text-text-secondary">首段缓冲 ms</span>
+          <Input
+            type="number"
+            min="300"
+            max="5000"
+            step="100"
+            value={settings.buffer_ms}
+            onChange={(event) =>
+              updateSetting('buffer_ms', Number(event.target.value))
+            }
+            disabled={!settings.supports_sync_caption}
+          />
+        </label>
+
+        <label className="grid gap-2 text-sm">
+          <span className="text-text-secondary">中文分段字数</span>
+          <Input
+            type="number"
+            min="10"
+            max="120"
+            value={settings.segment_max_chars_zh}
+            onChange={(event) =>
+              updateSetting('segment_max_chars_zh', Number(event.target.value))
+            }
+          />
+        </label>
+
+        <label className="grid gap-2 text-sm">
+          <span className="text-text-secondary">英文分段词数</span>
+          <Input
+            type="number"
+            min="5"
+            max="60"
+            value={settings.segment_max_words_en}
+            onChange={(event) =>
+              updateSetting('segment_max_words_en', Number(event.target.value))
+            }
+          />
+        </label>
+      </section>
+
+      <div className="mt-5 flex justify-end gap-3">
+        <ButtonLoading
+          type="button"
+          loading={previewing}
+          onClick={handlePreview}
+          disabled={!settings.tts_enabled}
+          variant="outline"
+        >
+          试听
+        </ButtonLoading>
+        <ButtonLoading
+          type="button"
+          loading={saving}
+          onClick={handleSave}
+          className="bg-[#6f3f2f] text-white dark:bg-[#2d5f80]"
+        >
+          保存 TTS 配置
+        </ButtonLoading>
+      </div>
+    </article>
+  );
+}
+
 export default function DevSettingPanython() {
   const { t } = useTranslation();
 
@@ -507,6 +872,7 @@ export default function DevSettingPanython() {
             </Button>
           </article>
         ))}
+        <TtsEngineSettingsCard />
         <RegisterUserCard />
         <TenantRelationsCard />
       </div>

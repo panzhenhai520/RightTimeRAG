@@ -22,6 +22,7 @@ import re
 import wave
 import asyncio
 import tempfile
+import binascii
 from copy import deepcopy
 from datetime import datetime
 from types import SimpleNamespace
@@ -39,6 +40,7 @@ from api.db.services.dialog_service import DialogService, async_chat, gen_mindma
 from api.db.services.knowledgebase_service import KnowledgebaseService
 from api.db.services.llm_service import LLMBundle
 from api.db.services.memory_service import MemoryService
+from api.db.services.panython_tts_settings_service import PanythonTTSSettingsService, build_tts_kwargs
 from api.db.services.search_service import SearchService
 from api.db.services.tenant_llm_service import TenantLLMService
 from api.db.joint_services.memory_message_service import queue_save_to_memory_task
@@ -57,6 +59,7 @@ from common import settings
 from common.misc_utils import get_uuid, thread_pool_exec
 from rag.prompts.generator import chunks_format
 from rag.prompts.template import load_prompt
+from rag.utils.redis_conn import REDIS_CONN
 
 _DEFAULT_PROMPT_CONFIG = {
     "system": (
@@ -103,6 +106,8 @@ _TTS_PCM_SAMPLE_WIDTH = int(os.environ.get("RAGFLOW_TTS_PCM_SAMPLE_WIDTH", "2"))
 _TTS_SPLIT_PATTERN = re.compile(r"[，。/《》？；：！\n\r:;]+")
 _TTS_PROCESS_BLOCK_PATTERN = re.compile(r"<(?:retrieving|think)>[\s\S]*?</(?:retrieving|think)>", re.I)
 _TTS_PROCESS_TAG_PATTERN = re.compile(r"</?(?:retrieving|think)>", re.I)
+_TTS_SYNC_JOB_PREFIX = "panython:tts:sync:"
+_TTS_SYNC_JOB_TTL_SECONDS = int(os.environ.get("RAGFLOW_TTS_SYNC_JOB_TTL_SECONDS", "3600"))
 
 
 def _is_context_span_error(exc: Exception | str) -> bool:
@@ -113,6 +118,85 @@ def _is_context_span_error(exc: Exception | str) -> bool:
 def _strip_tts_process_text(text: str) -> str:
     text = _TTS_PROCESS_BLOCK_PATTERN.sub("", text or "")
     return _TTS_PROCESS_TAG_PATTERN.sub("", text).strip()
+
+
+def _build_wav_from_pcm(pcm: bytes) -> bytes:
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wf:
+        wf.setnchannels(_TTS_PCM_CHANNELS)
+        wf.setsampwidth(_TTS_PCM_SAMPLE_WIDTH)
+        wf.setframerate(_TTS_PCM_SAMPLE_RATE)
+        wf.writeframes(pcm)
+    return buffer.getvalue()
+
+
+def _tts_sync_job_key(job_id: str) -> str:
+    return f"{_TTS_SYNC_JOB_PREFIX}{job_id}"
+
+
+def _store_tts_sync_job(job_id: str, payload: dict):
+    REDIS_CONN.set(_tts_sync_job_key(job_id), json.dumps(payload, ensure_ascii=False), exp=_TTS_SYNC_JOB_TTL_SECONDS)
+
+
+def _load_tts_sync_job(job_id: str) -> dict | None:
+    value = REDIS_CONN.get(_tts_sync_job_key(job_id))
+    if not value:
+        return None
+    if isinstance(value, bytes):
+        value = value.decode("utf-8")
+    return json.loads(value)
+
+
+def _split_tts_sync_segments(text: str, engine_settings: dict) -> list[str]:
+    max_zh = int(engine_settings.get("segment_max_chars_zh") or 45)
+    max_en = int(engine_settings.get("segment_max_words_en") or 18)
+    raw_parts = [part.strip() for part in _TTS_SPLIT_PATTERN.split(text or "") if part.strip()]
+    if not raw_parts:
+        return []
+
+    segments: list[str] = []
+    current = ""
+
+    def over_limit(candidate: str) -> bool:
+        has_chinese = any("\u4e00" <= char <= "\u9fff" for char in candidate)
+        if has_chinese:
+            return len(candidate) > max_zh
+        return len(candidate.split()) > max_en
+
+    for part in raw_parts:
+        candidate = f"{current} {part}".strip() if current else part
+        if current and over_limit(candidate):
+            segments.append(current)
+            current = part
+        else:
+            current = candidate
+    if current:
+        segments.append(current)
+    return segments
+
+
+def _synthesize_tts_audio(tenant_id: str, segments: list[str], tts_kwargs: dict) -> tuple[bytes, str]:
+    default_tts_model_config = get_tenant_default_model_by_type(tenant_id, LLMType.TTS)
+    tts_mdl = LLMBundle(tenant_id, default_tts_model_config)
+    mdl = getattr(tts_mdl, "mdl", None)
+    if hasattr(mdl, "tts_pcm"):
+        pcm_chunks = []
+        for txt in segments:
+            for chunk in mdl.tts_pcm(txt, **tts_kwargs):
+                if isinstance(chunk, (bytes, bytearray)) and chunk:
+                    pcm_chunks.append(bytes(chunk))
+        if not pcm_chunks:
+            raise RuntimeError("TTS returned no audio.")
+        return _build_wav_from_pcm(b"".join(pcm_chunks)), "audio/wav"
+
+    audio_chunks = []
+    for txt in segments:
+        for chunk in tts_mdl.tts(txt, **tts_kwargs):
+            if isinstance(chunk, (bytes, bytearray)) and chunk:
+                audio_chunks.append(bytes(chunk))
+    if not audio_chunks:
+        raise RuntimeError("TTS returned no audio.")
+    return b"".join(audio_chunks), "audio/mpeg"
 
 
 def _build_chat_response(chat):
@@ -1035,48 +1119,20 @@ async def update_message_feedback(chat_id, session_id, msg_id):
 @login_required
 async def tts():
     req = await get_request_json()
+    engine_settings = PanythonTTSSettingsService.get_settings()
+    if not engine_settings.get("tts_enabled"):
+        return get_data_error_result(message="TTS engine is disabled.")
     text = _strip_tts_process_text(str(req.get("text") or ""))
     segments = [txt.strip() for txt in _TTS_SPLIT_PATTERN.split(text) if txt.strip()]
     if not segments:
         return get_data_error_result(message="No text to synthesize.")
-
-    try:
-        default_tts_model_config = get_tenant_default_model_by_type(current_user.id, LLMType.TTS)
-    except Exception as e:
-        return get_data_error_result(message=str(e))
-
-    tts_mdl = LLMBundle(current_user.id, default_tts_model_config)
-
-    def build_wav_from_pcm(pcm: bytes) -> bytes:
-        buffer = io.BytesIO()
-        with wave.open(buffer, "wb") as wf:
-            wf.setnchannels(_TTS_PCM_CHANNELS)
-            wf.setsampwidth(_TTS_PCM_SAMPLE_WIDTH)
-            wf.setframerate(_TTS_PCM_SAMPLE_RATE)
-            wf.writeframes(pcm)
-        return buffer.getvalue()
+    tts_config = req.get("tts_config") if isinstance(req.get("tts_config"), dict) else req
+    tts_kwargs = build_tts_kwargs(tts_config, text, engine_settings)
+    tenant_id = current_user.id
 
     def synthesize_audio():
         try:
-            mdl = getattr(tts_mdl, "mdl", None)
-            if hasattr(mdl, "tts_pcm"):
-                pcm_chunks = []
-                for txt in segments:
-                    for chunk in mdl.tts_pcm(txt):
-                        if isinstance(chunk, (bytes, bytearray)) and chunk:
-                            pcm_chunks.append(bytes(chunk))
-                if not pcm_chunks:
-                    raise RuntimeError("TTS returned no audio.")
-                return build_wav_from_pcm(b"".join(pcm_chunks)), "audio/wav"
-
-            audio_chunks = []
-            for txt in segments:
-                for chunk in tts_mdl.tts(txt):
-                    if isinstance(chunk, (bytes, bytearray)) and chunk:
-                        audio_chunks.append(bytes(chunk))
-            if not audio_chunks:
-                raise RuntimeError("TTS returned no audio.")
-            return b"".join(audio_chunks), "audio/mpeg"
+            return _synthesize_tts_audio(tenant_id, segments, tts_kwargs)
         except Exception as e:
             logging.exception("TTS synthesis failed: %s", e)
             raise
@@ -1090,6 +1146,81 @@ async def tts():
     resp.headers.add_header("Cache-Control", "no-cache")
     resp.headers.add_header("X-Accel-Buffering", "no")
     return resp
+
+
+async def _run_tts_sync_job(job_id: str, tenant_id: str, segments: list[str], tts_config: dict, engine_settings: dict):
+    try:
+        job = _load_tts_sync_job(job_id)
+        if not job:
+            return
+        job["status"] = "running"
+        _store_tts_sync_job(job_id, job)
+
+        for index, segment in enumerate(segments):
+            try:
+                kwargs = build_tts_kwargs(tts_config, segment, engine_settings)
+                audio, mimetype = await thread_pool_exec(_synthesize_tts_audio, tenant_id, [segment], kwargs)
+                job = _load_tts_sync_job(job_id) or job
+                item = job["segments"][index]
+                item["status"] = "ready"
+                item["mimetype"] = mimetype
+                item["audio_hex"] = binascii.hexlify(audio).decode("utf-8")
+                _store_tts_sync_job(job_id, job)
+            except Exception as exc:  # noqa: BLE001 - keep other segments available
+                logging.exception("TTS sync segment failed job=%s index=%s: %s", job_id, index, exc)
+                job = _load_tts_sync_job(job_id) or job
+                item = job["segments"][index]
+                item["status"] = "error"
+                item["message"] = str(exc)
+                _store_tts_sync_job(job_id, job)
+
+        job = _load_tts_sync_job(job_id) or job
+        job["status"] = "complete" if all(seg.get("status") == "ready" for seg in job.get("segments", [])) else "partial"
+        _store_tts_sync_job(job_id, job)
+    except Exception as exc:  # noqa: BLE001
+        logging.exception("TTS sync job failed job=%s: %s", job_id, exc)
+        job = _load_tts_sync_job(job_id) or {"job_id": job_id, "segments": []}
+        job["status"] = "error"
+        job["message"] = str(exc)
+        _store_tts_sync_job(job_id, job)
+
+
+@manager.route("/chat/audio/speech/sync", methods=["POST"])  # noqa: F821
+@login_required
+async def create_tts_sync_job():
+    req = await get_request_json()
+    engine_settings = PanythonTTSSettingsService.get_settings()
+    if not engine_settings.get("tts_enabled") or not engine_settings.get("supports_sync_caption"):
+        return get_data_error_result(message="TTS synchronized caption is disabled.")
+
+    text = _strip_tts_process_text(str(req.get("text") or ""))
+    segments = _split_tts_sync_segments(text, engine_settings)
+    if not segments:
+        return get_data_error_result(message="No text to synthesize.")
+
+    tts_config = req.get("tts_config") if isinstance(req.get("tts_config"), dict) else req
+    job_id = get_uuid()
+    payload = {
+        "job_id": job_id,
+        "status": "pending",
+        "segments": [
+            {"index": index, "text": segment, "status": "pending"}
+            for index, segment in enumerate(segments)
+        ],
+        "poll_interval_ms": 800,
+    }
+    _store_tts_sync_job(job_id, payload)
+    asyncio.create_task(_run_tts_sync_job(job_id, current_user.id, segments, tts_config, engine_settings))
+    return get_json_result(data=payload)
+
+
+@manager.route("/chat/audio/speech/sync/<job_id>", methods=["GET"])  # noqa: F821
+@login_required
+def get_tts_sync_job(job_id):
+    job = _load_tts_sync_job(job_id)
+    if not job:
+        return get_data_error_result(message="TTS sync job not found or expired.")
+    return get_json_result(data=job)
 
 
 @manager.route("/chat/audio/transcription", methods=["POST"])  # noqa: F821

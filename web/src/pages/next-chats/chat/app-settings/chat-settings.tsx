@@ -6,6 +6,7 @@ import { DatasetMetadata } from '@/constants/chat';
 import { useSetModalState } from '@/hooks/common-hooks';
 import { useFetchChat, useUpdateChat } from '@/hooks/use-chat-request';
 import { useFindLlmByUuid } from '@/hooks/use-llm-request';
+import { usePanythonTtsEngineSettings } from '@/hooks/use-panython-tts-settings';
 import { cn } from '@/lib/utils';
 import {
   removeUselessFieldsFromValues,
@@ -31,6 +32,7 @@ export function ChatSettings({ hasSingleChatBox }: ChatSettingsProps) {
   const formSchema = useChatSettingSchema();
   const { data } = useFetchChat();
   const { updateChat, loading } = useUpdateChat();
+  const { settings: ttsEngineSettings } = usePanythonTtsEngineSettings();
   const findLlmByUuid = useFindLlmByUuid();
   const { id } = useParams();
   const { t } = useTranslation();
@@ -59,6 +61,14 @@ export function ChatSettings({ hasSingleChatBox }: ChatSettingsProps) {
         reasoning: false,
         cross_languages: [],
         toc_enhance: false,
+        tts_config: {
+          speed: 1,
+          emotion: 'professional',
+          dialect: 'mandarin',
+          gender: 'female',
+          voice_profile: 'female_mandarin_01',
+          sync_caption: false,
+        },
         reference_metadata: {
           include: false,
           fields: undefined,
@@ -80,6 +90,12 @@ export function ChatSettings({ hasSingleChatBox }: ChatSettingsProps) {
       values,
       'llm_setting.',
     );
+    if (!ttsEngineSettings.tts_enabled) {
+      nextValues.prompt_config = {
+        ...(nextValues.prompt_config || {}),
+        tts: false,
+      };
+    }
     const referenceMetadata = nextValues?.prompt_config?.reference_metadata;
     if (
       referenceMetadata &&

@@ -1,10 +1,27 @@
 import { useSetModalState } from '@/hooks/common-hooks';
-import { IRemoveMessageById, useSpeechWithSse } from '@/hooks/logic-hooks';
+import {
+  IRemoveMessageById,
+  useSpeechSyncJob,
+  useSpeechWithSse,
+} from '@/hooks/logic-hooks';
 import { useDeleteMessage, useFeedback } from '@/hooks/use-chat-request';
 import { IFeedbackRequestBody } from '@/interfaces/request/chat';
 import { getTtsReadableContent } from '@/utils/chat';
 import { hexStringToUint8Array } from '@/utils/common-util';
 import { useCallback, useEffect, useRef, useState } from 'react';
+
+const TTS_SYNC_POLL_INTERVAL_MS = 600;
+const TTS_SYNC_MAX_POLLS = 240;
+
+type TtsSyncSegment = {
+  index?: number;
+  text?: string;
+  status?: string;
+  mimetype?: string;
+  audio_hex?: string;
+};
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const useSendFeedback = (messageId: string) => {
   const { visible, hideModal, showModal } = useSetModalState();
@@ -51,9 +68,14 @@ export const useRemoveMessage = (
   return { onRemoveMessage, loading };
 };
 
-export const useSpeech = (content: string, audioBinary?: string) => {
+export const useSpeech = (
+  content: string,
+  audioBinary?: string,
+  ttsConfig?: Record<string, unknown>,
+) => {
   const ref = useRef<HTMLAudioElement>(null);
   const { read } = useSpeechWithSse();
+  const { create: createSyncJob, poll: pollSyncJob } = useSpeechSyncJob();
   const audioUrlRef = useRef<string>();
   const requestIdRef = useRef(0);
   const loadingTimerRef = useRef<number>();
@@ -82,6 +104,109 @@ export const useSpeech = (content: string, audioBinary?: string) => {
     setIsPlaying(false);
   }, [clearLoadingTimer]);
 
+  const playAudioBlob = useCallback(
+    async (blob: Blob, requestId: number) => {
+      if (requestIdRef.current !== requestId || !blob.size) return;
+      revokeAudioUrl();
+      const audioUrl = URL.createObjectURL(blob);
+      audioUrlRef.current = audioUrl;
+      const audio = ref.current;
+      if (!audio) throw new Error('Audio element is not ready.');
+      audio.src = audioUrl;
+      audio.load();
+
+      await new Promise<void>((resolve, reject) => {
+        let cleanup = () => {};
+        const handlePlaying = () => {
+          if (requestIdRef.current === requestId) {
+            clearLoadingTimer();
+            setIsLoading(false);
+            setIsPlaying(true);
+          }
+        };
+        const handleFinished = () => {
+          cleanup();
+          resolve();
+        };
+        const handleError = () => {
+          cleanup();
+          reject(new Error('Audio playback failed.'));
+        };
+        cleanup = () => {
+          audio.removeEventListener('ended', handleFinished);
+          audio.removeEventListener('pause', handleFinished);
+          audio.removeEventListener('error', handleError);
+          audio.removeEventListener('playing', handlePlaying);
+        };
+
+        audio.addEventListener('ended', handleFinished);
+        audio.addEventListener('pause', handleFinished);
+        audio.addEventListener('error', handleError);
+        audio.addEventListener('playing', handlePlaying);
+        audio.play().catch((error) => {
+          cleanup();
+          reject(error);
+        });
+      });
+    },
+    [clearLoadingTimer, revokeAudioUrl],
+  );
+
+  const playSyncSegment = useCallback(
+    async (segment: TtsSyncSegment, requestId: number) => {
+      if (!segment.audio_hex || requestIdRef.current !== requestId) return;
+      const units = hexStringToUint8Array(segment.audio_hex);
+      if (!units) return;
+      await playAudioBlob(
+        new Blob([units], { type: segment.mimetype || 'audio/wav' }),
+        requestId,
+      );
+    },
+    [playAudioBlob],
+  );
+
+  const speechSync = useCallback(
+    async (readableContent: string, requestId: number) => {
+      const payload = await createSyncJob({
+        text: readableContent,
+        tts_config: ttsConfig || { sync_caption: true },
+      });
+      if (requestIdRef.current !== requestId || payload?.code !== 0) {
+        return false;
+      }
+
+      const jobId = payload?.data?.job_id;
+      if (!jobId) return false;
+
+      let nextSegmentIndex = 0;
+      for (let pollCount = 0; pollCount < TTS_SYNC_MAX_POLLS; pollCount += 1) {
+        if (requestIdRef.current !== requestId) return true;
+        const jobPayload = await pollSyncJob(jobId);
+        const job = jobPayload?.data;
+        const segments = (job?.segments || []) as TtsSyncSegment[];
+
+        while (
+          requestIdRef.current === requestId &&
+          nextSegmentIndex < segments.length &&
+          segments[nextSegmentIndex]?.status === 'ready' &&
+          segments[nextSegmentIndex]?.audio_hex
+        ) {
+          await playSyncSegment(segments[nextSegmentIndex], requestId);
+          nextSegmentIndex += 1;
+        }
+
+        if (job?.status === 'complete' && nextSegmentIndex >= segments.length) {
+          return true;
+        }
+        if (job?.status === 'error') return false;
+        await wait(TTS_SYNC_POLL_INTERVAL_MS);
+      }
+
+      return false;
+    },
+    [createSyncJob, pollSyncJob, playSyncSegment, ttsConfig],
+  );
+
   const speech = useCallback(async () => {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
@@ -105,7 +230,21 @@ export const useSpeech = (content: string, audioBinary?: string) => {
         return;
       }
 
-      const response = await read({ text: readableContent });
+      if ((ttsConfig as any)?.sync_caption) {
+        const synchronized = await speechSync(readableContent, requestId);
+        if (requestIdRef.current !== requestId) return;
+        if (synchronized) {
+          clearLoadingTimer();
+          setIsLoading(false);
+          setIsPlaying(false);
+          return;
+        }
+      }
+
+      const response = await read({
+        text: readableContent,
+        ...(ttsConfig ? { tts_config: ttsConfig } : {}),
+      });
       if (requestIdRef.current !== requestId) return;
       if (!response || !response.ok) {
         setIsPlaying(false);
@@ -123,14 +262,7 @@ export const useSpeech = (content: string, audioBinary?: string) => {
         return;
       }
 
-      revokeAudioUrl();
-      const audioUrl = URL.createObjectURL(blob);
-      audioUrlRef.current = audioUrl;
-      const audio = ref.current;
-      if (!audio) throw new Error('Audio element is not ready.');
-      audio.src = audioUrl;
-      audio.load();
-      await audio.play();
+      await playAudioBlob(blob, requestId);
       if (requestIdRef.current === requestId) {
         clearLoadingTimer();
         setIsLoading(false);
@@ -144,7 +276,7 @@ export const useSpeech = (content: string, audioBinary?: string) => {
         setIsLoading(false);
       }
     }
-  }, [clearLoadingTimer, read, content, revokeAudioUrl]);
+  }, [clearLoadingTimer, read, content, playAudioBlob, speechSync, ttsConfig]);
 
   const handleRead = useCallback(async () => {
     if (isPlaying || isLoading) {

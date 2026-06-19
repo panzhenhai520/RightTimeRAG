@@ -161,6 +161,9 @@ export default {
   completionUrl: `${restAPIv1}/chat/completions`,
   generationMarkdown: `${restAPIv1}/chat/generation/markdown`,
   chatsTts: `${restAPIv1}/chat/audio/speech`,
+  chatsTtsSync: `${restAPIv1}/chat/audio/speech/sync`,
+  chatsTtsSyncJob: (jobId: string) =>
+    `${restAPIv1}/chat/audio/speech/sync/${jobId}`,
   searchCompletion: (searchId: string) =>
     `${restAPIv1}/searches/${searchId}/completions`,
   chatsMindmap: `${restAPIv1}/chat/mindmap`,

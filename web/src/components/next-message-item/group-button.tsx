@@ -33,6 +33,7 @@ interface IProps {
   prompt?: string;
   showLikeButton: boolean;
   audioBinary?: string;
+  ttsConfig?: Record<string, unknown>;
   showLoudspeaker?: boolean;
   showLog?: boolean;
   attachment?: {
@@ -48,6 +49,7 @@ export const AssistantGroupButton = ({
   content,
   prompt,
   audioBinary,
+  ttsConfig,
   showLikeButton,
   showLoudspeaker = true,
   showLog = true,
@@ -65,6 +67,7 @@ export const AssistantGroupButton = ({
   const { handleRead, ref, isPlaying, isLoading, speechState } = useSpeech(
     content,
     audioBinary,
+    ttsConfig,
   );
   const speechTooltip =
     speechState === 'loading'

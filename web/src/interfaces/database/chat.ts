@@ -14,6 +14,14 @@ export interface PromptConfig {
   prologue: string;
   system: string;
   tts?: boolean;
+  tts_config?: {
+    speed?: number;
+    emotion?: string;
+    dialect?: string;
+    gender?: string;
+    voice_profile?: string;
+    sync_caption?: boolean;
+  };
   quote: boolean;
   keyword: boolean;
   refine_multiturn: boolean;

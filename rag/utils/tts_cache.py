@@ -15,6 +15,7 @@
 #
 import binascii
 import hashlib
+import json
 import logging
 import os
 from typing import Any, Optional
@@ -49,11 +50,12 @@ def _model_id(tts_mdl: Any) -> Optional[str]:
     return None
 
 
-def _build_key(tts_mdl: Any, text: str) -> Optional[str]:
+def _build_key(tts_mdl: Any, text: str, options: dict | None = None) -> Optional[str]:
     mid = _model_id(tts_mdl)
     if not mid:
         return None
-    digest = hashlib.sha256(text.encode("utf-8", "ignore")).hexdigest()
+    payload = {"text": text, "options": options or {}}
+    digest = hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8", "ignore")).hexdigest()
     return f"{_KEY_PREFIX}{mid}:{digest}"
 
 
@@ -70,7 +72,7 @@ def _to_hex_string(value: Any) -> Optional[str]:
     return None
 
 
-def synthesize_with_cache(tts_mdl: Any, cleaned_text: str) -> Optional[str]:
+def synthesize_with_cache(tts_mdl: Any, cleaned_text: str, **tts_kwargs) -> Optional[str]:
     """
     Synthesize ``cleaned_text`` through ``tts_mdl`` and return a hex-encoded
     audio blob, reusing a Redis-cached result when available.
@@ -84,7 +86,7 @@ def synthesize_with_cache(tts_mdl: Any, cleaned_text: str) -> Optional[str]:
     if not tts_mdl or not cleaned_text:
         return None
 
-    key = _build_key(tts_mdl, cleaned_text)
+    key = _build_key(tts_mdl, cleaned_text, tts_kwargs)
 
     if key:
         try:
@@ -98,7 +100,7 @@ def synthesize_with_cache(tts_mdl: Any, cleaned_text: str) -> Optional[str]:
 
     buf = b""
     try:
-        for chunk in tts_mdl.tts(cleaned_text):
+        for chunk in tts_mdl.tts(cleaned_text, **tts_kwargs):
             if isinstance(chunk, (bytes, bytearray)):
                 buf += bytes(chunk)
     except Exception as e:

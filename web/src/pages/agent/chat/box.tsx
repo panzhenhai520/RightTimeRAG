@@ -12,9 +12,10 @@ import {
   useFetchAgent,
   useUploadAgentFileWithProgress,
 } from '@/hooks/use-agent-request';
+import { usePanythonTtsEngineSettings } from '@/hooks/use-panython-tts-settings';
 import { useFetchUserInfo } from '@/hooks/use-user-setting-request';
 import { buildMessageUuidWithRole } from '@/utils/chat';
-import { memo, useCallback, useContext } from 'react';
+import { memo, useCallback, useContext, useMemo } from 'react';
 import { AgentChatContext } from '../context';
 import DebugContent from '../debug-content';
 import { useAwaitComponentData } from '../hooks/use-chat-logic';
@@ -43,6 +44,18 @@ function AgentChatBox() {
     useClickDrawer();
   useGetFileIcon();
   const { data: userInfo } = useFetchUserInfo();
+  const { settings: ttsEngineSettings } = usePanythonTtsEngineSettings();
+  const agentTtsConfig = useMemo(() => {
+    if (!ttsEngineSettings.tts_enabled) return undefined;
+    return {
+      speed: ttsEngineSettings.default_speed,
+      emotion: ttsEngineSettings.default_emotion,
+      dialect: ttsEngineSettings.default_dialect,
+      gender: ttsEngineSettings.default_gender,
+      voice_profile: ttsEngineSettings.default_voice_profile,
+      sync_caption: ttsEngineSettings.supports_sync_caption,
+    };
+  }, [ttsEngineSettings]);
   const { uploadAgentFile, loading } = useUploadAgentFileWithProgress();
 
   const { buildInputList, handleOk, isWaiting } = useAwaitComponentData({
@@ -83,6 +96,7 @@ function AgentChatBox() {
                   nickname={userInfo.nickname}
                   avatar={userInfo.avatar}
                   avatarDialog={canvasInfo.avatar}
+                  ttsConfig={agentTtsConfig}
                   item={message}
                   reference={findReferenceByMessageId(message.id)}
                   clickDocumentButton={clickDocumentButton}

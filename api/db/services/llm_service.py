@@ -276,11 +276,16 @@ class LLMBundle(LLM4Tenant):
             "streaming": False,
         }
 
-    def tts(self, text: str) -> Generator[bytes, None, None]:
+    def tts(self, text: str, **kwargs) -> Generator[bytes, None, None]:
         if self.langfuse:
             generation = self.langfuse.start_observation(trace_context=self.trace_context, as_type="generation", name="tts", input={"text": text})
 
-        for chunk in self.mdl.tts(text):
+        try:
+            stream = self.mdl.tts(text, **kwargs)
+        except TypeError:
+            stream = self.mdl.tts(text)
+
+        for chunk in stream:
             if isinstance(chunk, int):
                 if not TenantLLMService.increase_usage_by_id(self.model_config["id"], chunk):
                     logging.error("LLMBundle.tts can't update token usage for {}/TTS".format(self.tenant_id))

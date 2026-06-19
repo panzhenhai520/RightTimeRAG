@@ -19,6 +19,16 @@ export function useChatSettingSchema() {
     quote: z.boolean(),
     keyword: z.boolean(),
     tts: z.boolean(),
+    tts_config: z
+      .object({
+        speed: z.coerce.number().min(0.5).max(2).optional(),
+        emotion: z.string().optional(),
+        dialect: z.string().optional(),
+        gender: z.string().optional(),
+        voice_profile: z.string().optional(),
+        sync_caption: z.boolean().optional(),
+      })
+      .optional(),
     empty_response: z.string().optional(),
     prologue: z.string().optional(),
     system: z.string().min(1, { message: t('systemMessage') }),

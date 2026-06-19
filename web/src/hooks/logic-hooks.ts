@@ -375,6 +375,40 @@ export const useSpeechWithSse = (url: string = api.chatsTts) => {
   return { read };
 };
 
+export const useSpeechSyncJob = () => {
+  const create = useCallback(async (body: any) => {
+    const response = await fetch(api.chatsTtsSync, {
+      method: 'POST',
+      headers: {
+        [Authorization]: getAuthorization(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (payload?.code && payload.code !== 0) {
+      message.error(payload?.message);
+    }
+    return payload;
+  }, []);
+
+  const poll = useCallback(async (jobId: string) => {
+    const response = await fetch(api.chatsTtsSyncJob(jobId), {
+      method: 'GET',
+      headers: {
+        [Authorization]: getAuthorization(),
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (payload?.code && payload.code !== 0) {
+      message.error(payload?.message);
+    }
+    return payload;
+  }, []);
+
+  return { create, poll };
+};
+
 //#region chat hooks
 
 export const useScrollToBottom = (
@@ -508,8 +542,7 @@ export const useSelectDerivedMessages = () => {
         (/<(?:retrieving|think)>/i.test(previousContent) &&
           !/<(?:retrieving|think)>/i.test(incomingContent));
       const content =
-        previousMessage?.role === MessageType.Assistant &&
-        shouldPreserveProcess
+        previousMessage?.role === MessageType.Assistant && shouldPreserveProcess
           ? mergeFinalAnswerWithProcess(previousContent, incomingContent)
           : answer.answer;
 

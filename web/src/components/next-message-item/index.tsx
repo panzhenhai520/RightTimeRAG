@@ -79,6 +79,7 @@ interface IProps
   avatar?: string;
   avatarDialog?: string | null;
   agentName?: string;
+  ttsConfig?: Record<string, unknown>;
   clickDocumentButton?: (documentId: string, chunk: IReferenceChunk) => void;
   index: number;
   showLikeButton?: boolean;
@@ -134,6 +135,7 @@ function MessageItem({
   nickname,
   avatarDialog,
   agentName,
+  ttsConfig,
   sendLoading = false,
   clickDocumentButton,
   removeMessageById,
@@ -448,6 +450,7 @@ function MessageItem({
                         prompt={item.prompt}
                         showLikeButton={showLikeButton}
                         audioBinary={item.audio_binary}
+                        ttsConfig={ttsConfig}
                         showLoudspeaker={showLoudspeaker}
                         showLog={showLog}
                         attachment={item.attachment}
@@ -461,6 +464,7 @@ function MessageItem({
                         prompt={item.prompt}
                         showLikeButton={showLikeButton}
                         audioBinary={item.audio_binary}
+                        ttsConfig={ttsConfig}
                         showLoudspeaker={showLoudspeaker}
                         showLog={showLog}
                         attachment={item.attachment}

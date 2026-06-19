@@ -13,11 +13,14 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import { MultiSelect } from '@/components/ui/multi-select';
+import { RAGFlowSelect } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslate } from '@/hooks/common-hooks';
 import { useFetchKnowledgeMetadataKeys } from '@/hooks/use-knowledge-request';
+import { usePanythonTtsEngineSettings } from '@/hooks/use-panython-tts-settings';
 import { getDirAttribute } from '@/utils/text-direction';
 import { useEffect, useMemo } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
@@ -25,8 +28,13 @@ import { useFormContext, useWatch } from 'react-hook-form';
 export default function ChatBasicSetting() {
   const { t } = useTranslate('chat');
   const form = useFormContext();
+  const { settings: ttsEngineSettings } = usePanythonTtsEngineSettings();
   const emptyResponseValue = form.watch('prompt_config.empty_response');
   const prologueValue = form.watch('prompt_config.prologue');
+  const ttsEnabled = useWatch({
+    control: form.control,
+    name: 'prompt_config.tts',
+  });
   const rawDatasetIds = useWatch({
     control: form.control,
     name: 'dataset_ids',
@@ -68,6 +76,57 @@ export default function ChatBasicSetting() {
       form.setValue('prompt_config.reference_metadata.fields', undefined);
     }
   }, [kbIds, metadataKeys, metadataKeysLoading, metadataInclude, form]);
+
+  useEffect(() => {
+    if (!ttsEngineSettings.tts_enabled) {
+      form.setValue('prompt_config.tts', false);
+      return;
+    }
+
+    const currentConfig = form.getValues('prompt_config.tts_config') || {};
+    form.setValue('prompt_config.tts_config', {
+      speed: currentConfig.speed ?? ttsEngineSettings.default_speed,
+      emotion: currentConfig.emotion ?? ttsEngineSettings.default_emotion,
+      dialect: currentConfig.dialect ?? ttsEngineSettings.default_dialect,
+      gender: currentConfig.gender ?? ttsEngineSettings.default_gender,
+      voice_profile:
+        currentConfig.voice_profile ?? ttsEngineSettings.default_voice_profile,
+      sync_caption:
+        currentConfig.sync_caption ?? ttsEngineSettings.supports_sync_caption,
+    });
+  }, [form, ttsEngineSettings]);
+
+  const ttsEmotionOptions = useMemo(
+    () => [
+      { value: 'professional', label: t('ttsEmotionProfessional') },
+      { value: 'calm', label: t('ttsEmotionCalm') },
+      { value: 'friendly', label: t('ttsEmotionFriendly') },
+      { value: 'formal', label: t('ttsEmotionFormal') },
+      { value: 'lively', label: t('ttsEmotionLively') },
+      { value: 'serious', label: t('ttsEmotionSerious') },
+    ],
+    [t],
+  );
+
+  const ttsDialectOptions = useMemo(
+    () => [
+      { value: 'mandarin', label: t('ttsDialectMandarin') },
+      { value: 'cantonese', label: t('ttsDialectCantonese') },
+      { value: 'sichuan', label: t('ttsDialectSichuan') },
+      { value: 'shanghai', label: t('ttsDialectShanghai') },
+      { value: 'dongbei', label: t('ttsDialectDongbei') },
+      { value: 'minnan', label: t('ttsDialectMinnan') },
+    ],
+    [t],
+  );
+
+  const ttsGenderOptions = useMemo(
+    () => [
+      { value: 'female', label: t('ttsGenderFemale') },
+      { value: 'male', label: t('ttsGenderMale') },
+    ],
+    [t],
+  );
 
   return (
     <div className="space-y-8">
@@ -119,11 +178,114 @@ export default function ChatBasicSetting() {
         label={t('keyword')}
         tooltip={t('keywordTip')}
       ></SwitchFormField>
-      <SwitchFormField
-        name={'prompt_config.tts'}
-        label={t('tts')}
-        tooltip={t('ttsTip')}
-      ></SwitchFormField>
+      {ttsEngineSettings.tts_enabled && (
+        <div className="space-y-4 rounded-md border-0.5 border-border-card p-3">
+          <SwitchFormField
+            name={'prompt_config.tts'}
+            label={t('tts')}
+            tooltip={t('ttsTip')}
+          ></SwitchFormField>
+          {ttsEnabled && (
+            <div className="grid grid-cols-2 gap-3">
+              {ttsEngineSettings.supports_speed && (
+                <FormField
+                  control={form.control}
+                  name={'prompt_config.tts_config.speed'}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('ttsSpeed')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0.5}
+                          max={2}
+                          step={0.05}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {ttsEngineSettings.supports_voice_profile && (
+                <FormField
+                  control={form.control}
+                  name={'prompt_config.tts_config.voice_profile'}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('ttsVoiceProfile')}</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              <FormField
+                control={form.control}
+                name={'prompt_config.tts_config.gender'}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('ttsGender')}</FormLabel>
+                    <RAGFlowSelect
+                      {...field}
+                      FormControlComponent={FormControl}
+                      options={ttsGenderOptions}
+                      placeholder={t('knowledgeBasesPlaceholder')}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {ttsEngineSettings.supports_emotion && (
+                <FormField
+                  control={form.control}
+                  name={'prompt_config.tts_config.emotion'}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('ttsEmotion')}</FormLabel>
+                      <RAGFlowSelect
+                        {...field}
+                        FormControlComponent={FormControl}
+                        options={ttsEmotionOptions}
+                        placeholder={t('knowledgeBasesPlaceholder')}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {ttsEngineSettings.supports_dialect && (
+                <FormField
+                  control={form.control}
+                  name={'prompt_config.tts_config.dialect'}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('ttsDialect')}</FormLabel>
+                      <RAGFlowSelect
+                        {...field}
+                        FormControlComponent={FormControl}
+                        options={ttsDialectOptions}
+                        placeholder={t('knowledgeBasesPlaceholder')}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {ttsEngineSettings.supports_sync_caption && (
+                <SwitchFormField
+                  name={'prompt_config.tts_config.sync_caption'}
+                  label={t('ttsSyncCaption')}
+                  tooltip={t('ttsSyncCaptionTip')}
+                ></SwitchFormField>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       <TOCEnhanceFormField name="prompt_config.toc_enhance"></TOCEnhanceFormField>
       <TavilyFormField></TavilyFormField>
       <KnowledgeBaseFormField></KnowledgeBaseFormField>

@@ -128,6 +128,21 @@ const ttsSpeedOptions = [
   [1.3, 'devSettingPanython.ttsSpeedFast'],
 ];
 
+const ttsBooleanOptions = [
+  ['true', 'devSettingPanython.optionEnabled'],
+  ['false', 'devSettingPanython.optionDisabled'],
+];
+
+const ttsBufferOptions = [800, 1200, 1600, 2000, 3000];
+const ttsZhSegmentOptions = [30, 45, 60, 80, 100];
+const ttsEnSegmentOptions = [12, 18, 24, 36, 48];
+
+const ttsFieldRowClass =
+  'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-3 text-sm';
+const ttsFieldLabelClass = 'truncate text-text-secondary';
+const ttsSelectClass =
+  'h-9 w-full border-0 border-b border-border-button bg-transparent px-0 pr-8 text-sm text-text-primary outline-none disabled:cursor-not-allowed disabled:opacity-50';
+
 type UserRow = {
   id: string;
   email: string;
@@ -917,29 +932,32 @@ function TtsEngineSettingsCard() {
         </Button>
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-2">
-        <label className="flex items-center gap-3 rounded-md bg-bg-base/60 p-3 text-sm">
-          <input
-            type="checkbox"
-            checked={settings.tts_enabled}
-            onChange={(event) =>
-              updateSetting('tts_enabled', event.target.checked)
-            }
-          />
-          <span>
-            {t('devSettingPanython.enableTts')}
-            <span className="ml-2 text-xs text-text-secondary">
-              {t('devSettingPanython.enableTtsDescription')}
-            </span>
-          </span>
-        </label>
-
-        <label className="grid gap-2 text-sm">
-          <span className="text-text-secondary">
-            {t('devSettingPanython.engineName')}
+      <div className="mt-5 grid gap-x-8 gap-y-3 md:grid-cols-2">
+        <label className={ttsFieldRowClass}>
+          <span className={ttsFieldLabelClass}>
+            {t('devSettingPanython.enableTts')}:
           </span>
           <select
-            className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
+            className={ttsSelectClass}
+            value={String(settings.tts_enabled)}
+            onChange={(event) =>
+              updateSetting('tts_enabled', event.target.value === 'true')
+            }
+          >
+            {ttsBooleanOptions.map(([value, label]) => (
+              <option key={value} value={value}>
+                {t(label)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className={ttsFieldRowClass}>
+          <span className={ttsFieldLabelClass}>
+            {t('devSettingPanython.engineName')}:
+          </span>
+          <select
+            className={ttsSelectClass}
             value={settings.engine}
             onChange={(event) => updateSetting('engine', event.target.value)}
           >
@@ -951,37 +969,43 @@ function TtsEngineSettingsCard() {
           </select>
         </label>
       </div>
+      <p className="mt-2 text-xs text-text-secondary">
+        {t('devSettingPanython.enableTtsDescription')}
+      </p>
 
       <section className="mt-5">
         <h3 className="mb-3 text-sm font-semibold text-text-primary">
           {t('devSettingPanython.engineCapabilities')}
         </h3>
-        <div className="grid gap-3 md:grid-cols-5">
+        <div className="grid gap-x-8 gap-y-3 md:grid-cols-2">
           {capabilityItems.map(([key, label]) => (
-            <label
-              key={key}
-              className="flex items-center gap-2 rounded-md bg-bg-base/60 px-3 py-2 text-sm"
-            >
-              <input
-                type="checkbox"
-                checked={Boolean(settings[key])}
+            <label key={key} className={ttsFieldRowClass}>
+              <span className={ttsFieldLabelClass}>{t(label)}:</span>
+              <select
+                className={ttsSelectClass}
+                value={String(Boolean(settings[key]))}
                 onChange={(event) =>
-                  updateSetting(key, event.target.checked as never)
+                  updateSetting(key, (event.target.value === 'true') as never)
                 }
-              />
-              <span>{t(label)}</span>
+              >
+                {ttsBooleanOptions.map(([value, optionLabel]) => (
+                  <option key={value} value={value}>
+                    {t(optionLabel)}
+                  </option>
+                ))}
+              </select>
             </label>
           ))}
         </div>
       </section>
 
-      <section className="mt-5 grid gap-4 md:grid-cols-3">
-        <label className="grid gap-2 text-sm">
-          <span className="text-text-secondary">
-            {t('devSettingPanython.defaultSpeed')}
+      <section className="mt-5 grid gap-x-8 gap-y-3 md:grid-cols-2">
+        <label className={ttsFieldRowClass}>
+          <span className={ttsFieldLabelClass}>
+            {t('devSettingPanython.defaultSpeed')}:
           </span>
           <select
-            className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
+            className={ttsSelectClass}
             value={settings.default_speed}
             onChange={(event) =>
               updateSetting('default_speed', Number(event.target.value))
@@ -1005,12 +1029,12 @@ function TtsEngineSettingsCard() {
           </select>
         </label>
 
-        <label className="grid gap-2 text-sm">
-          <span className="text-text-secondary">
-            {t('devSettingPanython.defaultEmotion')}
+        <label className={ttsFieldRowClass}>
+          <span className={ttsFieldLabelClass}>
+            {t('devSettingPanython.defaultEmotion')}:
           </span>
           <select
-            className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
+            className={ttsSelectClass}
             value={settings.default_emotion}
             onChange={(event) =>
               updateSetting('default_emotion', event.target.value)
@@ -1025,12 +1049,12 @@ function TtsEngineSettingsCard() {
           </select>
         </label>
 
-        <label className="grid gap-2 text-sm">
-          <span className="text-text-secondary">
-            {t('devSettingPanython.defaultDialect')}
+        <label className={ttsFieldRowClass}>
+          <span className={ttsFieldLabelClass}>
+            {t('devSettingPanython.defaultDialect')}:
           </span>
           <select
-            className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
+            className={ttsSelectClass}
             value={settings.default_dialect}
             onChange={(event) =>
               updateSetting('default_dialect', event.target.value)
@@ -1045,12 +1069,12 @@ function TtsEngineSettingsCard() {
           </select>
         </label>
 
-        <label className="grid gap-2 text-sm">
-          <span className="text-text-secondary">
-            {t('devSettingPanython.defaultGender')}
+        <label className={ttsFieldRowClass}>
+          <span className={ttsFieldLabelClass}>
+            {t('devSettingPanython.defaultGender')}:
           </span>
           <select
-            className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
+            className={ttsSelectClass}
             value={settings.default_gender}
             onChange={(event) =>
               updateSetting('default_gender', event.target.value)
@@ -1063,12 +1087,12 @@ function TtsEngineSettingsCard() {
           </select>
         </label>
 
-        <label className="grid gap-2 text-sm">
-          <span className="text-text-secondary">
-            {t('devSettingPanython.defaultVoiceProfile')}
+        <label className={ttsFieldRowClass}>
+          <span className={ttsFieldLabelClass}>
+            {t('devSettingPanython.defaultVoiceProfile')}:
           </span>
           <select
-            className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
+            className={ttsSelectClass}
             value={settings.default_voice_profile}
             onChange={(event) => {
               const profile = event.target.value;
@@ -1097,51 +1121,75 @@ function TtsEngineSettingsCard() {
           </select>
         </label>
 
-        <label className="grid gap-2 text-sm">
-          <span className="text-text-secondary">
-            {t('devSettingPanython.bufferMs')}
+        <label className={ttsFieldRowClass}>
+          <span className={ttsFieldLabelClass}>
+            {t('devSettingPanython.bufferMs')}:
           </span>
-          <Input
-            type="number"
-            min="300"
-            max="5000"
-            step="100"
+          <select
+            className={ttsSelectClass}
             value={settings.buffer_ms}
             onChange={(event) =>
               updateSetting('buffer_ms', Number(event.target.value))
             }
             disabled={!settings.supports_sync_caption}
-          />
+          >
+            {!ttsBufferOptions.includes(settings.buffer_ms) && (
+              <option value={settings.buffer_ms}>{settings.buffer_ms}</option>
+            )}
+            {ttsBufferOptions.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
         </label>
 
-        <label className="grid gap-2 text-sm">
-          <span className="text-text-secondary">
-            {t('devSettingPanython.zhSegmentChars')}
+        <label className={ttsFieldRowClass}>
+          <span className={ttsFieldLabelClass}>
+            {t('devSettingPanython.zhSegmentChars')}:
           </span>
-          <Input
-            type="number"
-            min="10"
-            max="120"
+          <select
+            className={ttsSelectClass}
             value={settings.segment_max_chars_zh}
             onChange={(event) =>
               updateSetting('segment_max_chars_zh', Number(event.target.value))
             }
-          />
+          >
+            {!ttsZhSegmentOptions.includes(settings.segment_max_chars_zh) && (
+              <option value={settings.segment_max_chars_zh}>
+                {settings.segment_max_chars_zh}
+              </option>
+            )}
+            {ttsZhSegmentOptions.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
         </label>
 
-        <label className="grid gap-2 text-sm">
-          <span className="text-text-secondary">
-            {t('devSettingPanython.enSegmentWords')}
+        <label className={ttsFieldRowClass}>
+          <span className={ttsFieldLabelClass}>
+            {t('devSettingPanython.enSegmentWords')}:
           </span>
-          <Input
-            type="number"
-            min="5"
-            max="60"
+          <select
+            className={ttsSelectClass}
             value={settings.segment_max_words_en}
             onChange={(event) =>
               updateSetting('segment_max_words_en', Number(event.target.value))
             }
-          />
+          >
+            {!ttsEnSegmentOptions.includes(settings.segment_max_words_en) && (
+              <option value={settings.segment_max_words_en}>
+                {settings.segment_max_words_en}
+              </option>
+            )}
+            {ttsEnSegmentOptions.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
         </label>
       </section>
 

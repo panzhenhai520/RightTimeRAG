@@ -139,6 +139,8 @@ export default {
       tabTenants: '租户关系',
       open: '打开',
       refresh: '刷新',
+      optionEnabled: '启用',
+      optionDisabled: '禁用',
       createDataset: '新建知识库',
       createDatasetDescription: '创建知识库、选择解析方式并导入业务文档。',
       createChat: '新建聊天助手',

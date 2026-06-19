@@ -160,6 +160,8 @@ export default {
       tabTenants: 'Tenant relations',
       open: 'Open',
       refresh: 'Refresh',
+      optionEnabled: 'Enabled',
+      optionDisabled: 'Disabled',
       createDataset: 'Create knowledge base',
       createDatasetDescription:
         'Create a knowledge base, choose parsing settings, and import documents.',

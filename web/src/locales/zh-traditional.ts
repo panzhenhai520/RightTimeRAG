@@ -208,9 +208,21 @@ export default {
       operation_user_group_membership_update: '修改用戶組成員',
       operation_user_group_membership_delete: '移除用戶組成員',
       operation_user_group_delete: '刪除用戶組',
+      operation_user_delete: '刪除用戶',
       operation_chat_assistant_group_change: '聊天助手改組',
       operation_chat_assistant_knowledgebases_update: '修改助手知識庫',
       operation_chat_assistant_delete: '刪除聊天助手',
+      userAccountsTitle: '用戶賬號',
+      userAccountsDescription:
+        '刪除用戶前必須先移除其用戶組關係，並遷移或刪除其名下資源；當前登入用戶不能刪除。',
+      superuser: '超級管理員',
+      regularUser: '普通用戶',
+      deleteUser: '刪除用戶',
+      deleteUserConfirm:
+        '確認刪除用戶「{{user}}」？刪除前必須確保該用戶沒有用戶組關係和下級資源，該操作會記錄日誌。',
+      deleteUserBlocked:
+        '不能刪除該用戶，仍存在用戶組關係或下級資源：{{blockers}}。請先遷移或清理。',
+      userDeleted: '用戶已刪除',
       registerUser: '註冊用戶',
       registerUserDescription:
         '為交付環境建立新用戶賬戶。註冊入口僅保留在開發管理頁。',

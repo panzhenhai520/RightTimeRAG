@@ -482,6 +482,36 @@ function TenantRelationsCard() {
     }
   };
 
+  const handleDeleteUser = async (user: UserRow) => {
+    if (
+      !window.confirm(
+        t('devSettingPanython.deleteUserConfirm', {
+          user: userDisplayName(user, t('devSettingPanython.unnamedUser')),
+        }),
+      )
+    ) {
+      return;
+    }
+    const res = await request.delete(`/api/v1/dev/users/${user.id}`);
+    if (res.data?.code === 0) {
+      setData(res.data.data);
+      message.success(t('devSettingPanython.userDeleted'));
+    } else {
+      const blockers = res.data?.data?.blockers;
+      if (Array.isArray(blockers) && blockers.length > 0) {
+        window.alert(
+          t('devSettingPanython.deleteUserBlocked', {
+            blockers: blockers.join(' / '),
+          }),
+        );
+      } else {
+        message.error(
+          res.data?.message || t('devSettingPanython.updateFailed'),
+        );
+      }
+    }
+  };
+
   const toggleDialogKb = (dialogId: string, kbId: string, checked: boolean) => {
     setDialogKbTargets((previous) => {
       const current = previous[dialogId] ?? [];
@@ -596,6 +626,44 @@ function TenantRelationsCard() {
           {t('devSettingPanython.roleOwnerDescription')}
         </div>
       </div>
+
+      <section className="mt-6 rounded-lg border border-border/70 bg-bg-base/40 p-4">
+        <h3 className="text-base font-semibold text-text-primary">
+          {t('devSettingPanython.userAccountsTitle')}
+        </h3>
+        <p className="mt-1 text-xs text-text-secondary">
+          {t('devSettingPanython.userAccountsDescription')}
+        </p>
+        <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {users.map((user) => (
+            <div
+              key={user.id}
+              className="flex items-center justify-between gap-3 rounded-md bg-bg-card px-3 py-2 text-xs"
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-medium text-text-primary">
+                  {userDisplayName(user, t('devSettingPanython.unnamedUser'))}
+                </span>
+                <span className="text-text-secondary">
+                  {user.is_superuser
+                    ? t('devSettingPanython.superuser')
+                    : t('devSettingPanython.regularUser')}
+                </span>
+              </span>
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                className="border-state-error text-state-error"
+                disabled={user.id === data?.current_user_id}
+                onClick={() => handleDeleteUser(user)}
+              >
+                {t('devSettingPanython.deleteUser')}
+              </Button>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="mt-6 rounded-lg border border-border/70 bg-bg-base/40 p-4">
         <h3 className="text-base font-semibold text-text-primary">

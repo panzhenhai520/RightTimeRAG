@@ -248,9 +248,21 @@ export default {
       operation_user_group_membership_update: '修改用户组成员',
       operation_user_group_membership_delete: '移除用户组成员',
       operation_user_group_delete: '删除用户组',
+      operation_user_delete: '删除用户',
       operation_chat_assistant_group_change: '聊天助手改组',
       operation_chat_assistant_knowledgebases_update: '修改助手知识库',
       operation_chat_assistant_delete: '删除聊天助手',
+      userAccountsTitle: '用户账号',
+      userAccountsDescription:
+        '删除用户前必须先移除其用户组关系，并迁移或删除其名下资源；当前登录用户不能删除。',
+      superuser: '超级管理员',
+      regularUser: '普通用户',
+      deleteUser: '删除用户',
+      deleteUserConfirm:
+        '确认删除用户「{{user}}」？删除前必须确保该用户没有用户组关系和下级资源，该操作会记录日志。',
+      deleteUserBlocked:
+        '不能删除该用户，仍存在用户组关系或下级资源：{{blockers}}。请先迁移或清理。',
+      userDeleted: '用户已删除',
       registerUser: '注册用户',
       registerUserDescription:
         '为交付环境创建新用户账户。注册入口仅保留在开发管理页。',

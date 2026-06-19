@@ -280,10 +280,22 @@ export default {
       operation_user_group_membership_update: 'Update group member',
       operation_user_group_membership_delete: 'Remove group member',
       operation_user_group_delete: 'Delete user group',
+      operation_user_delete: 'Delete user',
       operation_chat_assistant_group_change: 'Move chat assistant',
       operation_chat_assistant_knowledgebases_update:
         'Update assistant knowledge bases',
       operation_chat_assistant_delete: 'Delete chat assistant',
+      userAccountsTitle: 'User accounts',
+      userAccountsDescription:
+        'Before deleting a user, remove their group relationships and move or delete owned resources. The current login user cannot be deleted.',
+      superuser: 'Superuser',
+      regularUser: 'Regular user',
+      deleteUser: 'Delete user',
+      deleteUserConfirm:
+        'Delete user "{{user}}"? The user must have no group relationships or dependent resources. This operation will be logged.',
+      deleteUserBlocked:
+        'This user cannot be deleted because group relationships or dependent resources still exist: {{blockers}}. Move or clean them first.',
+      userDeleted: 'User deleted',
       registerUser: 'Register user',
       registerUserDescription:
         'Create a new account for the delivery environment. Registration is only available in development management.',

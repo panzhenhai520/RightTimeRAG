@@ -154,6 +154,21 @@ def _delete_blockers(relation, counts):
     return blockers
 
 
+def _user_delete_blockers(user_id):
+    status = StatusEnum.VALID.value
+    blockers = []
+    joined_groups = UserTenant.select().where(
+        UserTenant.user_id == user_id,
+        UserTenant.tenant_id != user_id,
+        UserTenant.status == status,
+    ).count()
+    if joined_groups:
+        blockers.append(f"joined_groups:{joined_groups}")
+    owned_counts = _asset_counts(user_id)
+    blockers.extend(f"{key}:{value}" for key, value in owned_counts.items() if value)
+    return blockers
+
+
 def _relationship_payload():
     users = list(
         User.select(
@@ -259,6 +274,67 @@ def list_tenant_relations():
     if denied:
         return denied
     try:
+        return get_json_result(data=_relationship_payload())
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+@manager.route("/dev/users/<user_id>", methods=["DELETE"])  # noqa: F821
+@login_required
+def delete_user(user_id):
+    denied = _require_superuser()
+    if denied:
+        return denied
+    try:
+        user = User.get_or_none(
+            User.id == user_id,
+            User.status == StatusEnum.VALID.value,
+        )
+        if not user:
+            return get_data_error_result(message="User not found.")
+        if user_id == current_user.id:
+            return get_json_result(
+                data=False,
+                message="The current login user cannot be deleted.",
+                code=RetCode.OPERATING_ERROR,
+            )
+        blockers = _user_delete_blockers(user_id)
+        if blockers:
+            return get_json_result(
+                data={"blockers": blockers},
+                message="The user still has group relationships or dependent resources. Remove or transfer them first.",
+                code=RetCode.OPERATING_ERROR,
+            )
+
+        before = user.to_safe_dict()
+        now = datetime.now()
+        timestamp = current_timestamp()
+        with DB.atomic():
+            User.update(
+                {
+                    "status": StatusEnum.INVALID.value,
+                    "update_time": timestamp,
+                    "update_date": datetime_format(now),
+                }
+            ).where(User.id == user_id).execute()
+            UserTenant.update(
+                {
+                    "status": StatusEnum.INVALID.value,
+                    "update_time": timestamp,
+                    "update_date": datetime_format(now),
+                }
+            ).where(
+                ((UserTenant.user_id == user_id) | (UserTenant.tenant_id == user_id)),
+                UserTenant.status == StatusEnum.VALID.value,
+            ).execute()
+            _write_operation_log(
+                "user_delete",
+                "user",
+                user_id,
+                target_label=_safe_user_label(user),
+                tenant_id=user_id,
+                details={"before": before},
+            )
         return get_json_result(data=_relationship_payload())
     except Exception as exc:
         return server_error_response(exc)

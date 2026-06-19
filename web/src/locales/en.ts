@@ -243,6 +243,7 @@ export default {
       roleNormal: 'Member',
       roleAdmin: 'Group admin',
       roleOwner: 'Group owner',
+      knowledgeRole: 'Knowledge role',
       roleNormalDescription:
         'Can use assistants and knowledge bases published under this group.',
       roleAdminDescription:

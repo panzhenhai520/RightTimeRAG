@@ -175,6 +175,7 @@ export default {
       roleNormal: '普通成員',
       roleAdmin: '用戶組管理員',
       roleOwner: '用戶組擁有者',
+      knowledgeRole: '知識庫角色',
       roleNormalDescription: '可使用該用戶組已發布的助手和知識庫。',
       roleAdminDescription: '可協助維護該用戶組內的成員和資源。',
       roleOwnerDescription: '擁有該用戶組最高管理權限。',

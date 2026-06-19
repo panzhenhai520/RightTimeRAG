@@ -215,6 +215,7 @@ export default {
       roleNormal: '普通成员',
       roleAdmin: '用户组管理员',
       roleOwner: '用户组拥有者',
+      knowledgeRole: '知识库角色',
       roleNormalDescription: '可使用该用户组已发布的助手和知识库。',
       roleAdminDescription: '可协助维护该用户组内的成员和资源。',
       roleOwnerDescription: '拥有该用户组最高管理权限。',

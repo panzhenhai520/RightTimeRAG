@@ -138,10 +138,15 @@ const ttsZhSegmentOptions = [30, 45, 60, 80, 100];
 const ttsEnSegmentOptions = [12, 18, 24, 36, 48];
 
 const ttsFieldRowClass =
-  'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-3 text-sm';
+  'grid grid-cols-[minmax(120px,180px)_minmax(180px,260px)] items-center justify-start gap-3 text-sm';
 const ttsFieldLabelClass = 'truncate text-text-secondary';
 const ttsSelectClass =
   'h-9 w-full border-0 border-b border-border-button bg-transparent px-0 pr-8 text-sm text-text-primary outline-none disabled:cursor-not-allowed disabled:opacity-50';
+
+const userGroupFieldRowClass =
+  'grid grid-cols-[minmax(100px,140px)_minmax(180px,260px)] items-center justify-start gap-3 text-sm';
+const userGroupSelectClass =
+  'h-9 w-full border-0 border-b border-border-button bg-transparent px-0 pr-8 text-sm text-text-primary outline-none';
 
 const userGroupRoleOptions = [
   ['normal', 'devSettingPanython.roleNormal'],
@@ -439,47 +444,64 @@ function TenantRelationsCard() {
       </div>
 
       <form
-        className="mt-5 grid gap-3 rounded-md bg-bg-base/60 p-3 md:grid-cols-[1fr_1fr_180px_auto]"
+        className="mt-5 grid gap-x-8 gap-y-3 rounded-md bg-bg-base/60 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
         onSubmit={handleUpsertRelation}
       >
-        <select
-          className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
-          value={tenantId}
-          onChange={(event) => setTenantId(event.target.value)}
-        >
-          <option value="">{t('devSettingPanython.selectUserGroup')}</option>
-          {users.map((user) => (
-            <option key={user.id} value={user.id}>
-              {userDisplayName(user, t('devSettingPanython.unnamedUser'))}
-            </option>
-          ))}
-        </select>
-        <select
-          className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
-          value={userId}
-          onChange={(event) => setUserId(event.target.value)}
-        >
-          <option value="">{t('devSettingPanython.selectUser')}</option>
-          {users.map((user) => (
-            <option key={user.id} value={user.id}>
-              {userDisplayName(user, t('devSettingPanython.unnamedUser'))}
-            </option>
-          ))}
-        </select>
-        <select
-          className="h-9 rounded-md bg-bg-input px-3 text-sm outline-none"
-          value={role}
-          onChange={(event) => setRole(event.target.value)}
-        >
-          {userGroupRoleOptions.map(([value, label]) => (
-            <option key={value} value={value}>
-              {t(label)}
-            </option>
-          ))}
-        </select>
-        <Button type="submit" disabled={!userId || !tenantId}>
-          {t('devSettingPanython.saveUserGroupMembership')}
-        </Button>
+        <label className={userGroupFieldRowClass}>
+          <span className="truncate text-text-secondary">
+            {t('devSettingPanython.selectUserGroup')}:
+          </span>
+          <select
+            className={userGroupSelectClass}
+            value={tenantId}
+            onChange={(event) => setTenantId(event.target.value)}
+          >
+            <option value="">{t('devSettingPanython.selectUserGroup')}</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {userDisplayName(user, t('devSettingPanython.unnamedUser'))}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className={userGroupFieldRowClass}>
+          <span className="truncate text-text-secondary">
+            {t('devSettingPanython.selectUser')}:
+          </span>
+          <select
+            className={userGroupSelectClass}
+            value={userId}
+            onChange={(event) => setUserId(event.target.value)}
+          >
+            <option value="">{t('devSettingPanython.selectUser')}</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {userDisplayName(user, t('devSettingPanython.unnamedUser'))}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className={userGroupFieldRowClass}>
+          <span className="truncate text-text-secondary">
+            {t('devSettingPanython.knowledgeRole')}:
+          </span>
+          <select
+            className={userGroupSelectClass}
+            value={role}
+            onChange={(event) => setRole(event.target.value)}
+          >
+            {userGroupRoleOptions.map(([value, label]) => (
+              <option key={value} value={value}>
+                {t(label)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="flex items-center lg:justify-end">
+          <Button type="submit" disabled={!userId || !tenantId}>
+            {t('devSettingPanython.saveUserGroupMembership')}
+          </Button>
+        </div>
       </form>
 
       <div className="mt-3 grid gap-2 rounded-md border border-border/60 bg-bg-base/40 p-3 text-xs text-text-secondary md:grid-cols-3">

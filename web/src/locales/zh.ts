@@ -221,9 +221,10 @@ export default {
       roleNormalDescription: '可使用该用户组已发布的助手和知识库。',
       roleAdminDescription: '可协助维护该用户组内的成员和资源。',
       roleOwnerDescription: '拥有该用户组最高管理权限。',
+      userGroupMaintenanceTitle: '用户组关系维护',
       userGroupTreeTitle: '用户组树',
       userGroupTreeDescription:
-        '按树形结构查看用户组、成员、知识库和聊天助手的归属关系。',
+        '先按用户组查看关系层级，点击某个用户组后再展开成员、知识库和聊天助手详情。',
       emptyTreeNode: '无',
       noGroupOwnerRelation: '未找到该用户组的拥有者关系，不能删除用户组。',
       deleteUserGroup: '删除用户组',

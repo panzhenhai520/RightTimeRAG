@@ -181,9 +181,10 @@ export default {
       roleNormalDescription: '可使用該用戶組已發布的助手和知識庫。',
       roleAdminDescription: '可協助維護該用戶組內的成員和資源。',
       roleOwnerDescription: '擁有該用戶組最高管理權限。',
+      userGroupMaintenanceTitle: '用戶組關係維護',
       userGroupTreeTitle: '用戶組樹',
       userGroupTreeDescription:
-        '按樹形結構查看用戶組、成員、知識庫和聊天助手的歸屬關係。',
+        '先按用戶組查看關係層級，點擊某個用戶組後再展開成員、知識庫和聊天助手詳情。',
       emptyTreeNode: '無',
       noGroupOwnerRelation: '未找到該用戶組的擁有者關係，不能刪除用戶組。',
       deleteUserGroup: '刪除用戶組',

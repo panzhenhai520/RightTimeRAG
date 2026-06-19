@@ -252,9 +252,10 @@ export default {
         'Can help maintain members and resources in this group.',
       roleOwnerDescription:
         'Has the highest management permission for this group.',
+      userGroupMaintenanceTitle: 'User group relationship maintenance',
       userGroupTreeTitle: 'User group tree',
       userGroupTreeDescription:
-        'View user groups, members, knowledge bases, and chat assistants in a tree structure.',
+        'Browse the relationship hierarchy by user group first, then click a group to expand its members, knowledge bases, and chat assistants.',
       emptyTreeNode: 'None',
       noGroupOwnerRelation:
         'No owner relationship was found for this group, so it cannot be deleted.',

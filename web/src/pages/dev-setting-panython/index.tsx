@@ -291,6 +291,7 @@ function TenantRelationsCard() {
   const [userId, setUserId] = useState('');
   const [tenantId, setTenantId] = useState('');
   const [role, setRole] = useState('normal');
+  const [selectedTenantId, setSelectedTenantId] = useState('');
   const [dialogTargets, setDialogTargets] = useState<Record<string, string>>(
     {},
   );
@@ -341,6 +342,10 @@ function TenantRelationsCard() {
       ...knowledgebases.map((item) => item.tenant_id),
     ]),
   );
+  const activeTenantId =
+    selectedTenantId && tenantIds.includes(selectedTenantId)
+      ? selectedTenantId
+      : (tenantIds[0] ?? '');
 
   const handleUpsertRelation = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -545,92 +550,99 @@ function TenantRelationsCard() {
         </Button>
       </div>
 
-      <form
-        className="mt-5 grid gap-x-8 gap-y-3 rounded-md bg-bg-base/60 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
-        onSubmit={handleUpsertRelation}
-      >
-        <label className={userGroupFieldRowClass}>
-          <span className="truncate text-text-secondary">
-            {t('devSettingPanython.selectUserGroup')}:
-          </span>
-          <select
-            className={userGroupSelectClass}
-            value={tenantId}
-            onChange={(event) => setTenantId(event.target.value)}
-          >
-            <option value="">{t('devSettingPanython.selectUserGroup')}</option>
-            {users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {userDisplayName(user, t('devSettingPanython.unnamedUser'))}
+      <details className="mt-5 rounded-lg border border-border/70 bg-bg-base/40 p-4">
+        <summary className="cursor-pointer text-base font-semibold text-text-primary">
+          {t('devSettingPanython.userGroupMaintenanceTitle')}
+        </summary>
+        <form
+          className="mt-4 grid gap-x-8 gap-y-3 rounded-md bg-bg-base/60 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+          onSubmit={handleUpsertRelation}
+        >
+          <label className={userGroupFieldRowClass}>
+            <span className="truncate text-text-secondary">
+              {t('devSettingPanython.selectUserGroup')}:
+            </span>
+            <select
+              className={userGroupSelectClass}
+              value={tenantId}
+              onChange={(event) => setTenantId(event.target.value)}
+            >
+              <option value="">
+                {t('devSettingPanython.selectUserGroup')}
               </option>
-            ))}
-          </select>
-        </label>
-        <label className={userGroupFieldRowClass}>
-          <span className="truncate text-text-secondary">
-            {t('devSettingPanython.selectUser')}:
-          </span>
-          <select
-            className={userGroupSelectClass}
-            value={userId}
-            onChange={(event) => setUserId(event.target.value)}
-          >
-            <option value="">{t('devSettingPanython.selectUser')}</option>
-            {users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {userDisplayName(user, t('devSettingPanython.unnamedUser'))}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={userGroupFieldRowClass}>
-          <span className="truncate text-text-secondary">
-            {t('devSettingPanython.knowledgeRole')}:
-          </span>
-          <select
-            className={userGroupSelectClass}
-            value={role}
-            onChange={(event) => setRole(event.target.value)}
-          >
-            {userGroupRoleOptions.map(([value, label]) => (
-              <option key={value} value={value}>
-                {t(label)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex items-center lg:justify-end">
-          <Button type="submit" disabled={!userId || !tenantId}>
-            {t('devSettingPanython.saveUserGroupMembership')}
-          </Button>
-        </div>
-      </form>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {userDisplayName(user, t('devSettingPanython.unnamedUser'))}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={userGroupFieldRowClass}>
+            <span className="truncate text-text-secondary">
+              {t('devSettingPanython.selectUser')}:
+            </span>
+            <select
+              className={userGroupSelectClass}
+              value={userId}
+              onChange={(event) => setUserId(event.target.value)}
+            >
+              <option value="">{t('devSettingPanython.selectUser')}</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {userDisplayName(user, t('devSettingPanython.unnamedUser'))}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={userGroupFieldRowClass}>
+            <span className="truncate text-text-secondary">
+              {t('devSettingPanython.knowledgeRole')}:
+            </span>
+            <select
+              className={userGroupSelectClass}
+              value={role}
+              onChange={(event) => setRole(event.target.value)}
+            >
+              {userGroupRoleOptions.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {t(label)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex items-center lg:justify-end">
+            <Button type="submit" disabled={!userId || !tenantId}>
+              {t('devSettingPanython.saveUserGroupMembership')}
+            </Button>
+          </div>
+        </form>
 
-      <div className="mt-3 grid gap-2 rounded-md border border-border/60 bg-bg-base/40 p-3 text-xs text-text-secondary md:grid-cols-3">
-        <div>
-          <span className="font-medium text-text-primary">
-            {t('devSettingPanython.roleNormal')}:
-          </span>{' '}
-          {t('devSettingPanython.roleNormalDescription')}
+        <div className="mt-3 grid gap-2 rounded-md border border-border/60 bg-bg-base/40 p-3 text-xs text-text-secondary md:grid-cols-3">
+          <div>
+            <span className="font-medium text-text-primary">
+              {t('devSettingPanython.roleNormal')}:
+            </span>{' '}
+            {t('devSettingPanython.roleNormalDescription')}
+          </div>
+          <div>
+            <span className="font-medium text-text-primary">
+              {t('devSettingPanython.roleAdmin')}:
+            </span>{' '}
+            {t('devSettingPanython.roleAdminDescription')}
+          </div>
+          <div>
+            <span className="font-medium text-text-primary">
+              {t('devSettingPanython.roleOwner')}:
+            </span>{' '}
+            {t('devSettingPanython.roleOwnerDescription')}
+          </div>
         </div>
-        <div>
-          <span className="font-medium text-text-primary">
-            {t('devSettingPanython.roleAdmin')}:
-          </span>{' '}
-          {t('devSettingPanython.roleAdminDescription')}
-        </div>
-        <div>
-          <span className="font-medium text-text-primary">
-            {t('devSettingPanython.roleOwner')}:
-          </span>{' '}
-          {t('devSettingPanython.roleOwnerDescription')}
-        </div>
-      </div>
+      </details>
 
-      <section className="mt-6 rounded-lg border border-border/70 bg-bg-base/40 p-4">
-        <h3 className="text-base font-semibold text-text-primary">
+      <details className="mt-6 rounded-lg border border-border/70 bg-bg-base/40 p-4">
+        <summary className="cursor-pointer text-base font-semibold text-text-primary">
           {t('devSettingPanython.userAccountsTitle')}
-        </h3>
+        </summary>
         <p className="mt-1 text-xs text-text-secondary">
           {t('devSettingPanython.userAccountsDescription')}
         </p>
@@ -663,7 +675,7 @@ function TenantRelationsCard() {
             </div>
           ))}
         </div>
-      </section>
+      </details>
 
       <section className="mt-6 rounded-lg border border-border/70 bg-bg-base/40 p-4">
         <h3 className="text-base font-semibold text-text-primary">
@@ -672,7 +684,7 @@ function TenantRelationsCard() {
         <p className="mt-1 text-xs text-text-secondary">
           {t('devSettingPanython.userGroupTreeDescription')}
         </p>
-        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
           {tenantIds.map((tenantId) => {
             const tenant = users.find((user) => user.id === tenantId);
             const tenantName = userDisplayName(
@@ -689,81 +701,36 @@ function TenantRelationsCard() {
               (kb) => kb.tenant_id === tenantId,
             );
             return (
-              <div
+              <button
                 key={tenantId}
-                className="rounded-md border border-border/60 bg-bg-card p-3 text-xs"
+                type="button"
+                className={`rounded-md border p-3 text-left text-xs transition ${
+                  tenantId === activeTenantId
+                    ? 'border-[#6f3f2f] bg-[#6f3f2f]/10 text-[#6f3f2f] dark:border-[#9bc7dd] dark:bg-[#2d5f80]/25 dark:text-[#9bc7dd]'
+                    : 'border-border/60 bg-bg-card text-text-primary hover:border-[#6f3f2f]/50 dark:hover:border-[#9bc7dd]/60'
+                }`}
+                onClick={() => setSelectedTenantId(tenantId)}
               >
-                <div className="font-semibold text-text-primary">
+                <div className="truncate font-semibold">
                   {t('devSettingPanython.userGroupLabel', {
                     group: tenantName,
                   })}
                 </div>
-                <div className="mt-2 border-l border-border/70 pl-3">
-                  <div className="text-text-secondary">
-                    {t('devSettingPanython.groupMembers')} (
-                    {tenantMembers.length})
-                  </div>
-                  <div className="mt-1 space-y-1 pl-3">
-                    {tenantMembers.length === 0 ? (
-                      <div className="text-text-secondary">
-                        {t('devSettingPanython.emptyTreeNode')}
-                      </div>
-                    ) : (
-                      tenantMembers.map((member) => (
-                        <div key={member.id} className="text-text-primary">
-                          {member.user_label}{' '}
-                          <span className="text-text-secondary">
-                            {roleLabel(member.role, t)}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="mt-3 text-text-secondary">
-                    {t('devSettingPanython.groupKnowledgebases')} (
-                    {tenantKbs.length})
-                  </div>
-                  <div className="mt-1 space-y-1 pl-3">
-                    {tenantKbs.length === 0 ? (
-                      <div className="text-text-secondary">
-                        {t('devSettingPanython.emptyTreeNode')}
-                      </div>
-                    ) : (
-                      tenantKbs.map((kb) => (
-                        <div key={kb.id} className="text-text-primary">
-                          {kb.name}
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="mt-3 text-text-secondary">
-                    {t('devSettingPanython.groupAssistants')} (
-                    {tenantDialogs.length})
-                  </div>
-                  <div className="mt-1 space-y-1 pl-3">
-                    {tenantDialogs.length === 0 ? (
-                      <div className="text-text-secondary">
-                        {t('devSettingPanython.emptyTreeNode')}
-                      </div>
-                    ) : (
-                      tenantDialogs.map((dialog) => (
-                        <div key={dialog.id} className="text-text-primary">
-                          {dialog.name}
-                        </div>
-                      ))
-                    )}
-                  </div>
+                <div className="mt-2 text-text-secondary">
+                  {t('devSettingPanython.tenantSummary', {
+                    users: tenantMembers.length,
+                    dialogs: tenantDialogs.length,
+                    kbs: tenantKbs.length,
+                  })}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
       </section>
 
       <section className="mt-6 grid gap-4">
-        {tenantIds.map((tenantId) => {
+        {(activeTenantId ? [activeTenantId] : []).map((tenantId) => {
           const tenant = users.find((user) => user.id === tenantId);
           const tenantName = userDisplayName(
             tenant,

@@ -12,10 +12,12 @@ export function ChatList({
   setListLength,
   setLoading,
   pageSize,
+  displayLimit,
 }: {
   setListLength: (length: number) => void;
   setLoading?: (loading: boolean) => void;
   pageSize?: number;
+  displayLimit?: number;
 }) {
   const { t } = useTranslation();
   const { data, loading } = useFetchChatList(
@@ -37,7 +39,7 @@ export function ChatList({
   }, [data, setListLength, loading, setLoading]);
   return (
     <>
-      {data.chats.slice(0, pageSize ?? 10).map((x) => (
+      {data.chats.slice(0, displayLimit ?? pageSize ?? 10).map((x) => (
         <HomeCard
           key={x.id}
           data={{

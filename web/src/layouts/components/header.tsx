@@ -16,13 +16,13 @@ import { TenantRole } from '@/pages/user-setting/constants';
 import { Routes } from '@/routes';
 import { LucideChevronDown } from 'lucide-react';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router';
 import { BellButton } from './bell-button';
-import GlobalNavbar from './global-navbar';
 import ThemeButton from './theme-button';
 
-import { supportedLanguages } from '@/locales/config';
 import { useIsDarkTheme } from '@/components/theme-provider';
+import { supportedLanguages } from '@/locales/config';
 
 export function Header({
   className,
@@ -30,6 +30,7 @@ export function Header({
 }: React.HTMLAttributes<HTMLElement>) {
   const { pathname } = useLocation();
   const isDarkTheme = useIsDarkTheme();
+  const { t } = useTranslation();
 
   const changeLanguage = useChangeLanguage();
 
@@ -54,12 +55,12 @@ export function Header({
     <header
       key="app-navbar"
       className={cn(
-        'w-full grid grid-cols-[1fr_auto_1fr] grid-rows-1 items-center gap-8',
+        'w-full grid grid-cols-[minmax(0,1fr)_auto] grid-rows-1 items-center gap-6',
         className,
       )}
       {...props}
     >
-      <div className="inline-flex items-center">
+      <div className="inline-flex min-w-0 items-center gap-3">
         <Link
           to={Routes.Root}
           aria-current={pathname === Routes.Root ? 'page' : undefined}
@@ -67,7 +68,8 @@ export function Header({
           <span
             className={cn(
               'flex size-10 items-center justify-center rounded-full',
-              isDarkTheme && 'shadow-sm shadow-slate-950/25',
+              isDarkTheme &&
+                'bg-white/90 p-0.5 ring-2 ring-white/60 shadow-sm shadow-slate-950/35',
             )}
           >
             <img
@@ -75,14 +77,18 @@ export function Header({
               alt="时和博士图标"
               className={cn(
                 'size-full rounded-full object-contain',
-                isDarkTheme && 'saturate-110 contrast-110 brightness-105',
+                isDarkTheme && 'saturate-150 contrast-125 brightness-105',
               )}
             />
           </span>
         </Link>
+        {pathname === Routes.Root && (
+          <h1 className="min-w-0 truncate text-xl font-semibold leading-7 text-[#153f73] dark:text-[#e4eef4]">
+            {t('homeBanner.welcomePrefix')}
+            {t('homeBanner.productName')}
+          </h1>
+        )}
       </div>
-
-      <GlobalNavbar />
 
       <div
         className="flex items-center justify-end gap-4 text-text-badge"

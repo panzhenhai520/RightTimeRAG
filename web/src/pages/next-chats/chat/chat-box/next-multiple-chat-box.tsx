@@ -62,6 +62,7 @@ import {
 } from '../../hooks/use-send-single-message';
 import { useUploadFile } from '../../hooks/use-upload-file';
 import { buildMessageItemReference } from '../../utils';
+import { AddToMemoryDialog } from '../add-to-memory-dialog';
 import { useAddChatBox } from '../use-add-box';
 import { useShowInternet } from '../use-show-internet';
 import { useSetDefaultModel } from './use-set-default-model';
@@ -323,6 +324,7 @@ export function MultipleChatBox({
     useUploadFile();
   const sendDisabled = useSendButtonDisabled(value);
   const [addToMemoryLoading, setAddToMemoryLoading] = useState(false);
+  const [addToMemoryOpen, setAddToMemoryOpen] = useState(false);
 
   const boxesRef = useRef<Record<string, HandlePressEnterType>>({});
 
@@ -354,26 +356,35 @@ export function MultipleChatBox({
     [createConversationBeforeSendMessage, value],
   );
 
-  const handleAddToMemory = useCallback(async () => {
-    if (!conversation.dialog_id || !conversationId) {
+  const openAddToMemoryDialog = useCallback(() => {
+    if (!currentDialog.id || !conversationId) {
       toast.info(t('chat.addToMemoryPreparing'));
       return;
     }
-    setAddToMemoryLoading(true);
-    try {
-      const { data } = await request.post(api.memorizeChat, {
-        chat_id: conversation.dialog_id,
-        session_id: conversationId,
-      });
-      if (data?.code === 0) {
-        toast.success(t('chat.addToMemorySuccess'));
-      } else {
-        toast.error(data?.message || 'Failed to add memo');
+    setAddToMemoryOpen(true);
+  }, [conversationId, currentDialog.id]);
+
+  const handleAddToMemory = useCallback(
+    async (topic: string) => {
+      setAddToMemoryLoading(true);
+      try {
+        const { data } = await request.post(api.memorizeChat, {
+          chat_id: currentDialog.id,
+          session_id: conversationId,
+          topic,
+        });
+        if (data?.code === 0) {
+          toast.success(t('chat.addToMemorySuccess'));
+          setAddToMemoryOpen(false);
+        } else {
+          toast.error(data?.message || 'Failed to add memo');
+        }
+      } finally {
+        setAddToMemoryLoading(false);
       }
-    } finally {
-      setAddToMemoryLoading(false);
-    }
-  }, [conversation.dialog_id, conversationId]);
+    },
+    [conversationId, currentDialog.id],
+  );
 
   return (
     <section className="flex flex-1 min-h-0 flex-col px-5">
@@ -424,10 +435,16 @@ export function MultipleChatBox({
           showInternet={showInternet}
           removeFile={removeFile}
           isUploading={isUploading}
-          onAddToMemory={handleAddToMemory}
+          onAddToMemory={openAddToMemoryDialog}
           addToMemoryLoading={addToMemoryLoading}
         />
       </div>
+      <AddToMemoryDialog
+        open={addToMemoryOpen}
+        loading={addToMemoryLoading}
+        onOpenChange={setAddToMemoryOpen}
+        onSubmit={handleAddToMemory}
+      />
       {visible && (
         <PdfSheet
           visible={visible}

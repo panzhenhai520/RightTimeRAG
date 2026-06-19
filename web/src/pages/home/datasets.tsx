@@ -3,8 +3,8 @@ import { HomeIcon } from '@/components/svg-icon';
 import { CardSkeleton } from '@/components/ui/skeleton';
 import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { useFetchNextKnowledgeListByPage } from '@/hooks/use-knowledge-request';
+import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { SeeAllAppCard } from './application-card';
 
 const HOME_DATASET_PAGE_SIZE = 12;
 
@@ -29,13 +29,6 @@ export function Datasets() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            className="rounded-full bg-accent-primary px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90"
-            onClick={() => navigateToDatasetList({ isCreate: true })}
-          >
-            {t('knowledgeList.createKnowledgeBase')}
-          </button>
           {kbs?.length > 0 && (
             <button
               type="button"
@@ -68,9 +61,14 @@ export function Datasets() {
                     moreDropdown={null}
                   />
                 ))}
-                <SeeAllAppCard
-                  click={() => navigateToDatasetList({ isCreate: false })}
-                />
+                <button
+                  type="button"
+                  className="flex min-h-[104px] cursor-pointer items-center justify-center rounded-xl border border-dashed border-border/70 bg-bg-card/50 text-text-secondary transition hover:border-accent-primary hover:text-accent-primary"
+                  onClick={() => navigateToDatasetList({ isCreate: true })}
+                  aria-label={t('knowledgeList.createKnowledgeBase')}
+                >
+                  <Plus className="size-7" />
+                </button>
               </div>
             )}
             {kbs?.length <= 0 && (

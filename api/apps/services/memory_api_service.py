@@ -30,6 +30,19 @@ from common.exceptions import ArgumentException, NotFoundException
 from common.time_utils import current_timestamp, timestamp_to_date
 
 
+def _compact_memory_preview(content: str | None, max_chars: int = 420) -> str:
+    content = (content or "").strip()
+    content = content.removeprefix("User Input:").strip()
+    if content.endswith("Agent Response:"):
+        content = content[: -len("Agent Response:")].strip()
+    if "\nAgent Response:" in content:
+        content = content.split("\nAgent Response:", 1)[0].strip()
+    content = "\n".join(line.rstrip() for line in content.splitlines()).strip()
+    if len(content) > max_chars:
+        return content[:max_chars].rstrip() + "..."
+    return content
+
+
 def _split_filter_values(values):
     if not values:
         return []
@@ -262,10 +275,26 @@ async def list_memory(filter_params: dict, keywords: str, page: int=1, page_size
 
     memory_list, count = MemoryService.get_by_filter(filter_dict, keywords, page, page_size)
     for memory in memory_list:
+        message_count = 0
+        latest_content_preview = ""
+        latest_forget_at = None
+        try:
+            message_page = MessageService.list_message(memory["tenant_id"], memory["id"], page=1, page_size=1)
+            message_count = message_page.get("total_count", 0)
+            latest_messages = message_page.get("message_list") or []
+            if latest_messages:
+                latest_message = latest_messages[0]
+                latest_content_preview = _compact_memory_preview(latest_message.get("content"))
+                latest_forget_at = latest_message.get("forget_at")
+        except Exception:
+            pass
         memory.update({
             "memory_type": get_memory_type_human(memory["memory_type"]),
             "is_chat_memo": is_chat_memo_name(memory.get("name")),
             "display_name": get_memory_display_name(memory.get("name"), memory.get("description")),
+            "message_count": message_count,
+            "latest_content_preview": latest_content_preview,
+            "latest_forget_at": latest_forget_at,
         })
     return {
         "memory_list": memory_list, "total_count": count

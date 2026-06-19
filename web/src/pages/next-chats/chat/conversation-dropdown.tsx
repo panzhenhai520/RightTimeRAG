@@ -13,11 +13,17 @@ import { IConversation } from '@/interfaces/database/chat';
 import api from '@/utils/api';
 import request from '@/utils/next-request';
 import { BookMarked, Trash2 } from 'lucide-react';
-import { MouseEventHandler, PropsWithChildren, useCallback } from 'react';
+import {
+  MouseEventHandler,
+  PropsWithChildren,
+  useCallback,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { useChatUrlParams } from '../hooks/use-chat-url';
+import { AddToMemoryDialog } from './add-to-memory-dialog';
 
 export function ConversationDropdown({
   children,
@@ -32,24 +38,29 @@ export function ConversationDropdown({
   const { removeSessions } = useRemoveSessions();
   const { conversationId, isNew } = useGetChatSearchParams();
   const navigate = useNavigate();
+  const [addToMemoryOpen, setAddToMemoryOpen] = useState(false);
+  const [addToMemoryLoading, setAddToMemoryLoading] = useState(false);
 
-  const handleAddToMemory: MouseEventHandler<HTMLDivElement> = useCallback(
-    async (e) => {
+  const openAddToMemoryDialog: MouseEventHandler<HTMLDivElement> = useCallback(
+    (e) => {
       e.stopPropagation();
       if (conversation.is_new || !conversation.chat_id || !conversation.id) {
         toast.info(t('chat.addToMemoryPreparing'));
         return;
       }
-      const topic = window.prompt(t('chat.addToMemoryTopicPrompt'), '');
-      if (topic === null) {
-        return;
-      }
+      setAddToMemoryOpen(true);
+    },
+    [conversation.chat_id, conversation.id, conversation.is_new, t],
+  );
 
+  const handleAddToMemory = useCallback(
+    async (topic: string) => {
+      setAddToMemoryLoading(true);
       try {
         const { data } = await request.post(api.memorizeChat, {
           chat_id: conversation.chat_id,
           session_id: conversation.id,
-          topic: topic.trim(),
+          topic,
         });
 
         if (data?.code === 0) {
@@ -62,14 +73,17 @@ export function ConversationDropdown({
                 }
               : undefined,
           });
+          setAddToMemoryOpen(false);
         } else {
           toast.error(data?.message || t('chat.addToMemoryFailed'));
         }
       } catch {
         toast.error(t('chat.addToMemoryFailed'));
+      } finally {
+        setAddToMemoryLoading(false);
       }
     },
-    [conversation.chat_id, conversation.id, conversation.is_new, navigate, t],
+    [conversation.chat_id, conversation.id, navigate, t],
   );
 
   const handleDelete: MouseEventHandler<HTMLDivElement> =
@@ -95,33 +109,41 @@ export function ConversationDropdown({
     ]);
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem
-          onClick={handleAddToMemory}
-          data-testid="chat-detail-session-add-memory"
-          data-session-id={conversation.id}
-        >
-          {t('chat.addToMemory')} <BookMarked />
-        </DropdownMenuItem>
-
-        <ConfirmDeleteDialog onOk={handleDelete}>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
+        <DropdownMenuContent>
           <DropdownMenuItem
-            className="text-state-error"
-            onSelect={(e) => {
-              e.preventDefault();
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-            }}
-            data-testid="chat-detail-session-delete"
+            onClick={openAddToMemoryDialog}
+            data-testid="chat-detail-session-add-memory"
             data-session-id={conversation.id}
           >
-            {t('common.delete')} <Trash2 />
+            {t('chat.addToMemory')} <BookMarked />
           </DropdownMenuItem>
-        </ConfirmDeleteDialog>
-      </DropdownMenuContent>
-    </DropdownMenu>
+
+          <ConfirmDeleteDialog onOk={handleDelete}>
+            <DropdownMenuItem
+              className="text-state-error"
+              onSelect={(e) => {
+                e.preventDefault();
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+              data-testid="chat-detail-session-delete"
+              data-session-id={conversation.id}
+            >
+              {t('common.delete')} <Trash2 />
+            </DropdownMenuItem>
+          </ConfirmDeleteDialog>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AddToMemoryDialog
+        open={addToMemoryOpen}
+        loading={addToMemoryLoading}
+        onOpenChange={setAddToMemoryOpen}
+        onSubmit={handleAddToMemory}
+      />
+    </>
   );
 }

@@ -44,6 +44,7 @@ export default function MemoryMessage() {
   });
   const { data } = useFetchMemoryBaseConfiguration();
   const { onMemoryRenameOk, loading } = useUpdateMemoryConfig();
+  const isChatMemo = !!data?.is_chat_memo;
 
   useEffect(() => {
     form.reset({
@@ -63,9 +64,14 @@ export default function MemoryMessage() {
       permissions: data?.permissions || 'me',
     });
   }, [data, form]);
-  const onSubmit = (data: IMemory) => {
-    console.log('data', data);
-    onMemoryRenameOk(data);
+  const onSubmit = (value: IMemory) => {
+    const payload = isChatMemo
+      ? {
+          ...value,
+          name: data?.name || value.name,
+        }
+      : value;
+    onMemoryRenameOk(payload as IMemory);
   };
   return (
     <section className="h-full flex flex-col">
@@ -73,21 +79,30 @@ export default function MemoryMessage() {
         title={t('knowledgeDetails.configuration')}
         description={t('knowledgeConfiguration.titleDescription')}
       ></TopTitle>
-      <div className="flex gap-14 flex-1 min-h-0">
+      <div className="flex min-h-0 flex-1 gap-14">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(() => {})} className="space-y-6 ">
-            <div className="w-[768px] h-[calc(100vh-300px)] pr-1 overflow-y-auto scrollbar-auto pb-4">
-              <MainContainer className="text-text-secondary !space-y-10">
-                <div className="text-base font-medium text-text-primary">
-                  {t('knowledgeConfiguration.baseInfo')}
-                </div>
-                <BasicInfo></BasicInfo>
-                <Divider />
-                <MemoryModelForm />
-                <AdvancedSettingsForm />
-              </MainContainer>
+          <form
+            onSubmit={form.handleSubmit(() => {})}
+            className="w-full space-y-6"
+          >
+            <div className="grid h-[calc(100vh-360px)] w-full gap-5 overflow-hidden xl:grid-cols-[minmax(0,1fr)_440px]">
+              <div className="min-w-0 overflow-y-auto pr-1 pb-4 scrollbar-auto">
+                <MainContainer className="text-text-secondary !space-y-8">
+                  <div className="text-base font-medium text-text-primary">
+                    {t('knowledgeConfiguration.baseInfo')}
+                  </div>
+                  <BasicInfo isChatMemo={isChatMemo} />
+                  <Divider />
+                  <MemoryModelForm />
+                </MainContainer>
+              </div>
+              <aside className="min-w-0 overflow-y-auto rounded-xl bg-bg-card/50 p-4 pb-4 scrollbar-auto">
+                <MainContainer className="text-text-secondary !space-y-4">
+                  <AdvancedSettingsForm defaultOpen />
+                </MainContainer>
+              </aside>
             </div>
-            <div className="text-right items-center flex justify-end gap-3 w-[768px]">
+            <div className="flex w-full items-center justify-end gap-3 text-right">
               <Button
                 type="reset"
                 className="bg-transparent text-color-white hover:bg-transparent border-border-button border"
@@ -100,7 +115,6 @@ export default function MemoryMessage() {
               <DynamicForm.SavingButton
                 submitLoading={loading}
                 submitFunc={(value) => {
-                  console.log('form-value', value);
                   onSubmit(value as IMemory);
                 }}
               ></DynamicForm.SavingButton>

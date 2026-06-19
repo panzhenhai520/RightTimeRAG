@@ -91,7 +91,7 @@ export default function MemoryList() {
 
           {list?.data?.memory_list?.length ? (
             <>
-              <CardContainer className="flex-1 overflow-auto px-5">
+              <CardContainer className="flex-1 auto-rows-fr overflow-auto px-5 pb-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {list?.data.memory_list.map((x) => (
                   <MemoryCard
                     key={x.id}

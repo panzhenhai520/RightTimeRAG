@@ -30,7 +30,6 @@ import { ReactFlowProvider } from '@xyflow/react';
 import {
   ChevronDown,
   CirclePlay,
-  Compass,
   History,
   House,
   LaptopMinimalCheck,
@@ -320,6 +319,11 @@ export default function Agent() {
           >
             <LaptopMinimalCheck /> {t('flow.save')}
           </ButtonLoading>
+          <PublishConfirmDialog
+            agentDetail={agentDetail}
+            loading={loading}
+            onPublish={handlePublish}
+          />
           <Button
             data-testid="agent-run"
             variant={'secondary'}
@@ -328,20 +332,6 @@ export default function Agent() {
             <CirclePlay />
             {t('flow.run')}
           </Button>
-          {isConversationMode && (
-            <Button
-              variant={'secondary'}
-              onClick={navigateToAgentExplore(id as string)}
-            >
-              <Compass />
-              {t('explore.title')}
-            </Button>
-          )}
-          <PublishConfirmDialog
-            agentDetail={agentDetail}
-            loading={loading}
-            onPublish={handlePublish}
-          />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant={'secondary'}>

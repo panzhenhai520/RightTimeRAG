@@ -23,13 +23,11 @@ const evidenceTypeClass: Record<string, string> = {
 };
 
 const formatFig = (figId?: number) =>
-  typeof figId === 'number' && Number.isFinite(figId)
-    ? `Fig.${figId + 1}`
-    : '';
+  typeof figId === 'number' && Number.isFinite(figId) ? `Fig.${figId + 1}` : '';
 
 export function EvidenceAuditPanel({ audit }: IProps) {
   const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const citedEvidence = useMemo(
     () => (audit?.evidence ?? []).filter((item) => item.is_cited),
     [audit?.evidence],
@@ -62,7 +60,11 @@ export function EvidenceAuditPanel({ audit }: IProps) {
             docs: retrieval.candidate_docs ?? 0,
             selected: retrieval.selected_chunks ?? 0,
           })}
-          {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+          {expanded ? (
+            <ChevronUp className="size-4" />
+          ) : (
+            <ChevronDown className="size-4" />
+          )}
         </span>
       </button>
 
@@ -70,7 +72,9 @@ export function EvidenceAuditPanel({ audit }: IProps) {
         <div className="mt-3 space-y-3">
           {audit.rewritten_query && (
             <div className="rounded bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600 dark:bg-[#0d1d2a] dark:text-slate-300">
-              <span className="font-medium">{t('chat.evidenceAuditQuery')}:</span>{' '}
+              <span className="font-medium">
+                {t('chat.evidenceAuditQuery')}:
+              </span>{' '}
               {audit.rewritten_query}
             </div>
           )}
@@ -102,7 +106,9 @@ export function EvidenceAuditPanel({ audit }: IProps) {
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   {item.is_cited && <CheckCircle2 className="size-3.5" />}
                   {item.is_cited && formatFig(item.fig_id) && (
-                    <span className="font-semibold">{formatFig(item.fig_id)}</span>
+                    <span className="font-semibold">
+                      {formatFig(item.fig_id)}
+                    </span>
                   )}
                   <span className="font-semibold">
                     {item.is_cited && formatFig(item.fig_id)
@@ -110,7 +116,9 @@ export function EvidenceAuditPanel({ audit }: IProps) {
                       : `ID:${item.id}`}
                   </span>
                   <span>{item.type}</span>
-                  {typeof item.score === 'number' && <span>score {item.score}</span>}
+                  {typeof item.score === 'number' && (
+                    <span>score {item.score}</span>
+                  )}
                   {item.has_image && <span>Fig</span>}
                 </div>
                 {item.doc_name && (
@@ -118,7 +126,9 @@ export function EvidenceAuditPanel({ audit }: IProps) {
                     {item.doc_name}
                   </div>
                 )}
-                {item.why && <div className="mt-1 text-xs leading-5">{item.why}</div>}
+                {item.why && (
+                  <div className="mt-1 text-xs leading-5">{item.why}</div>
+                )}
                 {item.preview && (
                   <div className="mt-1 line-clamp-2 text-xs leading-5 opacity-85">
                     {item.preview}
@@ -130,7 +140,9 @@ export function EvidenceAuditPanel({ audit }: IProps) {
 
           {(audit.answer_basis ?? []).length > 0 && (
             <div className="rounded bg-slate-50 px-3 py-2 text-xs leading-5 dark:bg-[#0d1d2a]">
-              <div className="mb-1 font-semibold">{t('chat.evidenceAuditBasis')}</div>
+              <div className="mb-1 font-semibold">
+                {t('chat.evidenceAuditBasis')}
+              </div>
               {(audit.answer_basis ?? []).map((basis, index) => (
                 <div key={`${index}-${basis.claim}`}>
                   {basis.claim}:{' '}

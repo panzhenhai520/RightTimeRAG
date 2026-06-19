@@ -21,6 +21,7 @@ const DocumentPreview = function ({
   highlights,
   setWidthAndHeight,
   url,
+  pdfScaleValue,
 }: PreviewProps & Partial<IProps>) {
   return (
     <>
@@ -30,6 +31,7 @@ const DocumentPreview = function ({
             className={className}
             highlights={highlights}
             setWidthAndHeight={setWidthAndHeight}
+            pdfScaleValue={pdfScaleValue}
             url={url}
           ></PdfPreviewer>
         </section>

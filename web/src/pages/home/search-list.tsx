@@ -11,10 +11,12 @@ export function SearchList({
   setListLength,
   setLoading,
   pageSize,
+  displayLimit,
 }: {
   setListLength: (length: number) => void;
   setLoading?: (loading: boolean) => void;
   pageSize?: number;
+  displayLimit?: number;
 }) {
   const {
     data,
@@ -42,21 +44,23 @@ export function SearchList({
   }, [data, setListLength, isLoading, setLoading]);
   return (
     <>
-      {data?.data.search_apps.slice(0, pageSize ?? 10).map((x) => (
-        <HomeCard
-          key={x.id}
-          data={x}
-          onClick={navigateToSearch(x.id)}
-          moreDropdown={
-            <SearchDropdown
-              dataset={x}
-              showSearchRenameModal={showSearchRenameModal}
-            >
-              <MoreButton></MoreButton>
-            </SearchDropdown>
-          }
-        ></HomeCard>
-      ))}
+      {data?.data.search_apps
+        .slice(0, displayLimit ?? pageSize ?? 10)
+        .map((x) => (
+          <HomeCard
+            key={x.id}
+            data={x}
+            onClick={navigateToSearch(x.id)}
+            moreDropdown={
+              <SearchDropdown
+                dataset={x}
+                showSearchRenameModal={showSearchRenameModal}
+              >
+                <MoreButton></MoreButton>
+              </SearchDropdown>
+            }
+          ></HomeCard>
+        ))}
       {openCreateModal && (
         <RenameDialog
           hideModal={hideSearchRenameModal}

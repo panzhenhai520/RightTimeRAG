@@ -36,51 +36,50 @@ export function SideBar() {
   }, [t]);
 
   return (
-    <aside className="relative p-5 space-y-8">
-      <div className="flex gap-2.5 max-w-[200px] items-center">
-        <RAGFlowAvatar
-          avatar={data.avatar}
-          name={displayName}
-          className="size-16"
-        ></RAGFlowAvatar>
-        <div className=" text-text-secondary text-xs space-y-1 overflow-hidden">
-          <h3 className="text-lg font-semibold line-clamp-1 text-text-primary text-ellipsis overflow-hidden">
-            {displayName}
-          </h3>
-          <div className="flex justify-between">
-            <span className="truncate ">
-              {data.is_chat_memo ? '' : data.description}
-            </span>
-            {/* <span>{formatBytes(data.size)}</span> */}
-          </div>
-          <div>
-            {t('knowledgeDetails.created')} {formatPureDate(data.create_time)}
+    <header className="rounded-xl bg-bg-base/70 p-5 shadow-sm ring-1 ring-border-default/20 dark:bg-bg-component/45">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-1 items-start gap-4">
+          <RAGFlowAvatar
+            avatar={data.avatar}
+            name={displayName}
+            className="size-16 shrink-0"
+          />
+          <div className="min-w-0 flex-1 space-y-2 text-xs text-text-secondary">
+            <h3 className="whitespace-normal break-words text-2xl font-semibold leading-8 text-text-primary">
+              {displayName}
+            </h3>
+            <p className="whitespace-normal break-words text-sm leading-6">
+              {data.is_chat_memo ? t('memories.chatMemo') : data.description}
+            </p>
+            <div>
+              {t('knowledgeDetails.created')} {formatPureDate(data.create_time)}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="w-[200px] flex flex-col gap-5">
-        {items.map((item, itemIdx) => {
-          const active = '/' + pathName === item.key;
-          return (
-            <Button
-              key={itemIdx}
-              variant={active ? 'secondary' : 'ghost'}
-              className={cn(
-                'w-full justify-start gap-2.5 px-3 relative h-10 text-text-secondary',
-                {
-                  'bg-bg-card': active,
-                  'text-text-primary': active,
-                },
-              )}
-              onClick={handleMenuClick(item.key)}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </Button>
-          );
-        })}
+        <div className="flex flex-wrap gap-2">
+          {items.map((item, itemIdx) => {
+            const active = '/' + pathName === item.key;
+            return (
+              <Button
+                key={itemIdx}
+                variant={active ? 'secondary' : 'ghost'}
+                className={cn(
+                  'h-9 justify-start gap-2.5 px-3 text-text-secondary',
+                  {
+                    'bg-bg-card': active,
+                    'text-text-primary': active,
+                  },
+                )}
+                onClick={handleMenuClick(item.key)}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </Button>
+            );
+          })}
+        </div>
       </div>
-    </aside>
+    </header>
   );
 }

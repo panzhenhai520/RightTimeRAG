@@ -4,10 +4,10 @@ import { SideBar } from './sidebar';
 
 export default function DatasetWrapper() {
   return (
-    <section className="flex h-full flex-col w-full pt-3">
-      <div className="flex flex-1 min-h-0">
-        <SideBar></SideBar>
-        <div className=" relative flex-1 overflow-auto border-[0.5px] border-border-button p-5 rounded-md mr-5 mb-5">
+    <section className="flex h-full w-full flex-col px-5 py-3">
+      <SideBar />
+      <div className="mt-4 flex min-h-0 flex-1">
+        <div className="relative mb-5 flex-1 overflow-auto rounded-xl bg-bg-base/70 p-5 shadow-sm ring-1 ring-border-default/20 dark:bg-bg-component/45">
           <Spotlight />
           <Outlet />
         </div>

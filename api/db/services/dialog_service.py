@@ -46,6 +46,7 @@ from api.utils.reference_metadata_utils import (
     enrich_chunks_with_document_metadata,
     resolve_reference_metadata_preferences,
 )
+from api.utils.memory_utils import get_memory_display_name
 from api.db.services.tenant_llm_service import TenantLLMService
 from api.db.joint_services.memory_message_service import embed_and_save, query_message
 from api.db.joint_services.tenant_model_service import get_model_config_by_id, get_model_config_by_type_and_name, get_tenant_default_model_by_type
@@ -2106,8 +2107,40 @@ def _is_context_span_error(exc: Exception | str) -> bool:
     return any(pattern in text for pattern in CONTEXT_SPAN_ERROR_PATTERNS)
 
 
-def _group_accessible_memories_for_query(tenant_id: str) -> list[list[str]]:
+def _memory_topic_text(memory: dict) -> str:
+    display_name = get_memory_display_name(memory.get("name"), memory.get("description"))
+    pieces = [display_name]
+    if memory.get("description"):
+        pieces.append(str(memory.get("description")))
+    if memory.get("name") and str(memory.get("name")) != display_name:
+        pieces.append(str(memory.get("name")))
+    return " ".join(piece for piece in pieces if piece).strip()
+
+
+def _select_topic_relevant_memories(memories: list[dict], query: str) -> list[dict]:
+    if not memories or not query:
+        return memories
+    query_lower = str(query).lower()
+    scored = []
+    for memory in memories:
+        topic_text = _memory_topic_text(memory)
+        if not topic_text:
+            continue
+        score = _history_relevance_score(query, topic_text)
+        topic_lower = topic_text.lower()
+        if query_lower and query_lower in topic_lower:
+            score += 3
+        if score > 0:
+            scored.append((score, memory))
+    if not scored:
+        return memories
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return [memory for _, memory in scored[: max(MAX_MEMORY_GROUPS * MAX_MEMORY_RESULTS, MAX_MEMORY_RESULTS)]]
+
+
+def _group_accessible_memories_for_query(tenant_id: str, query: str) -> list[list[str]]:
     memories, _ = MemoryService.get_by_filter({"accessible_user_id": tenant_id}, "", page=1, page_size=50)
+    memories = _select_topic_relevant_memories(memories, query)
     grouped: dict[tuple[str, str], list[str]] = {}
     for memory in memories:
         key = (str(memory.get("tenant_embd_id") or ""), str(memory.get("embd_id") or ""))
@@ -2119,7 +2152,7 @@ async def _retrieve_memory_context(tenant_id: str, query: str, token_budget: int
     if not query:
         return []
     try:
-        memory_groups = await thread_pool_exec(_group_accessible_memories_for_query, tenant_id)
+        memory_groups = await thread_pool_exec(_group_accessible_memories_for_query, tenant_id, query)
     except Exception as exc:  # noqa: BLE001 - memory should not break chat
         logging.warning("MemoryContext failed to list accessible memories: %s", exc)
         return []

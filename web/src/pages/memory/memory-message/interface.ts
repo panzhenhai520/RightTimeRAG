@@ -10,6 +10,7 @@ export interface IMessageInfo {
   invalid_at: string;
   forget_at: string;
   status: boolean;
+  content?: string;
   extract?: Omit<IMessageInfo, 'task'>[];
   task: {
     chunk_ids: string;

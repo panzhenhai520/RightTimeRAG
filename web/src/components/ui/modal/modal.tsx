@@ -19,6 +19,7 @@ export interface ModalProps {
   footerClassName?: string;
   showfooter?: boolean;
   className?: string;
+  bodyClassName?: string;
   size?: 'small' | 'default' | 'large';
   closable?: boolean;
   showCancel?: boolean;
@@ -71,6 +72,7 @@ const Modal: ModalType = ({
   footerClassName,
   showfooter = true,
   className = '',
+  bodyClassName,
   size = 'default',
   closable = true,
   showCancel = true,
@@ -261,7 +263,12 @@ const Modal: ModalType = ({
               </DialogPrimitive.Close>
             )}
 
-            <div className="py-2 px-6 overflow-y-auto scrollbar-auto max-h-[calc(100vh-280px)] focus-visible:!outline-none">
+            <div
+              className={cn(
+                'py-2 px-6 overflow-y-auto scrollbar-auto max-h-[calc(100vh-280px)] focus-visible:!outline-none',
+                bodyClassName,
+              )}
+            >
               {destroyOnClose && !open ? null : contentEl}
             </div>
 

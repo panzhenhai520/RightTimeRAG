@@ -25,6 +25,7 @@ export interface IProps {
   setWidthAndHeight?: (width: number, height: number) => void;
   url: string;
   className?: string;
+  pdfScaleValue?: string;
 }
 const HighlightPopup = ({
   comment,
@@ -43,6 +44,7 @@ const PdfPreview = ({
   setWidthAndHeight,
   url,
   className,
+  pdfScaleValue = 'auto',
 }: IProps) => {
   // const url = useGetDocumentUrl();
 
@@ -96,6 +98,7 @@ const PdfPreview = ({
 
           return (
             <PdfHighlighter
+              pdfScaleValue={pdfScaleValue}
               pdfDocument={pdfDocument}
               enableAreaSelection={(event) => event.altKey}
               onScrollChange={resetHash}
@@ -108,8 +111,8 @@ const PdfPreview = ({
                 index,
                 setTip,
                 hideTip,
-                viewportToScaled,
-                screenshot,
+                _viewportToScaled,
+                _screenshot,
                 isScrolledTo,
               ) => {
                 const isTextHighlight = !(

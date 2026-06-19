@@ -60,6 +60,7 @@ from common.misc_utils import get_uuid, thread_pool_exec
 from rag.prompts.generator import chunks_format
 from rag.prompts.template import load_prompt
 from rag.utils.redis_conn import REDIS_CONN
+from memory.services.messages import MessageService
 
 _DEFAULT_PROMPT_CONFIG = {
     "system": (
@@ -108,8 +109,10 @@ _TTS_PROCESS_BLOCK_PATTERN = re.compile(r"<(?:retrieving|think)>[\s\S]*?</(?:ret
 _TTS_PROCESS_TAG_PATTERN = re.compile(r"</?(?:retrieving|think)>", re.I)
 _TTS_SYNC_JOB_PREFIX = "panython:tts:sync:"
 _TTS_SYNC_JOB_TTL_SECONDS = int(os.environ.get("RAGFLOW_TTS_SYNC_JOB_TTL_SECONDS", "3600"))
-_CHAT_MEMO_TOPIC_MAX_CHARS = int(os.environ.get("RAGFLOW_CHAT_MEMO_TOPIC_MAX_CHARS", "80"))
+_CHAT_MEMO_TOPIC_MAX_CHARS = int(os.environ.get("RAGFLOW_CHAT_MEMO_TOPIC_MAX_CHARS", "36"))
 _CHAT_MEMO_TOPIC_SAMPLE_CHARS = int(os.environ.get("RAGFLOW_CHAT_MEMO_TOPIC_SAMPLE_CHARS", "8000"))
+_CHAT_MEMO_CONTENT_SAMPLE_CHARS = int(os.environ.get("RAGFLOW_CHAT_MEMO_CONTENT_SAMPLE_CHARS", "12000"))
+_CHAT_MEMO_BODY_MAX_CHARS = int(os.environ.get("RAGFLOW_CHAT_MEMO_BODY_MAX_CHARS", "3000"))
 _CHAT_MEMO_ERROR_MARKERS = (
     "ERROR:",
     "CONNECTION_ERROR",
@@ -266,6 +269,12 @@ def _format_conversation_transcript(messages: list[dict]) -> str:
 
 def _sanitize_chat_memo_topic(topic: str | None) -> str:
     topic = _strip_memo_process_text(str(topic or ""))
+    topic = re.sub(
+        r"^(我们注意到用户的问题是关于|我们注意到|我注意到|用户的问题是关于|这个问题是关于|The user asks about|This question is about)\s*[:：，,]*\s*",
+        "",
+        topic,
+        flags=re.IGNORECASE,
+    )
     topic = re.sub(r"^[#\-\s\"'“”‘’]+|[#\-\s\"'“”‘’。.!！]+$", "", topic).strip()
     topic = re.sub(r"\s+", " ", topic)
     if _has_memo_error_content(topic):
@@ -293,6 +302,14 @@ def _memo_topic_sample(transcript: str) -> str:
     return f"{transcript[:half]}\n\n...\n\n{transcript[-half:]}"
 
 
+def _memo_content_sample(transcript: str) -> str:
+    transcript = transcript.strip()
+    if len(transcript) <= _CHAT_MEMO_CONTENT_SAMPLE_CHARS:
+        return transcript
+    half = _CHAT_MEMO_CONTENT_SAMPLE_CHARS // 2
+    return f"{transcript[:half]}\n\n...\n\n{transcript[-half:]}"
+
+
 async def _resolve_chat_memo_topic(transcript: str, chat_config: dict, requested_topic: str | None) -> str:
     explicit_topic = _sanitize_chat_memo_topic(requested_topic)
     if explicit_topic:
@@ -302,8 +319,9 @@ async def _resolve_chat_memo_topic(transcript: str, chat_config: dict, requested
     try:
         chat_mdl = LLMBundle(current_user.id, chat_config)
         generated_topic = await chat_mdl.async_chat(
-            "You generate short memo titles. Return only one concise title in the same language as the conversation. "
-            "Do not use Markdown, quotes, prefixes, or explanations. Keep it within 24 Chinese characters or 10 English words.",
+            "Generate a short noun-phrase title for a conversation memo. Return only the title, in the same language as the conversation. "
+            "Do not write explanations such as 'the user asks about'. Do not use Markdown, quotes, prefixes, or punctuation. "
+            "Keep it within 12 Chinese characters or 6 English words.",
             [{"role": "user", "content": _memo_topic_sample(transcript)}],
             {"temperature": 0.1, "max_tokens": 64},
         )
@@ -311,6 +329,52 @@ async def _resolve_chat_memo_topic(transcript: str, chat_config: dict, requested
     except Exception as exc:  # noqa: BLE001 - memo title generation must not block saving
         logging.warning("Failed to generate chat memo topic; using fallback: %s", exc)
         return fallback
+
+
+def _fallback_chat_memo_content(transcript: str, topic: str) -> str:
+    compact = _memo_content_sample(_strip_memo_process_text(transcript))
+    if len(compact) > _CHAT_MEMO_BODY_MAX_CHARS:
+        compact = compact[:_CHAT_MEMO_BODY_MAX_CHARS].rstrip() + "\n..."
+    return f"Topic: {topic or _fallback_chat_memo_topic(transcript)}\n\nSummary:\n{compact}"
+
+
+async def _resolve_chat_memo_content(transcript: str, topic: str, chat_config: dict) -> str:
+    fallback = _fallback_chat_memo_content(transcript, topic)
+    try:
+        chat_mdl = LLMBundle(current_user.id, chat_config)
+        memo = await chat_mdl.async_chat(
+            "You write compact conversation memos for future retrieval. "
+            "Never include retrieval logs, thinking traces, debug text, stack traces, or error messages. "
+            "Keep the same language as the conversation. Return concise Markdown with these sections: "
+            "Confirmed facts, User goal, Key entities, Decisions or conclusions, Open questions. "
+            "Keep it under 600 Chinese characters or 350 English words.",
+            [
+                {
+                    "role": "user",
+                    "content": f"Memo topic: {topic}\n\nConversation:\n{_memo_content_sample(transcript)}",
+                }
+            ],
+            {"temperature": 0.1, "max_tokens": 700},
+        )
+        memo = _strip_memo_process_text(memo)
+        if not memo or _has_memo_error_content(memo):
+            return fallback
+        memo = re.sub(r"\n{3,}", "\n\n", memo).strip()
+        if len(memo) > _CHAT_MEMO_BODY_MAX_CHARS:
+            memo = memo[:_CHAT_MEMO_BODY_MAX_CHARS].rstrip() + "\n..."
+        return f"Topic: {topic or _fallback_chat_memo_topic(transcript)}\n\n{memo}"
+    except Exception as exc:  # noqa: BLE001 - memo summarization must not block saving
+        logging.warning("Failed to summarize chat memo; using compact transcript: %s", exc)
+        return fallback
+
+
+async def _cleanup_created_chat_memo(memory):
+    try:
+        if await thread_pool_exec(MessageService.has_index, memory.tenant_id, memory.id):
+            await thread_pool_exec(MessageService.delete_index, memory.tenant_id, memory.id)
+        await thread_pool_exec(MemoryService.delete_memory, memory.id)
+    except Exception as exc:  # noqa: BLE001 - best-effort cleanup after failed memo creation
+        logging.warning("Failed to clean up incomplete chat memo %s: %s", getattr(memory, "id", ""), exc)
 
 
 def _validate_name(name, *, required=True):
@@ -1748,25 +1812,26 @@ async def memorize_chat_session():
                 return get_data_error_result(message=str(memory))
             created = True
 
-        if not chat_config:
-            chat_config = await thread_pool_exec(get_tenant_default_model_by_type, current_user.id, LLMType.CHAT)
         topic = _sanitize_chat_memo_topic(requested_topic) or _sanitize_chat_memo_topic(getattr(memory, "description", ""))
         if not topic:
-            topic = await _resolve_chat_memo_topic(transcript, chat_config, requested_topic)
+            topic = _fallback_chat_memo_topic(transcript)
         if topic and topic != (getattr(memory, "description", "") or "").strip():
             await thread_pool_exec(MemoryService.update_memory, current_user.id, memory.id, {"description": topic})
 
+        memo_content = _fallback_chat_memo_content(transcript, topic)
         success, msg = await queue_save_to_memory_task(
             [memory.id],
             {
                 "user_id": current_user.id,
                 "agent_id": chat_id,
                 "session_id": session_id,
-                "user_input": transcript,
+                "user_input": memo_content,
                 "agent_response": "",
             },
         )
         if not success:
+            if created:
+                await _cleanup_created_chat_memo(memory)
             return get_json_result(code=RetCode.SERVER_ERROR, message=msg)
 
         return get_json_result(data={"memory_id": memory.id, "created": created, "topic": topic}, message=msg)

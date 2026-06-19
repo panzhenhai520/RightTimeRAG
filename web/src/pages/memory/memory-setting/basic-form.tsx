@@ -1,6 +1,7 @@
 import { AvatarUpload } from '@/components/avatar-upload';
 import { RAGFlowFormItem } from '@/components/ragflow-form';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { t } from 'i18next';
 import { z } from 'zod';
 export const basicInfoSchema = {
@@ -9,7 +10,10 @@ export const basicInfoSchema = {
   description: z.string().optional(),
 };
 export const defaultBasicInfo = { name: '', avatar: '', description: '' };
-export const BasicInfo = () => {
+const labelClassName = '!w-24 shrink-0';
+const valueClassName = '!w-auto flex-1';
+
+export const BasicInfo = ({ isChatMemo = false }: { isChatMemo?: boolean }) => {
   return (
     <>
       <RAGFlowFormItem
@@ -17,11 +21,13 @@ export const BasicInfo = () => {
         label={t('memories.name')}
         required={true}
         horizontal={true}
+        labelClassName={labelClassName}
+        valueClassName={valueClassName}
         // tooltip={field.tooltip}
         // labelClassName={labelClassName || field.labelClassName}
       >
         {(field) => {
-          return <Input {...field}></Input>;
+          return <Input {...field} disabled={isChatMemo}></Input>;
         }}
       </RAGFlowFormItem>
       <RAGFlowFormItem
@@ -29,6 +35,8 @@ export const BasicInfo = () => {
         label={t('memory.config.avatar')}
         required={false}
         horizontal={true}
+        labelClassName={labelClassName}
+        valueClassName={valueClassName}
         // tooltip={field.tooltip}
         // labelClassName={labelClassName || field.labelClassName}
       >
@@ -42,15 +50,18 @@ export const BasicInfo = () => {
         required={false}
         horizontal={true}
         className="!items-start"
+        labelClassName={labelClassName}
+        valueClassName={valueClassName}
         // tooltip={field.tooltip}
         // labelClassName={labelClassName || field.labelClassName}
       >
         {(field) => {
           return (
-            <Input
+            <Textarea
               {...field}
+              autoSize={{ minRows: 3, maxRows: 8 }}
               placeholder={t('memory.config.descriptionPlaceholder')}
-            ></Input>
+            />
           );
         }}
       </RAGFlowFormItem>

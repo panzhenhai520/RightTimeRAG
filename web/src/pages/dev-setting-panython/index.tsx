@@ -6,7 +6,7 @@ import { useRegister } from '@/hooks/use-login-request';
 import { DEV_FEATURE_SESSION_KEY, Routes } from '@/routes';
 import { rsaPsw } from '@/utils';
 import request from '@/utils/next-request';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
@@ -140,7 +140,8 @@ const ttsEnSegmentOptions = [12, 18, 24, 36, 48];
 
 const ttsFieldRowClass =
   'grid grid-cols-[max-content_minmax(170px,250px)] items-center justify-start gap-2 text-sm';
-const ttsFieldLabelClass = 'truncate text-text-secondary';
+const ttsFieldLabelClass =
+  'inline-flex items-center gap-1 whitespace-nowrap text-text-secondary';
 const ttsSelectClass =
   'h-9 w-full border-0 border-b border-border-button bg-transparent px-0 pr-8 text-sm text-text-primary outline-none disabled:cursor-not-allowed disabled:opacity-50';
 
@@ -154,6 +155,24 @@ const userGroupRoleOptions = [
   ['admin', 'devSettingPanython.roleAdmin'],
   ['owner', 'devSettingPanython.roleOwner'],
 ];
+
+function TtsHelpButton({ text }: { text: string }) {
+  return (
+    <button
+      type="button"
+      className="inline-flex size-4 items-center justify-center rounded-full border border-border-button text-[10px] font-semibold leading-none text-text-secondary transition hover:border-[#6f3f2f] hover:text-[#6f3f2f] dark:hover:border-[#9bc7dd] dark:hover:text-[#9bc7dd]"
+      title={text}
+      aria-label={text}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        message.info(text);
+      }}
+    >
+      ?
+    </button>
+  );
+}
 
 type UserRow = {
   id: string;
@@ -342,10 +361,23 @@ function TenantRelationsCard() {
       ...knowledgebases.map((item) => item.tenant_id),
     ]),
   );
+  const defaultTenantId = useMemo(() => {
+    const adminTenantId = tenantIds.find((tenantId) => {
+      const tenant = users.find((user) => user.id === tenantId);
+      return userDisplayName(tenant, '').trim().toLowerCase() === 'admin';
+    });
+    return adminTenantId ?? tenantIds[0] ?? '';
+  }, [tenantIds, users]);
   const activeTenantId =
     selectedTenantId && tenantIds.includes(selectedTenantId)
       ? selectedTenantId
-      : (tenantIds[0] ?? '');
+      : defaultTenantId;
+
+  useEffect(() => {
+    if (!selectedTenantId && defaultTenantId) {
+      setSelectedTenantId(defaultTenantId);
+    }
+  }, [defaultTenantId, selectedTenantId]);
 
   const handleUpsertRelation = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -677,15 +709,61 @@ function TenantRelationsCard() {
         </div>
       </details>
 
-      <section className="mt-6 rounded-lg border border-border/70 bg-bg-base/40 p-4">
-        <h3 className="text-base font-semibold text-text-primary">
-          {t('devSettingPanython.userGroupTreeTitle')}
-        </h3>
-        <p className="mt-1 text-xs text-text-secondary">
-          {t('devSettingPanython.userGroupTreeDescription')}
-        </p>
-        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-          {tenantIds.map((tenantId) => {
+      <section className="mt-6 grid items-start gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <aside className="rounded-lg border border-border/70 bg-bg-base/40 p-3">
+          <h3 className="text-base font-semibold text-text-primary">
+            {t('devSettingPanython.userGroupTreeTitle')}
+          </h3>
+          <p className="mt-1 text-xs text-text-secondary">
+            {t('devSettingPanython.userGroupTreeDescription')}
+          </p>
+          <div className="mt-4 flex flex-col gap-2 pr-1">
+            {tenantIds.map((tenantId) => {
+              const tenant = users.find((user) => user.id === tenantId);
+              const tenantName = userDisplayName(
+                tenant,
+                t('devSettingPanython.unnamedTenant'),
+              );
+              const tenantMembers = memberships.filter(
+                (item) => item.tenant_id === tenantId,
+              );
+              const tenantDialogs = dialogs.filter(
+                (dialog) => dialog.tenant_id === tenantId,
+              );
+              const tenantKbs = knowledgebases.filter(
+                (kb) => kb.tenant_id === tenantId,
+              );
+              return (
+                <button
+                  key={tenantId}
+                  type="button"
+                  className={`rounded-md border p-3 text-left text-xs transition ${
+                    tenantId === activeTenantId
+                      ? 'border-[#6f3f2f] bg-[#6f3f2f]/10 text-[#6f3f2f] dark:border-[#9bc7dd] dark:bg-[#2d5f80]/25 dark:text-[#9bc7dd]'
+                      : 'border-border/60 bg-bg-card text-text-primary hover:border-[#6f3f2f]/50 dark:hover:border-[#9bc7dd]/60'
+                  }`}
+                  onClick={() => setSelectedTenantId(tenantId)}
+                >
+                  <div className="truncate font-semibold">
+                    {t('devSettingPanython.userGroupLabel', {
+                      group: tenantName,
+                    })}
+                  </div>
+                  <div className="mt-2 text-text-secondary">
+                    {t('devSettingPanython.tenantSummary', {
+                      users: tenantMembers.length,
+                      dialogs: tenantDialogs.length,
+                      kbs: tenantKbs.length,
+                    })}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+
+        <section className="grid min-w-0 gap-4">
+          {(activeTenantId ? [activeTenantId] : []).map((tenantId) => {
             const tenant = users.find((user) => user.id === tenantId);
             const tenantName = userDisplayName(
               tenant,
@@ -697,344 +775,304 @@ function TenantRelationsCard() {
             const tenantDialogs = dialogs.filter(
               (dialog) => dialog.tenant_id === tenantId,
             );
-            const tenantKbs = knowledgebases.filter(
-              (kb) => kb.tenant_id === tenantId,
+            const tenantKbs = knowledgebases.filter((kb) => {
+              return kb.tenant_id === tenantId;
+            });
+            const ownerRelation = tenantMembers.find(
+              (item) => item.user_id === tenantId || item.role === 'owner',
             );
+
             return (
-              <button
+              <article
                 key={tenantId}
-                type="button"
-                className={`rounded-md border p-3 text-left text-xs transition ${
-                  tenantId === activeTenantId
-                    ? 'border-[#6f3f2f] bg-[#6f3f2f]/10 text-[#6f3f2f] dark:border-[#9bc7dd] dark:bg-[#2d5f80]/25 dark:text-[#9bc7dd]'
-                    : 'border-border/60 bg-bg-card text-text-primary hover:border-[#6f3f2f]/50 dark:hover:border-[#9bc7dd]/60'
-                }`}
-                onClick={() => setSelectedTenantId(tenantId)}
+                className="rounded-lg border border-border/70 bg-bg-base/40 p-4"
               >
-                <div className="truncate font-semibold">
-                  {t('devSettingPanython.userGroupLabel', {
-                    group: tenantName,
-                  })}
-                </div>
-                <div className="mt-2 text-text-secondary">
-                  {t('devSettingPanython.tenantSummary', {
-                    users: tenantMembers.length,
-                    dialogs: tenantDialogs.length,
-                    kbs: tenantKbs.length,
-                  })}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="mt-6 grid gap-4">
-        {(activeTenantId ? [activeTenantId] : []).map((tenantId) => {
-          const tenant = users.find((user) => user.id === tenantId);
-          const tenantName = userDisplayName(
-            tenant,
-            t('devSettingPanython.unnamedTenant'),
-          );
-          const tenantMembers = memberships.filter(
-            (item) => item.tenant_id === tenantId,
-          );
-          const tenantDialogs = dialogs.filter(
-            (dialog) => dialog.tenant_id === tenantId,
-          );
-          const tenantKbs = knowledgebases.filter((kb) => {
-            return kb.tenant_id === tenantId;
-          });
-          const ownerRelation = tenantMembers.find(
-            (item) => item.user_id === tenantId || item.role === 'owner',
-          );
-
-          return (
-            <article
-              key={tenantId}
-              className="rounded-lg border border-border/70 bg-bg-base/40 p-4"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-semibold text-text-primary">
-                    {t('devSettingPanython.userGroupLabel', {
-                      group: tenantName,
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-semibold text-text-primary">
+                      {t('devSettingPanython.userGroupLabel', {
+                        group: tenantName,
+                      })}
+                    </h3>
+                    <p className="mt-1 text-xs text-text-secondary">
+                      {formatCounts(data?.asset_counts?.[tenantId] ?? {}, t)}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-bg-card px-3 py-1 text-xs text-text-secondary">
+                    {t('devSettingPanython.tenantSummary', {
+                      users: tenantMembers.length,
+                      dialogs: tenantDialogs.length,
+                      kbs: tenantKbs.length,
                     })}
-                  </h3>
-                  <p className="mt-1 text-xs text-text-secondary">
-                    {formatCounts(data?.asset_counts?.[tenantId] ?? {}, t)}
-                  </p>
+                  </span>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    className="border-state-error text-state-error"
+                    onClick={() =>
+                      handleDeleteUserGroup(ownerRelation, tenantName)
+                    }
+                  >
+                    {t('devSettingPanython.deleteUserGroup')}
+                  </Button>
                 </div>
-                <span className="rounded-full bg-bg-card px-3 py-1 text-xs text-text-secondary">
-                  {t('devSettingPanython.tenantSummary', {
-                    users: tenantMembers.length,
-                    dialogs: tenantDialogs.length,
-                    kbs: tenantKbs.length,
-                  })}
-                </span>
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="outline"
-                  className="border-state-error text-state-error"
-                  onClick={() =>
-                    handleDeleteUserGroup(ownerRelation, tenantName)
-                  }
-                >
-                  {t('devSettingPanython.deleteUserGroup')}
-                </Button>
-              </div>
 
-              <div className="mt-4 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
-                <section className="rounded-md bg-bg-card p-3">
-                  <h4 className="text-sm font-medium text-text-primary">
-                    {t('devSettingPanython.groupMembers')}
-                  </h4>
-                  <div className="mt-3 space-y-2">
-                    {tenantMembers.length === 0 ? (
-                      <span className="text-xs text-text-secondary">
-                        {t('devSettingPanython.noTenantUsers')}
-                      </span>
-                    ) : (
-                      tenantMembers.map((member) => (
-                        <div
-                          key={member.id}
-                          className="flex items-center justify-between gap-2 rounded-md bg-bg-base px-3 py-2 text-xs"
-                          title={t('devSettingPanython.userBelongsToTenant', {
-                            user: member.user_label,
-                            tenant: tenantName,
-                          })}
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate text-text-primary">
-                              {member.user_label}
-                            </span>
-                            <span className="text-text-secondary">
-                              {roleLabel(member.role, t)}
-                            </span>
-                          </span>
-                          <button
-                            type="button"
-                            className="text-state-error disabled:cursor-not-allowed disabled:opacity-40"
-                            disabled={!member.can_delete}
-                            title={
-                              member.can_delete
-                                ? t('devSettingPanython.removeUserTenant')
-                                : t('devSettingPanython.hasDependentAssets', {
-                                    blockers:
-                                      member.delete_blockers.join(' / '),
-                                  })
-                            }
-                            onClick={() => handleDeleteRelation(member)}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  <h4 className="mt-5 text-sm font-medium text-text-primary">
-                    {t('devSettingPanython.groupKnowledgebases')}
-                  </h4>
-                  <div className="mt-3 grid gap-2">
-                    {tenantKbs.length === 0 ? (
-                      <span className="text-xs text-text-secondary">
-                        {t('devSettingPanython.noKnowledgebases')}
-                      </span>
-                    ) : (
-                      tenantKbs.map((kb) => (
-                        <div
-                          key={kb.id}
-                          className="rounded-md border border-border/60 bg-bg-base px-3 py-2 text-xs"
-                        >
-                          <div className="font-medium text-text-primary">
-                            {kb.name}
-                          </div>
-                          <div className="mt-1 text-text-secondary">
-                            {t('devSettingPanython.kbStats', {
-                              docs: kb.doc_num,
-                              chunks: kb.chunk_num,
-                              permission: kb.permission,
+                <div className="mt-4 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+                  <section className="rounded-md bg-bg-card p-3">
+                    <h4 className="text-sm font-medium text-text-primary">
+                      {t('devSettingPanython.groupMembers')}
+                    </h4>
+                    <div className="mt-3 space-y-2">
+                      {tenantMembers.length === 0 ? (
+                        <span className="text-xs text-text-secondary">
+                          {t('devSettingPanython.noTenantUsers')}
+                        </span>
+                      ) : (
+                        tenantMembers.map((member) => (
+                          <div
+                            key={member.id}
+                            className="flex items-center justify-between gap-2 rounded-md bg-bg-base px-3 py-2 text-xs"
+                            title={t('devSettingPanython.userBelongsToTenant', {
+                              user: member.user_label,
+                              tenant: tenantName,
                             })}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </section>
-
-                <section className="relative grid gap-3 border-l border-border/70 pl-4">
-                  <span className="absolute -left-[5px] top-2 h-2.5 w-2.5 rounded-full bg-[#6f3f2f] dark:bg-[#9bc7dd]" />
-                  <h4 className="text-sm font-medium text-text-primary">
-                    {t('devSettingPanython.groupAssistants')}
-                  </h4>
-                  {tenantDialogs.length === 0 ? (
-                    <div className="rounded-md bg-bg-card p-4 text-sm text-text-secondary">
-                      {t('devSettingPanython.noDialogsInTenant')}
-                    </div>
-                  ) : (
-                    tenantDialogs.map((dialog) => {
-                      const selectedKbIds =
-                        dialogKbTargets[dialog.id] ?? dialog.kb_ids ?? [];
-                      const selectedKbs = selectedKbIds
-                        .map((kbId) => kbById.get(kbId))
-                        .filter(Boolean) as KnowledgebaseRow[];
-                      return (
-                        <div
-                          key={dialog.id}
-                          className="relative rounded-md border border-border/70 bg-bg-card p-3"
-                        >
-                          <span className="absolute -left-[21px] top-5 h-px w-4 bg-border/70" />
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="min-w-0">
-                              <h4 className="truncate text-sm font-semibold text-text-primary">
-                                {t('devSettingPanython.dialogLabel', {
-                                  dialog: dialog.name,
-                                })}
-                              </h4>
-                              <p className="mt-0.5 text-xs text-text-secondary">
-                                {t('devSettingPanython.dialogTenantAccess', {
-                                  tenant: tenantName,
-                                })}
-                              </p>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <select
-                                className="h-8 min-w-[180px] rounded-md bg-bg-input px-2 text-xs outline-none"
-                                value={dialogTargets[dialog.id] ?? ''}
-                                onChange={(event) =>
-                                  setDialogTargets((previous) => ({
-                                    ...previous,
-                                    [dialog.id]: event.target.value,
-                                  }))
-                                }
-                              >
-                                <option value="">
-                                  {t('devSettingPanython.moveToTenant')}
-                                </option>
-                                {users.map((user) => (
-                                  <option key={user.id} value={user.id}>
-                                    {userDisplayName(
-                                      user,
-                                      t('devSettingPanython.unnamedUser'),
-                                    )}
-                                  </option>
-                                ))}
-                              </select>
-                              <Button
-                                size="xs"
-                                variant="outline"
-                                disabled={
-                                  !dialogTargets[dialog.id] ||
-                                  dialogTargets[dialog.id] === dialog.tenant_id
-                                }
-                                onClick={() => handleTransferDialog(dialog)}
-                              >
-                                {t('devSettingPanython.saveOwner')}
-                              </Button>
-                              <Button
-                                size="xs"
-                                variant="outline"
-                                className="border-state-error text-state-error"
-                                onClick={() => handleDeleteDialog(dialog)}
-                              >
-                                {t('devSettingPanython.deleteDialog')}
-                              </Button>
-                            </div>
-                          </div>
-
-                          <div className="mt-3 rounded-md bg-bg-base/50 p-2.5">
-                            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
-                              <span className="font-medium text-text-primary">
-                                {t(
-                                  'devSettingPanython.accessibleKnowledgebases',
-                                )}
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-text-primary">
+                                {member.user_label}
                               </span>
                               <span className="text-text-secondary">
-                                {t('devSettingPanython.selectedKbCount', {
-                                  count: selectedKbs.length,
-                                })}
+                                {roleLabel(member.role, t)}
                               </span>
+                            </span>
+                            <button
+                              type="button"
+                              className="text-state-error disabled:cursor-not-allowed disabled:opacity-40"
+                              disabled={!member.can_delete}
+                              title={
+                                member.can_delete
+                                  ? t('devSettingPanython.removeUserTenant')
+                                  : t('devSettingPanython.hasDependentAssets', {
+                                      blockers:
+                                        member.delete_blockers.join(' / '),
+                                    })
+                              }
+                              onClick={() => handleDeleteRelation(member)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <h4 className="mt-5 text-sm font-medium text-text-primary">
+                      {t('devSettingPanython.groupKnowledgebases')}
+                    </h4>
+                    <div className="mt-3 grid gap-2">
+                      {tenantKbs.length === 0 ? (
+                        <span className="text-xs text-text-secondary">
+                          {t('devSettingPanython.noKnowledgebases')}
+                        </span>
+                      ) : (
+                        tenantKbs.map((kb) => (
+                          <div
+                            key={kb.id}
+                            className="rounded-md border border-border/60 bg-bg-base px-3 py-2 text-xs"
+                          >
+                            <div className="font-medium text-text-primary">
+                              {kb.name}
                             </div>
-                            {selectedKbs.length > 0 && (
-                              <div className="mb-2 flex flex-wrap gap-1.5">
-                                {selectedKbs.map((kb) => (
-                                  <span
-                                    key={kb.id}
-                                    className="rounded-full bg-[#6f3f2f]/10 px-2 py-1 text-xs text-[#6f3f2f] dark:bg-[#2d5f80]/25 dark:text-[#9bc7dd]"
-                                    title={t(
-                                      'devSettingPanython.kbTenantTooltip',
-                                      {
-                                        kb: kb.name,
-                                        tenant: kb.tenant_label,
-                                      },
-                                    )}
-                                  >
-                                    {kb.name}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            {knowledgebases.length === 0 ? (
-                              <div className="text-xs text-text-secondary">
-                                {t(
-                                  'devSettingPanython.noBindableKnowledgebases',
-                                )}
-                              </div>
-                            ) : (
-                              <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-4">
-                                {knowledgebases.map((kb) => (
-                                  <label
-                                    key={kb.id}
-                                    className="flex cursor-pointer items-start gap-2 rounded-md bg-bg-card px-2.5 py-2 text-xs hover:bg-bg-base"
-                                  >
-                                    <input
-                                      className="mt-0.5"
-                                      type="checkbox"
-                                      checked={selectedKbIds.includes(kb.id)}
-                                      onChange={(event) =>
-                                        toggleDialogKb(
-                                          dialog.id,
-                                          kb.id,
-                                          event.target.checked,
-                                        )
-                                      }
-                                    />
-                                    <span>
-                                      <span className="block font-medium text-text-primary">
-                                        {kb.name}
-                                      </span>
-                                      <span className="text-text-secondary">
-                                        {t('devSettingPanython.kbOptionMeta', {
-                                          tenant: kb.tenant_label,
-                                          docs: kb.doc_num,
-                                          chunks: kb.chunk_num,
-                                        })}
-                                      </span>
-                                    </span>
-                                  </label>
-                                ))}
-                              </div>
-                            )}
-                            <div className="mt-3 flex justify-end">
-                              <Button
-                                size="xs"
-                                onClick={() => handleUpdateDialogKbs(dialog)}
-                              >
-                                {t('devSettingPanython.saveKnowledgeAccess')}
-                              </Button>
+                            <div className="mt-1 text-text-secondary">
+                              {t('devSettingPanython.kbStats', {
+                                docs: kb.doc_num,
+                                chunks: kb.chunk_num,
+                                permission: kb.permission,
+                              })}
                             </div>
                           </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </section>
-              </div>
-            </article>
-          );
-        })}
+                        ))
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="relative grid gap-3 border-l border-border/70 pl-4">
+                    <span className="absolute -left-[5px] top-2 h-2.5 w-2.5 rounded-full bg-[#6f3f2f] dark:bg-[#9bc7dd]" />
+                    <h4 className="text-sm font-medium text-text-primary">
+                      {t('devSettingPanython.groupAssistants')}
+                    </h4>
+                    {tenantDialogs.length === 0 ? (
+                      <div className="rounded-md bg-bg-card p-4 text-sm text-text-secondary">
+                        {t('devSettingPanython.noDialogsInTenant')}
+                      </div>
+                    ) : (
+                      tenantDialogs.map((dialog) => {
+                        const selectedKbIds =
+                          dialogKbTargets[dialog.id] ?? dialog.kb_ids ?? [];
+                        const selectedKbs = selectedKbIds
+                          .map((kbId) => kbById.get(kbId))
+                          .filter(Boolean) as KnowledgebaseRow[];
+                        return (
+                          <div
+                            key={dialog.id}
+                            className="relative rounded-md border border-border/70 bg-bg-card p-3"
+                          >
+                            <span className="absolute -left-[21px] top-5 h-px w-4 bg-border/70" />
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <h4 className="truncate text-sm font-semibold text-text-primary">
+                                  {t('devSettingPanython.dialogLabel', {
+                                    dialog: dialog.name,
+                                  })}
+                                </h4>
+                                <p className="mt-0.5 text-xs text-text-secondary">
+                                  {t('devSettingPanython.dialogTenantAccess', {
+                                    tenant: tenantName,
+                                  })}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <select
+                                  className="h-8 min-w-[180px] rounded-md bg-bg-input px-2 text-xs outline-none"
+                                  value={dialogTargets[dialog.id] ?? ''}
+                                  onChange={(event) =>
+                                    setDialogTargets((previous) => ({
+                                      ...previous,
+                                      [dialog.id]: event.target.value,
+                                    }))
+                                  }
+                                >
+                                  <option value="">
+                                    {t('devSettingPanython.moveToTenant')}
+                                  </option>
+                                  {users.map((user) => (
+                                    <option key={user.id} value={user.id}>
+                                      {userDisplayName(
+                                        user,
+                                        t('devSettingPanython.unnamedUser'),
+                                      )}
+                                    </option>
+                                  ))}
+                                </select>
+                                <Button
+                                  size="xs"
+                                  variant="outline"
+                                  disabled={
+                                    !dialogTargets[dialog.id] ||
+                                    dialogTargets[dialog.id] ===
+                                      dialog.tenant_id
+                                  }
+                                  onClick={() => handleTransferDialog(dialog)}
+                                >
+                                  {t('devSettingPanython.saveOwner')}
+                                </Button>
+                                <Button
+                                  size="xs"
+                                  variant="outline"
+                                  className="border-state-error text-state-error"
+                                  onClick={() => handleDeleteDialog(dialog)}
+                                >
+                                  {t('devSettingPanython.deleteDialog')}
+                                </Button>
+                              </div>
+                            </div>
+
+                            <div className="mt-3 rounded-md bg-bg-base/50 p-2.5">
+                              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <span className="font-medium text-text-primary">
+                                  {t(
+                                    'devSettingPanython.accessibleKnowledgebases',
+                                  )}
+                                </span>
+                                <span className="text-text-secondary">
+                                  {t('devSettingPanython.selectedKbCount', {
+                                    count: selectedKbs.length,
+                                  })}
+                                </span>
+                              </div>
+                              {selectedKbs.length > 0 && (
+                                <div className="mb-2 flex flex-wrap gap-1.5">
+                                  {selectedKbs.map((kb) => (
+                                    <span
+                                      key={kb.id}
+                                      className="rounded-full bg-[#6f3f2f]/10 px-2 py-1 text-xs text-[#6f3f2f] dark:bg-[#2d5f80]/25 dark:text-[#9bc7dd]"
+                                      title={t(
+                                        'devSettingPanython.kbTenantTooltip',
+                                        {
+                                          kb: kb.name,
+                                          tenant: kb.tenant_label,
+                                        },
+                                      )}
+                                    >
+                                      {kb.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {knowledgebases.length === 0 ? (
+                                <div className="text-xs text-text-secondary">
+                                  {t(
+                                    'devSettingPanython.noBindableKnowledgebases',
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-4">
+                                  {knowledgebases.map((kb) => (
+                                    <label
+                                      key={kb.id}
+                                      className="flex cursor-pointer items-start gap-2 rounded-md bg-bg-card px-2.5 py-2 text-xs hover:bg-bg-base"
+                                    >
+                                      <input
+                                        className="mt-0.5"
+                                        type="checkbox"
+                                        checked={selectedKbIds.includes(kb.id)}
+                                        onChange={(event) =>
+                                          toggleDialogKb(
+                                            dialog.id,
+                                            kb.id,
+                                            event.target.checked,
+                                          )
+                                        }
+                                      />
+                                      <span>
+                                        <span className="block font-medium text-text-primary">
+                                          {kb.name}
+                                        </span>
+                                        <span className="text-text-secondary">
+                                          {t(
+                                            'devSettingPanython.kbOptionMeta',
+                                            {
+                                              tenant: kb.tenant_label,
+                                              docs: kb.doc_num,
+                                              chunks: kb.chunk_num,
+                                            },
+                                          )}
+                                        </span>
+                                      </span>
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="mt-3 flex justify-end">
+                                <Button
+                                  size="xs"
+                                  onClick={() => handleUpdateDialogKbs(dialog)}
+                                >
+                                  {t('devSettingPanython.saveKnowledgeAccess')}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </section>
+                </div>
+              </article>
+            );
+          })}
+        </section>
       </section>
     </article>
   );
@@ -1285,9 +1323,7 @@ function TtsEngineSettingsCard() {
   };
 
   const capabilityItems: Array<[keyof TtsEngineSettings, string]> = [
-    ['supports_speed', 'devSettingPanython.ttsCapabilitySpeed'],
     ['supports_emotion', 'devSettingPanython.ttsCapabilityEmotion'],
-    ['supports_dialect', 'devSettingPanython.ttsCapabilityDialect'],
     ['supports_voice_profile', 'devSettingPanython.ttsCapabilityVoice'],
     ['supports_sync_caption', 'devSettingPanython.ttsCapabilitySync'],
   ];
@@ -1359,6 +1395,93 @@ function TtsEngineSettingsCard() {
           {t('devSettingPanython.engineCapabilities')}
         </h3>
         <div className="grid gap-x-8 gap-y-3 md:grid-cols-2">
+          <label className={ttsFieldRowClass}>
+            <span className={ttsFieldLabelClass}>
+              {t('devSettingPanython.ttsCapabilitySpeed')}:
+            </span>
+            <select
+              className={ttsSelectClass}
+              value={String(Boolean(settings.supports_speed))}
+              onChange={(event) =>
+                updateSetting('supports_speed', event.target.value === 'true')
+              }
+            >
+              {ttsBooleanOptions.map(([value, optionLabel]) => (
+                <option key={value} value={value}>
+                  {t(optionLabel)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className={ttsFieldRowClass}>
+            <span className={ttsFieldLabelClass}>
+              {t('devSettingPanython.defaultSpeed')}:
+            </span>
+            <select
+              className={ttsSelectClass}
+              value={settings.default_speed}
+              onChange={(event) =>
+                updateSetting('default_speed', Number(event.target.value))
+              }
+              disabled={!settings.supports_speed}
+            >
+              {!ttsSpeedOptions.some(
+                ([value]) => Number(value) === Number(settings.default_speed),
+              ) && (
+                <option value={settings.default_speed}>
+                  {t('devSettingPanython.currentSpeed', {
+                    speed: settings.default_speed,
+                  })}
+                </option>
+              )}
+              {ttsSpeedOptions.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {t(String(label))}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className={ttsFieldRowClass}>
+            <span className={ttsFieldLabelClass}>
+              {t('devSettingPanython.ttsCapabilityDialect')}:
+            </span>
+            <select
+              className={ttsSelectClass}
+              value={String(Boolean(settings.supports_dialect))}
+              onChange={(event) =>
+                updateSetting('supports_dialect', event.target.value === 'true')
+              }
+            >
+              {ttsBooleanOptions.map(([value, optionLabel]) => (
+                <option key={value} value={value}>
+                  {t(optionLabel)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className={ttsFieldRowClass}>
+            <span className={ttsFieldLabelClass}>
+              {t('devSettingPanython.defaultDialect')}:
+            </span>
+            <select
+              className={ttsSelectClass}
+              value={settings.default_dialect}
+              onChange={(event) =>
+                updateSetting('default_dialect', event.target.value)
+              }
+              disabled={!settings.supports_dialect}
+            >
+              {ttsDialectOptions.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {t(label)}
+                </option>
+              ))}
+            </select>
+          </label>
+
           {capabilityItems.map(([key, label]) => (
             <label key={key} className={ttsFieldRowClass}>
               <span className={ttsFieldLabelClass}>{t(label)}:</span>
@@ -1383,35 +1506,6 @@ function TtsEngineSettingsCard() {
       <section className="mt-5 grid gap-x-8 gap-y-3 md:grid-cols-2">
         <label className={ttsFieldRowClass}>
           <span className={ttsFieldLabelClass}>
-            {t('devSettingPanython.defaultSpeed')}:
-          </span>
-          <select
-            className={ttsSelectClass}
-            value={settings.default_speed}
-            onChange={(event) =>
-              updateSetting('default_speed', Number(event.target.value))
-            }
-            disabled={!settings.supports_speed}
-          >
-            {!ttsSpeedOptions.some(
-              ([value]) => Number(value) === Number(settings.default_speed),
-            ) && (
-              <option value={settings.default_speed}>
-                {t('devSettingPanython.currentSpeed', {
-                  speed: settings.default_speed,
-                })}
-              </option>
-            )}
-            {ttsSpeedOptions.map(([value, label]) => (
-              <option key={value} value={value}>
-                {t(label)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className={ttsFieldRowClass}>
-          <span className={ttsFieldLabelClass}>
             {t('devSettingPanython.defaultEmotion')}:
           </span>
           <select
@@ -1423,26 +1517,6 @@ function TtsEngineSettingsCard() {
             disabled={!settings.supports_emotion}
           >
             {ttsEmotionOptions.map(([value, label]) => (
-              <option key={value} value={value}>
-                {t(label)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className={ttsFieldRowClass}>
-          <span className={ttsFieldLabelClass}>
-            {t('devSettingPanython.defaultDialect')}:
-          </span>
-          <select
-            className={ttsSelectClass}
-            value={settings.default_dialect}
-            onChange={(event) =>
-              updateSetting('default_dialect', event.target.value)
-            }
-            disabled={!settings.supports_dialect}
-          >
-            {ttsDialectOptions.map(([value, label]) => (
               <option key={value} value={value}>
                 {t(label)}
               </option>
@@ -1505,6 +1579,7 @@ function TtsEngineSettingsCard() {
         <label className={ttsFieldRowClass}>
           <span className={ttsFieldLabelClass}>
             {t('devSettingPanython.bufferMs')}:
+            <TtsHelpButton text={t('devSettingPanython.bufferMsHelp')} />
           </span>
           <select
             className={ttsSelectClass}
@@ -1515,11 +1590,15 @@ function TtsEngineSettingsCard() {
             disabled={!settings.supports_sync_caption}
           >
             {!ttsBufferOptions.includes(settings.buffer_ms) && (
-              <option value={settings.buffer_ms}>{settings.buffer_ms}</option>
+              <option value={settings.buffer_ms}>
+                {t('devSettingPanython.bufferMsValue', {
+                  value: settings.buffer_ms,
+                })}
+              </option>
             )}
             {ttsBufferOptions.map((value) => (
               <option key={value} value={value}>
-                {value}
+                {t('devSettingPanython.bufferMsValue', { value })}
               </option>
             ))}
           </select>
@@ -1528,6 +1607,7 @@ function TtsEngineSettingsCard() {
         <label className={ttsFieldRowClass}>
           <span className={ttsFieldLabelClass}>
             {t('devSettingPanython.zhSegmentChars')}:
+            <TtsHelpButton text={t('devSettingPanython.zhSegmentCharsHelp')} />
           </span>
           <select
             className={ttsSelectClass}
@@ -1538,12 +1618,14 @@ function TtsEngineSettingsCard() {
           >
             {!ttsZhSegmentOptions.includes(settings.segment_max_chars_zh) && (
               <option value={settings.segment_max_chars_zh}>
-                {settings.segment_max_chars_zh}
+                {t('devSettingPanython.zhSegmentCharsValue', {
+                  value: settings.segment_max_chars_zh,
+                })}
               </option>
             )}
             {ttsZhSegmentOptions.map((value) => (
               <option key={value} value={value}>
-                {value}
+                {t('devSettingPanython.zhSegmentCharsValue', { value })}
               </option>
             ))}
           </select>
@@ -1552,6 +1634,7 @@ function TtsEngineSettingsCard() {
         <label className={ttsFieldRowClass}>
           <span className={ttsFieldLabelClass}>
             {t('devSettingPanython.enSegmentWords')}:
+            <TtsHelpButton text={t('devSettingPanython.enSegmentWordsHelp')} />
           </span>
           <select
             className={ttsSelectClass}
@@ -1562,12 +1645,14 @@ function TtsEngineSettingsCard() {
           >
             {!ttsEnSegmentOptions.includes(settings.segment_max_words_en) && (
               <option value={settings.segment_max_words_en}>
-                {settings.segment_max_words_en}
+                {t('devSettingPanython.enSegmentWordsValue', {
+                  value: settings.segment_max_words_en,
+                })}
               </option>
             )}
             {ttsEnSegmentOptions.map((value) => (
               <option key={value} value={value}>
-                {value}
+                {t('devSettingPanython.enSegmentWordsValue', { value })}
               </option>
             ))}
           </select>

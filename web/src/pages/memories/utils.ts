@@ -1,11 +1,20 @@
 import type { TFunction } from 'i18next';
 import { IMemory } from './interface';
 
+function cleanChatMemoTitle(title?: string) {
+  return (title || '')
+    .replace(
+      /^(我们注意到用户的问题是关于|我们注意到|我注意到|用户的问题是关于|这个问题是关于|The user asks about|This question is about)\s*[:：，,]*\s*/i,
+      '',
+    )
+    .trim();
+}
+
 export function getMemoryDisplayName(memory: Partial<IMemory>, t: TFunction) {
   if (memory.is_chat_memo) {
     return (
-      memory.display_name ||
-      memory.description?.trim() ||
+      cleanChatMemoTitle(memory.display_name) ||
+      cleanChatMemoTitle(memory.description) ||
       t('memories.chatMemo')
     );
   }

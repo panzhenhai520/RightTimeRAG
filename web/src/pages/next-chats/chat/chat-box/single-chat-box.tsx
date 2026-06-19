@@ -23,6 +23,7 @@ import {
 import { useCreateConversationBeforeUploadDocument } from '../../hooks/use-create-conversation';
 import { useSendMessage } from '../../hooks/use-send-chat-message';
 import { buildMessageItemReference } from '../../utils';
+import { AddToMemoryDialog } from '../add-to-memory-dialog';
 import { useShowInternet } from '../use-show-internet';
 
 const hasProcessBlocks = (content: unknown) =>
@@ -63,6 +64,7 @@ export function SingleChatBox({
   const disabled = useGetSendButtonDisabled();
   const sendDisabled = useSendButtonDisabled(value);
   const [addToMemoryLoading, setAddToMemoryLoading] = useState(false);
+  const [addToMemoryOpen, setAddToMemoryOpen] = useState(false);
   const { visible, hideModal, documentId, selectedChunk, clickDocumentButton } =
     useClickDrawer();
 
@@ -119,31 +121,35 @@ export function SingleChatBox({
     }
   }, [conversation?.messages, conversation.reference, setDerivedMessages]);
 
-  const handleAddToMemory = useCallback(async () => {
+  const openAddToMemoryDialog = useCallback(() => {
     if (!currentDialog.id || !conversationId) {
       toast.info(t('chat.addToMemoryPreparing'));
       return;
     }
-    const topic = window.prompt(t('chat.addToMemoryTopicPrompt'), '');
-    if (topic === null) {
-      return;
-    }
-    setAddToMemoryLoading(true);
-    try {
-      const { data } = await request.post(api.memorizeChat, {
-        chat_id: currentDialog.id,
-        session_id: conversationId,
-        topic: topic.trim(),
-      });
-      if (data?.code === 0) {
-        toast.success(t('chat.addToMemorySuccess'));
-      } else {
-        toast.error(data?.message || 'Failed to add memo');
-      }
-    } finally {
-      setAddToMemoryLoading(false);
-    }
+    setAddToMemoryOpen(true);
   }, [conversationId, currentDialog.id]);
+
+  const handleAddToMemory = useCallback(
+    async (topic: string) => {
+      setAddToMemoryLoading(true);
+      try {
+        const { data } = await request.post(api.memorizeChat, {
+          chat_id: currentDialog.id,
+          session_id: conversationId,
+          topic,
+        });
+        if (data?.code === 0) {
+          toast.success(t('chat.addToMemorySuccess'));
+          setAddToMemoryOpen(false);
+        } else {
+          toast.error(data?.message || 'Failed to add memo');
+        }
+      } finally {
+        setAddToMemoryLoading(false);
+      }
+    },
+    [conversationId, currentDialog.id],
+  );
 
   useEffect(() => {
     // Clear the message list after deleting the conversation.
@@ -216,10 +222,16 @@ export function SingleChatBox({
           onUpload={handleUploadFile}
           isUploading={isUploading}
           removeFile={removeFile}
-          onAddToMemory={handleAddToMemory}
+          onAddToMemory={openAddToMemoryDialog}
           addToMemoryLoading={addToMemoryLoading}
           showReasoning
           showInternet={showInternet}
+        />
+        <AddToMemoryDialog
+          open={addToMemoryOpen}
+          loading={addToMemoryLoading}
+          onOpenChange={setAddToMemoryOpen}
+          onSubmit={handleAddToMemory}
         />
         {visible && (
           <PdfSheet

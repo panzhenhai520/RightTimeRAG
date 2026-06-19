@@ -4,7 +4,6 @@ import { ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { Agents } from './agent-list';
-import { SeeAllAppCard } from './application-card';
 import { ChatList } from './chat-list';
 import { MemoryList } from './memory-list';
 import { SearchList } from './search-list';
@@ -34,14 +33,14 @@ function WorkspaceSection({
   const navigate = useNavigate();
 
   return (
-    <section className="rounded-xl bg-bg-base/70 p-5 shadow-sm ring-1 ring-border-default/20 dark:bg-bg-component/45">
-      <header className="mb-4 flex items-start justify-between gap-4">
+    <section className="min-w-0 rounded-xl bg-bg-base/70 p-4 shadow-sm ring-1 ring-border-default/20 dark:bg-bg-component/45">
+      <header className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="flex items-center text-xl font-semibold leading-7">
-            <HomeIcon imgClass="me-2.5" name={icon} width={22} />
+          <h2 className="flex items-center text-base font-semibold leading-6">
+            <HomeIcon imgClass="me-2" name={icon} width={18} />
             {title}
           </h2>
-          <p className="mt-1 text-sm leading-6 text-text-secondary">
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-text-secondary">
             {description}
           </p>
         </div>
@@ -49,7 +48,7 @@ function WorkspaceSection({
         {route && listLength > 0 && (
           <button
             type="button"
-            className="shrink-0 rounded-full px-3 py-1.5 text-sm text-text-secondary transition hover:bg-bg-card hover:text-text-primary"
+            className="shrink-0 rounded-full px-2.5 py-1 text-xs text-text-secondary transition hover:bg-bg-card hover:text-text-primary"
             onClick={() => navigate(route)}
           >
             {t('common.seeAll')}
@@ -61,13 +60,10 @@ function WorkspaceSection({
         className={
           listLength <= 0 && !loading
             ? 'hidden'
-            : 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'
+            : 'grid gap-3 [&>article]:h-[112px] [&>article]:min-h-0 [&>article]:overflow-hidden'
         }
       >
         {children}
-        {route && listLength > 0 && (
-          <SeeAllAppCard click={() => navigate(route)} />
-        )}
       </div>
 
       {listLength <= 0 && !loading && (
@@ -100,7 +96,7 @@ export function Applications() {
   const [memoryLoading, setMemoryLoading] = useState(false);
 
   return (
-    <section className="mt-8 grid gap-6">
+    <section className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <WorkspaceSection
         title={t('homeDashboard.chatAssistants')}
         description={t('homeDashboard.chatAssistantsDescription')}
@@ -112,8 +108,26 @@ export function Applications() {
       >
         <ChatList
           pageSize={8}
+          displayLimit={2}
           setListLength={(length: number) => setChatLength(length)}
           setLoading={(loading: boolean) => setChatLoading(loading)}
+        />
+      </WorkspaceSection>
+
+      <WorkspaceSection
+        title={t('homeDashboard.recentMemos')}
+        description={t('homeDashboard.recentMemosDescription')}
+        icon="memory"
+        route={Routes.Memories}
+        emptyActionRoute={Routes.DevSettingPanython}
+        listLength={memoryLength}
+        loading={memoryLoading}
+      >
+        <MemoryList
+          pageSize={8}
+          displayLimit={2}
+          setListLength={(length: number) => setMemoryLength(length)}
+          setLoading={(loading: boolean) => setMemoryLoading(loading)}
         />
       </WorkspaceSection>
 
@@ -128,6 +142,7 @@ export function Applications() {
       >
         <SearchList
           pageSize={8}
+          displayLimit={2}
           setListLength={(length: number) => setSearchLength(length)}
           setLoading={(loading: boolean) => setSearchLoading(loading)}
         />
@@ -137,30 +152,16 @@ export function Applications() {
         title={t('homeDashboard.publishedAgents')}
         description={t('homeDashboard.publishedAgentsDescription')}
         icon="agents"
+        route={Routes.Agents}
         emptyActionRoute={Routes.DevSettingPanython}
         listLength={agentLength}
         loading={agentLoading}
       >
         <Agents
-          pageSize={50}
-          displayLimit={8}
+          pageSize={8}
+          displayLimit={2}
           setListLength={(length: number) => setAgentLength(length)}
           setLoading={(loading: boolean) => setAgentLoading(loading)}
-        />
-      </WorkspaceSection>
-
-      <WorkspaceSection
-        title={t('homeDashboard.recentMemos')}
-        description={t('homeDashboard.recentMemosDescription')}
-        icon="memory"
-        emptyActionRoute={Routes.DevSettingPanython}
-        listLength={memoryLength}
-        loading={memoryLoading}
-      >
-        <MemoryList
-          pageSize={8}
-          setListLength={(length: number) => setMemoryLength(length)}
-          setLoading={(loading: boolean) => setMemoryLoading(loading)}
         />
       </WorkspaceSection>
     </section>

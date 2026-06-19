@@ -1,6 +1,5 @@
 import { FormFieldType, RenderField } from '@/components/dynamic-form';
-import { useModelOptions } from '@/components/llm-setting-items/llm-form-field';
-import { EmbeddingSelect } from '@/pages/dataset/dataset-setting/configuration/common-item';
+import { Input } from '@/components/ui/input';
 import { MemoryOptions, MemoryType } from '@/pages/memories/constants';
 import { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
@@ -27,8 +26,8 @@ export const defaultMemoryModelForm = {
   memory_type: [],
   memory_size: 0,
 };
+const labelClassName = '!w-24 shrink-0';
 export const MemoryModelForm = () => {
-  const { modelOptions } = useModelOptions();
   const { t } = useTranslation();
   const { data } = useFetchMemoryMessageList();
   return (
@@ -40,16 +39,11 @@ export const MemoryModelForm = () => {
           placeholder: t('memories.selectModel'),
           required: true,
           horizontal: true,
+          labelClassName,
           // hideLabel: true,
           type: FormFieldType.Custom,
           disabled: true,
-          render: (field) => (
-            <EmbeddingSelect
-              field={field}
-              isEdit={false}
-              disabled={data?.messages?.total_count > 0}
-            />
-          ),
+          render: (field) => <Input {...field} disabled />,
 
           tooltip: t('memories.embeddingModelTooltip'),
         }}
@@ -61,9 +55,10 @@ export const MemoryModelForm = () => {
           placeholder: t('memories.selectModel'),
           required: true,
           horizontal: true,
-          type: FormFieldType.Select,
-          disabled: data?.messages?.total_count > 0,
-          options: modelOptions as { value: string; label: string }[],
+          type: FormFieldType.Custom,
+          labelClassName,
+          disabled: true,
+          render: (field) => <Input {...field} disabled />,
           tooltip: t('memories.llmTooltip'),
         }}
       />
@@ -73,6 +68,7 @@ export const MemoryModelForm = () => {
           label: t('memories.memoryType'),
           type: FormFieldType.MultiSelect,
           horizontal: true,
+          labelClassName,
           placeholder: t('memories.memoryTypePlaceholder'),
           tooltip: t('memories.memoryTypeTooltip'),
           disabled: data?.messages?.total_count > 0,
@@ -92,6 +88,7 @@ export const MemoryModelForm = () => {
           label: t('memory.config.memorySize') + ' (Bytes)',
           type: FormFieldType.Number,
           horizontal: true,
+          labelClassName,
           tooltip: t('memory.config.memorySizeTooltip'),
           // placeholder: t('memory.config.memorySizePlaceholder'),
           required: false,

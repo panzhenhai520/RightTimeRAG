@@ -72,7 +72,7 @@ class MessageService:
             filter_dict["session_id"] = keywords
         select_fields = [
             "message_id", "message_type", "source_id", "memory_id", "user_id", "agent_id", "session_id", "valid_at",
-            "invalid_at", "forget_at", "status"
+            "invalid_at", "forget_at", "status", "content"
         ]
         order_by = OrderByExpr()
         order_by.desc("valid_at")

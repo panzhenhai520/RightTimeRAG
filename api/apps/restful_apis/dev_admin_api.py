@@ -16,6 +16,8 @@
 
 from datetime import datetime
 
+from quart import request
+
 from api.apps import current_user, login_required
 from api.db import UserTenantRole
 from api.db.db_models import (
@@ -27,6 +29,7 @@ from api.db.db_models import (
     TenantLLM,
     User,
     UserCanvas,
+    UserManagementOperationLog,
     UserTenant,
 )
 from api.utils.api_utils import (
@@ -50,6 +53,49 @@ def _require_superuser():
             code=RetCode.FORBIDDEN,
         )
     return None
+
+
+def _ensure_operation_log_table():
+    if not UserManagementOperationLog.table_exists():
+        UserManagementOperationLog.create_table(safe=True)
+
+
+def _safe_user_label(user):
+    if not user:
+        return ""
+    return user.nickname or user.email or user.id
+
+
+def _write_operation_log(action, target_type, target_id=None, target_label=None, tenant_id=None, details=None):
+    try:
+        _ensure_operation_log_table()
+        now = datetime.now()
+        timestamp = current_timestamp()
+        UserManagementOperationLog.create(
+            id=get_uuid(),
+            operator_id=current_user.id,
+            operator_label=_safe_user_label(current_user),
+            action=action,
+            target_type=target_type,
+            target_id=target_id,
+            target_label=target_label,
+            tenant_id=tenant_id,
+            details=details or {},
+            status=StatusEnum.VALID.value,
+            create_time=timestamp,
+            create_date=datetime_format(now),
+            update_time=timestamp,
+            update_date=datetime_format(now),
+        )
+    except Exception:
+        import logging
+
+        logging.exception(
+            "Failed to write user management operation log: action=%s target_type=%s target_id=%s",
+            action,
+            target_type,
+            target_id,
+        )
 
 
 @manager.route("/dev/tts-engine-settings", methods=["GET"])  # noqa: F821
@@ -84,6 +130,11 @@ def _user_label(users_by_id, user_id):
 def _asset_counts(tenant_id):
     status = StatusEnum.VALID.value
     return {
+        "members": UserTenant.select().where(
+            UserTenant.tenant_id == tenant_id,
+            UserTenant.user_id != tenant_id,
+            UserTenant.status == status,
+        ).count(),
         "datasets": Knowledgebase.select().where(Knowledgebase.tenant_id == tenant_id, Knowledgebase.status == status).count(),
         "dialogs": Dialog.select().where(Dialog.tenant_id == tenant_id, Dialog.status == status).count(),
         "searches": Search.select().where(Search.tenant_id == tenant_id, Search.status == status).count(),
@@ -242,6 +293,9 @@ async def upsert_tenant_relation():
         ):
             return get_data_error_result(message="Tenant not found.")
 
+        user = User.get_or_none(User.id == user_id)
+        tenant = User.get_or_none(User.id == tenant_id)
+        target_label = f"{_safe_user_label(user)} -> {_safe_user_label(tenant)}"
         now = datetime.now()
         relation = UserTenant.get_or_none(
             UserTenant.user_id == user_id,
@@ -249,14 +303,17 @@ async def upsert_tenant_relation():
         )
         with DB.atomic():
             if relation:
+                old_snapshot = relation.to_dict()
                 relation.role = role
                 relation.status = StatusEnum.VALID.value
                 relation.invited_by = current_user.id
                 relation.update_time = current_timestamp()
                 relation.update_date = datetime_format(now)
                 relation.save()
+                relation_id = relation.id
+                action = "user_group_membership_update"
             else:
-                UserTenant.create(
+                relation = UserTenant.create(
                     id=get_uuid(),
                     user_id=user_id,
                     tenant_id=tenant_id,
@@ -264,6 +321,20 @@ async def upsert_tenant_relation():
                     invited_by=current_user.id,
                     status=StatusEnum.VALID.value,
                 )
+                old_snapshot = None
+                relation_id = relation.id
+                action = "user_group_membership_create"
+            _write_operation_log(
+                action,
+                "user_group_membership",
+                relation_id,
+                target_label=target_label,
+                tenant_id=tenant_id,
+                details={
+                    "before": old_snapshot,
+                    "after": {"user_id": user_id, "tenant_id": tenant_id, "role": role},
+                },
+            )
 
         return get_json_result(data=_relationship_payload())
     except Exception as exc:
@@ -290,10 +361,22 @@ def delete_tenant_relation(relation_id):
                 code=RetCode.OPERATING_ERROR,
             )
 
+        is_owner_relation = (
+            relation["role"] == UserTenantRole.OWNER.value
+            or relation["user_id"] == relation["tenant_id"]
+        )
         relation_obj.status = StatusEnum.INVALID.value
         relation_obj.update_time = current_timestamp()
         relation_obj.update_date = datetime_format(datetime.now())
         relation_obj.save()
+        _write_operation_log(
+            "user_group_delete" if is_owner_relation else "user_group_membership_delete",
+            "user_group" if is_owner_relation else "user_group_membership",
+            relation_id,
+            target_label=f"{relation.get('user_id')} -> {relation.get('tenant_id')}",
+            tenant_id=relation["tenant_id"],
+            details={"before": relation, "asset_counts": counts},
+        )
         return get_json_result(data=_relationship_payload())
     except Exception as exc:
         return server_error_response(exc)
@@ -336,6 +419,17 @@ async def transfer_dialog_tenant(dialog_id):
             "update_date": datetime_format(datetime.now()),
         }
         Dialog.update(update_data).where(Dialog.id == dialog_id).execute()
+        _write_operation_log(
+            "chat_assistant_group_change",
+            "chat_assistant",
+            dialog_id,
+            target_label=dialog.name,
+            tenant_id=tenant_id,
+            details={
+                "before": {"tenant_id": dialog.tenant_id},
+                "after": {"tenant_id": tenant_id},
+            },
+        )
         return get_json_result(data=_relationship_payload())
     except Exception as exc:
         return server_error_response(exc)
@@ -389,6 +483,75 @@ async def update_dialog_knowledgebases(dialog_id):
                 "update_date": datetime_format(datetime.now()),
             }
         ).where(Dialog.id == dialog_id).execute()
+        _write_operation_log(
+            "chat_assistant_knowledgebases_update",
+            "chat_assistant",
+            dialog_id,
+            target_label=dialog.name,
+            tenant_id=dialog.tenant_id,
+            details={
+                "before": {"kb_ids": dialog.kb_ids or []},
+                "after": {"kb_ids": kb_ids},
+            },
+        )
         return get_json_result(data=_relationship_payload())
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+@manager.route("/dev/tenant-relations/dialogs/<dialog_id>", methods=["DELETE"])  # noqa: F821
+@login_required
+def delete_dialog(dialog_id):
+    denied = _require_superuser()
+    if denied:
+        return denied
+    try:
+        dialog = Dialog.get_or_none(
+            Dialog.id == dialog_id,
+            Dialog.status == StatusEnum.VALID.value,
+        )
+        if not dialog:
+            return get_data_error_result(message="Dialog not found.")
+        before = dialog.to_dict()
+        Dialog.update(
+            {
+                "status": StatusEnum.INVALID.value,
+                "update_time": current_timestamp(),
+                "update_date": datetime_format(datetime.now()),
+            }
+        ).where(Dialog.id == dialog_id).execute()
+        _write_operation_log(
+            "chat_assistant_delete",
+            "chat_assistant",
+            dialog_id,
+            target_label=dialog.name,
+            tenant_id=dialog.tenant_id,
+            details={"before": before},
+        )
+        return get_json_result(data=_relationship_payload())
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+@manager.route("/dev/tenant-relations/logs", methods=["GET"])  # noqa: F821
+@login_required
+def list_operation_logs():
+    denied = _require_superuser()
+    if denied:
+        return denied
+    try:
+        _ensure_operation_log_table()
+        page = max(int(request.args.get("page", 1)), 1)
+        page_size = min(max(int(request.args.get("page_size", 50)), 1), 200)
+        query = UserManagementOperationLog.select().where(
+            UserManagementOperationLog.status == StatusEnum.VALID.value
+        )
+        total = query.count()
+        logs = list(
+            query.order_by(UserManagementOperationLog.create_time.desc())
+            .paginate(page, page_size)
+            .dicts()
+        )
+        return get_json_result(data={"logs": logs, "total": total})
     except Exception as exc:
         return server_error_response(exc)

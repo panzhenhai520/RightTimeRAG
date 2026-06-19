@@ -1184,6 +1184,22 @@ class PipelineOperationLog(DataBaseModel):
         db_table = "pipeline_operation_log"
 
 
+class UserManagementOperationLog(DataBaseModel):
+    id = CharField(max_length=32, primary_key=True)
+    operator_id = CharField(max_length=32, null=False, index=True)
+    operator_label = CharField(max_length=255, null=True, index=True)
+    action = CharField(max_length=64, null=False, index=True)
+    target_type = CharField(max_length=64, null=False, index=True)
+    target_id = CharField(max_length=64, null=True, index=True)
+    target_label = CharField(max_length=255, null=True, index=True)
+    tenant_id = CharField(max_length=32, null=True, index=True)
+    details = JSONField(null=True, default=dict)
+    status = CharField(max_length=1, null=True, help_text="is it validate(0: wasted, 1: validate)", default="1", index=True)
+
+    class Meta:
+        db_table = "user_management_operation_log"
+
+
 class Connector(DataBaseModel):
     id = CharField(max_length=32, primary_key=True)
     tenant_id = CharField(max_length=32, null=False, index=True)

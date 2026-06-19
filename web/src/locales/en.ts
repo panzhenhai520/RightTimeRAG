@@ -158,6 +158,7 @@ export default {
       tabTts: 'TTS',
       tabUsers: 'User registration',
       tabTenants: 'User groups',
+      tabLogs: 'Logs',
       open: 'Open',
       refresh: 'Refresh',
       optionEnabled: 'Enabled',
@@ -233,6 +234,7 @@ export default {
       noBindableKnowledgebases: 'No bindable knowledge bases.',
       kbOptionMeta: '{{tenant}} / {{docs}} docs / {{chunks}} chunks',
       saveKnowledgeAccess: 'Save knowledge access',
+      assetMembers: 'Members',
       assetDatasets: 'Knowledge bases',
       assetDialogs: 'Chats',
       assetSearches: 'Search',
@@ -250,6 +252,38 @@ export default {
         'Can help maintain members and resources in this group.',
       roleOwnerDescription:
         'Has the highest management permission for this group.',
+      userGroupTreeTitle: 'User group tree',
+      userGroupTreeDescription:
+        'View user groups, members, knowledge bases, and chat assistants in a tree structure.',
+      emptyTreeNode: 'None',
+      noGroupOwnerRelation:
+        'No owner relationship was found for this group, so it cannot be deleted.',
+      deleteUserGroup: 'Delete group',
+      deleteGroupBlocked:
+        'This group cannot be deleted because it still has users or resources: {{blockers}}. Move or delete child items first.',
+      deleteGroupConfirm:
+        'Delete user group "{{tenant}}"? The group entry will no longer be available and this operation will be logged.',
+      userGroupDeleted: 'User group deleted',
+      deleteDialog: 'Delete assistant',
+      deleteDialogConfirm:
+        'Delete chat assistant "{{dialog}}"? Users will no longer be able to use it, and related history entries may become invisible. This operation will be logged.',
+      dialogDeleted: 'Chat assistant deleted',
+      operationLogsTitle: 'User management operation logs',
+      operationLogsDescription:
+        'Logs user group, group membership, and chat assistant ownership operations. {{total}} records in total.',
+      logOperator: 'Operator',
+      logAction: 'Action',
+      logTarget: 'Target',
+      logTime: 'Time',
+      noOperationLogs: 'No operation logs',
+      operation_user_group_membership_create: 'Add group member',
+      operation_user_group_membership_update: 'Update group member',
+      operation_user_group_membership_delete: 'Remove group member',
+      operation_user_group_delete: 'Delete user group',
+      operation_chat_assistant_group_change: 'Move chat assistant',
+      operation_chat_assistant_knowledgebases_update:
+        'Update assistant knowledge bases',
+      operation_chat_assistant_delete: 'Delete chat assistant',
       registerUser: 'Register user',
       registerUserDescription:
         'Create a new account for the delivery environment. Registration is only available in development management.',

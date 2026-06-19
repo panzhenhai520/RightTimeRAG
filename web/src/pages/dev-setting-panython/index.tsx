@@ -49,6 +49,7 @@ const devEntries = [
 ];
 
 const tenantRelationsApi = '/api/v1/dev/tenant-relations';
+const tenantRelationLogsApi = '/api/v1/dev/tenant-relations/logs';
 const ttsEngineSettingsApi = '/api/v1/dev/tts-engine-settings';
 
 type TtsEngineSettings = {
@@ -138,13 +139,13 @@ const ttsZhSegmentOptions = [30, 45, 60, 80, 100];
 const ttsEnSegmentOptions = [12, 18, 24, 36, 48];
 
 const ttsFieldRowClass =
-  'grid grid-cols-[minmax(120px,180px)_minmax(180px,260px)] items-center justify-start gap-3 text-sm';
+  'grid grid-cols-[max-content_minmax(170px,250px)] items-center justify-start gap-2 text-sm';
 const ttsFieldLabelClass = 'truncate text-text-secondary';
 const ttsSelectClass =
   'h-9 w-full border-0 border-b border-border-button bg-transparent px-0 pr-8 text-sm text-text-primary outline-none disabled:cursor-not-allowed disabled:opacity-50';
 
 const userGroupFieldRowClass =
-  'grid grid-cols-[minmax(100px,140px)_minmax(180px,260px)] items-center justify-start gap-3 text-sm';
+  'grid grid-cols-[max-content_minmax(180px,260px)] items-center justify-start gap-2 text-sm';
 const userGroupSelectClass =
   'h-9 w-full border-0 border-b border-border-button bg-transparent px-0 pr-8 text-sm text-text-primary outline-none';
 
@@ -213,6 +214,20 @@ type TenantRelationPayload = {
   asset_counts: Record<string, AssetCounts>;
 };
 
+type OperationLogRow = {
+  id: string;
+  operator_id: string;
+  operator_label?: string;
+  action: string;
+  target_type: string;
+  target_id?: string;
+  target_label?: string;
+  tenant_id?: string;
+  details?: Record<string, unknown>;
+  create_time?: number;
+  create_date?: string;
+};
+
 function userDisplayName(
   user: Partial<UserRow> | null | undefined,
   fallback: string,
@@ -232,6 +247,7 @@ function formatCounts(
   t: ReturnType<typeof useTranslation>['t'],
 ) {
   const labels: Record<string, string> = {
+    members: t('devSettingPanython.assetMembers'),
     datasets: t('devSettingPanython.assetDatasets'),
     dialogs: t('devSettingPanython.assetDialogs'),
     searches: t('devSettingPanython.assetSearches'),
@@ -367,6 +383,41 @@ function TenantRelationsCard() {
     }
   };
 
+  const handleDeleteUserGroup = async (
+    relation: MembershipRow | undefined,
+    tenantName: string,
+  ) => {
+    if (!relation) {
+      message.warning(t('devSettingPanython.noGroupOwnerRelation'));
+      return;
+    }
+    const blockers = relation.delete_blockers || [];
+    if (blockers.length > 0) {
+      window.alert(
+        t('devSettingPanython.deleteGroupBlocked', {
+          blockers: blockers.join(' / '),
+        }),
+      );
+      return;
+    }
+    if (
+      !window.confirm(
+        t('devSettingPanython.deleteGroupConfirm', {
+          tenant: tenantName,
+        }),
+      )
+    ) {
+      return;
+    }
+    const res = await request.delete(`${tenantRelationsApi}/${relation.id}`);
+    if (res.data?.code === 0) {
+      setData(res.data.data);
+      message.success(t('devSettingPanython.userGroupDeleted'));
+    } else {
+      message.error(res.data?.message || t('devSettingPanython.updateFailed'));
+    }
+  };
+
   const handleTransferDialog = async (dialog: DialogOwnerRow) => {
     const targetTenantId = dialogTargets[dialog.id];
     if (!targetTenantId || targetTenantId === dialog.tenant_id) return;
@@ -405,6 +456,27 @@ function TenantRelationsCard() {
     if (res.data?.code === 0) {
       setData(res.data.data);
       message.success(t('devSettingPanython.dialogKnowledgeSaved'));
+    } else {
+      message.error(res.data?.message || t('devSettingPanython.updateFailed'));
+    }
+  };
+
+  const handleDeleteDialog = async (dialog: DialogOwnerRow) => {
+    if (
+      !window.confirm(
+        t('devSettingPanython.deleteDialogConfirm', {
+          dialog: dialog.name,
+        }),
+      )
+    ) {
+      return;
+    }
+    const res = await request.delete(
+      `${tenantRelationsApi}/dialogs/${dialog.id}`,
+    );
+    if (res.data?.code === 0) {
+      setData(res.data.data);
+      message.success(t('devSettingPanython.dialogDeleted'));
     } else {
       message.error(res.data?.message || t('devSettingPanython.updateFailed'));
     }
@@ -525,6 +597,103 @@ function TenantRelationsCard() {
         </div>
       </div>
 
+      <section className="mt-6 rounded-lg border border-border/70 bg-bg-base/40 p-4">
+        <h3 className="text-base font-semibold text-text-primary">
+          {t('devSettingPanython.userGroupTreeTitle')}
+        </h3>
+        <p className="mt-1 text-xs text-text-secondary">
+          {t('devSettingPanython.userGroupTreeDescription')}
+        </p>
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          {tenantIds.map((tenantId) => {
+            const tenant = users.find((user) => user.id === tenantId);
+            const tenantName = userDisplayName(
+              tenant,
+              t('devSettingPanython.unnamedTenant'),
+            );
+            const tenantMembers = memberships.filter(
+              (item) => item.tenant_id === tenantId,
+            );
+            const tenantDialogs = dialogs.filter(
+              (dialog) => dialog.tenant_id === tenantId,
+            );
+            const tenantKbs = knowledgebases.filter(
+              (kb) => kb.tenant_id === tenantId,
+            );
+            return (
+              <div
+                key={tenantId}
+                className="rounded-md border border-border/60 bg-bg-card p-3 text-xs"
+              >
+                <div className="font-semibold text-text-primary">
+                  {t('devSettingPanython.userGroupLabel', {
+                    group: tenantName,
+                  })}
+                </div>
+                <div className="mt-2 border-l border-border/70 pl-3">
+                  <div className="text-text-secondary">
+                    {t('devSettingPanython.groupMembers')} (
+                    {tenantMembers.length})
+                  </div>
+                  <div className="mt-1 space-y-1 pl-3">
+                    {tenantMembers.length === 0 ? (
+                      <div className="text-text-secondary">
+                        {t('devSettingPanython.emptyTreeNode')}
+                      </div>
+                    ) : (
+                      tenantMembers.map((member) => (
+                        <div key={member.id} className="text-text-primary">
+                          {member.user_label}{' '}
+                          <span className="text-text-secondary">
+                            {roleLabel(member.role, t)}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="mt-3 text-text-secondary">
+                    {t('devSettingPanython.groupKnowledgebases')} (
+                    {tenantKbs.length})
+                  </div>
+                  <div className="mt-1 space-y-1 pl-3">
+                    {tenantKbs.length === 0 ? (
+                      <div className="text-text-secondary">
+                        {t('devSettingPanython.emptyTreeNode')}
+                      </div>
+                    ) : (
+                      tenantKbs.map((kb) => (
+                        <div key={kb.id} className="text-text-primary">
+                          {kb.name}
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="mt-3 text-text-secondary">
+                    {t('devSettingPanython.groupAssistants')} (
+                    {tenantDialogs.length})
+                  </div>
+                  <div className="mt-1 space-y-1 pl-3">
+                    {tenantDialogs.length === 0 ? (
+                      <div className="text-text-secondary">
+                        {t('devSettingPanython.emptyTreeNode')}
+                      </div>
+                    ) : (
+                      tenantDialogs.map((dialog) => (
+                        <div key={dialog.id} className="text-text-primary">
+                          {dialog.name}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       <section className="mt-6 grid gap-4">
         {tenantIds.map((tenantId) => {
           const tenant = users.find((user) => user.id === tenantId);
@@ -541,6 +710,9 @@ function TenantRelationsCard() {
           const tenantKbs = knowledgebases.filter((kb) => {
             return kb.tenant_id === tenantId;
           });
+          const ownerRelation = tenantMembers.find(
+            (item) => item.user_id === tenantId || item.role === 'owner',
+          );
 
           return (
             <article
@@ -565,6 +737,17 @@ function TenantRelationsCard() {
                     kbs: tenantKbs.length,
                   })}
                 </span>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  className="border-state-error text-state-error"
+                  onClick={() =>
+                    handleDeleteUserGroup(ownerRelation, tenantName)
+                  }
+                >
+                  {t('devSettingPanython.deleteUserGroup')}
+                </Button>
               </div>
 
               <div className="mt-4 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
@@ -715,6 +898,14 @@ function TenantRelationsCard() {
                               >
                                 {t('devSettingPanython.saveOwner')}
                               </Button>
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                className="border-state-error text-state-error"
+                                onClick={() => handleDeleteDialog(dialog)}
+                              >
+                                {t('devSettingPanython.deleteDialog')}
+                              </Button>
                             </div>
                           </div>
 
@@ -810,6 +1001,96 @@ function TenantRelationsCard() {
           );
         })}
       </section>
+    </article>
+  );
+}
+
+function OperationLogsCard() {
+  const { t } = useTranslation();
+  const [logs, setLogs] = useState<OperationLogRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const loadLogs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await request.get(tenantRelationLogsApi, {
+        params: { page: 1, page_size: 80 },
+      });
+      if (res.data?.code === 0) {
+        setLogs(res.data.data?.logs ?? []);
+        setTotal(res.data.data?.total ?? 0);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
+
+  return (
+    <article className="rounded-lg border border-border bg-bg-card p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-medium text-text-primary">
+            {t('devSettingPanython.operationLogsTitle')}
+          </h2>
+          <p className="mt-2 text-sm text-text-secondary">
+            {t('devSettingPanython.operationLogsDescription', { total })}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          loading={loading}
+          onClick={loadLogs}
+        >
+          {t('devSettingPanython.refresh')}
+        </Button>
+      </div>
+
+      <div className="mt-5 overflow-hidden rounded-md border border-border/70">
+        <div className="grid grid-cols-[160px_160px_1fr_180px] bg-bg-base px-3 py-2 text-xs font-medium text-text-secondary">
+          <span>{t('devSettingPanython.logOperator')}</span>
+          <span>{t('devSettingPanython.logAction')}</span>
+          <span>{t('devSettingPanython.logTarget')}</span>
+          <span>{t('devSettingPanython.logTime')}</span>
+        </div>
+        {logs.length === 0 ? (
+          <div className="px-3 py-6 text-center text-sm text-text-secondary">
+            {t('devSettingPanython.noOperationLogs')}
+          </div>
+        ) : (
+          logs.map((log) => (
+            <details
+              key={log.id}
+              className="border-t border-border/60 px-3 py-2 text-xs"
+            >
+              <summary className="grid cursor-pointer grid-cols-[160px_160px_1fr_180px] items-center gap-2 text-text-primary">
+                <span className="truncate">
+                  {log.operator_label || log.operator_id}
+                </span>
+                <span className="truncate">
+                  {t(`devSettingPanython.operation_${log.action}`, {
+                    defaultValue: log.action,
+                  })}
+                </span>
+                <span className="truncate">
+                  {log.target_label || log.target_id || log.target_type}
+                </span>
+                <span className="truncate">
+                  {log.create_date || log.create_time || '-'}
+                </span>
+              </summary>
+              <pre className="mt-2 max-h-48 overflow-auto rounded bg-bg-base p-3 text-[11px] leading-5 text-text-secondary">
+                {JSON.stringify(log.details ?? {}, null, 2)}
+              </pre>
+            </details>
+          ))
+        )}
+      </div>
     </article>
   );
 }
@@ -1319,7 +1600,7 @@ export default function DevSettingPanython() {
         </header>
 
         <Tabs defaultValue="menus" className="w-full">
-          <TabsList className="mb-4 grid w-full grid-cols-4 lg:w-[640px]">
+          <TabsList className="mb-4 grid w-full grid-cols-5 lg:w-[760px]">
             <TabsTrigger value="menus">
               {t('devSettingPanython.tabMenus')}
             </TabsTrigger>
@@ -1331,6 +1612,9 @@ export default function DevSettingPanython() {
             </TabsTrigger>
             <TabsTrigger value="tenants">
               {t('devSettingPanython.tabTenants')}
+            </TabsTrigger>
+            <TabsTrigger value="logs">
+              {t('devSettingPanython.tabLogs')}
             </TabsTrigger>
           </TabsList>
 
@@ -1354,6 +1638,10 @@ export default function DevSettingPanython() {
 
           <TabsContent value="tenants">
             <TenantRelationsCard />
+          </TabsContent>
+
+          <TabsContent value="logs">
+            <OperationLogsCard />
           </TabsContent>
         </Tabs>
       </div>

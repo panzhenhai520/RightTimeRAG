@@ -8,6 +8,7 @@ import MarkdownContent from '@/components/next-markdown-content';
 import MessageItem from '@/components/next-message-item';
 import PdfSheet from '@/components/pdf-drawer';
 import { useClickDrawer } from '@/components/pdf-drawer/hooks';
+import { TtsPlaybackConsent } from '@/components/tts-playback-consent';
 import {
   useFetchAgent,
   useUploadAgentFileWithProgress,
@@ -135,20 +136,26 @@ function AgentChatBox() {
           <div ref={scrollRef} />
         </div>
         {isTaskMode || (
-          <NextMessageInput
-            value={value}
-            sendLoading={sendLoading}
-            disabled={isWaiting}
-            sendDisabled={sendLoading || isWaiting}
-            isUploading={loading || isWaiting}
-            resize="vertical"
-            onPressEnter={handlePressEnter}
-            onInputChange={handleInputChange}
-            stopOutputMessage={stopOutputMessage}
-            onUpload={handleUploadFile}
-            removeFile={removeFile}
-            conversationId=""
-          />
+          <>
+            <TtsPlaybackConsent
+              enabled={ttsEngineSettings.tts_enabled}
+              className="mb-3"
+            />
+            <NextMessageInput
+              value={value}
+              sendLoading={sendLoading}
+              disabled={isWaiting}
+              sendDisabled={sendLoading || isWaiting}
+              isUploading={loading || isWaiting}
+              resize="vertical"
+              onPressEnter={handlePressEnter}
+              onInputChange={handleInputChange}
+              stopOutputMessage={stopOutputMessage}
+              onUpload={handleUploadFile}
+              removeFile={removeFile}
+              conversationId=""
+            />
+          </>
         )}
       </section>
       {visible && (

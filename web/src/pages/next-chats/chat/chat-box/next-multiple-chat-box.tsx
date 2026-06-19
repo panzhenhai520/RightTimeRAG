@@ -7,6 +7,7 @@ import {
 import MessageItem from '@/components/message-item';
 import PdfSheet from '@/components/pdf-drawer';
 import { useClickDrawer } from '@/components/pdf-drawer/hooks';
+import { TtsPlaybackConsent } from '@/components/tts-playback-consent';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form } from '@/components/ui/form';
@@ -299,6 +300,7 @@ export function MultipleChatBox({
   const disabled = useGetSendButtonDisabled();
   const { visible, hideModal, documentId, selectedChunk, clickDocumentButton } =
     useClickDrawer();
+  const { data: currentDialog } = useFetchChat();
 
   const [chatBoxLoading, setChatBoxLoading] = useState<Map<string, boolean>>(
     new Map(),
@@ -400,6 +402,10 @@ export function MultipleChatBox({
         ))}
       </div>
       <div className="px-[20%]">
+        <TtsPlaybackConsent
+          enabled={Boolean(currentDialog?.prompt_config?.tts)}
+          className="mb-3"
+        />
         <NextMessageInput
           disabled={disabled}
           sendDisabled={sendDisabled}

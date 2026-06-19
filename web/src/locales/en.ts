@@ -1215,6 +1215,12 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
       read: 'Read content',
       ttsGenerating: 'Generating speech...',
       ttsPlaying: 'Reading aloud',
+      ttsPlaybackConsentTip:
+        'Voice playback is enabled for this assistant. Your browser needs one click before it allows autoplay or synchronized reading.',
+      ttsPlaybackConsentAction: 'Enable voice playback',
+      ttsPlaybackEnabled: 'Voice playback is enabled.',
+      ttsPlaybackEnableFailed:
+        'The browser did not allow playback yet. Please click enable again.',
       tts: 'Text to speech',
       ttsTip:
         'Ensure you select a TTS model on the Settings page before enabling this toggle to play text as audio.',

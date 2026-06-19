@@ -47,6 +47,9 @@ const devEntries = [
   },
 ];
 
+const primaryDevEntries = devEntries.slice(0, -1);
+const configurationEntry = devEntries[devEntries.length - 1];
+
 const tenantRelationsApi = '/api/v1/dev/tenant-relations';
 const ttsEngineSettingsApi = '/api/v1/dev/tts-engine-settings';
 
@@ -837,44 +840,56 @@ function TtsEngineSettingsCard() {
   );
 }
 
-export default function DevSettingPanython() {
+function DevEntryCard({ entry }: { entry: (typeof devEntries)[number] }) {
   const { t } = useTranslation();
 
+  return (
+    <article className="rounded-lg border border-border bg-bg-card p-5">
+      <h2 className="text-lg font-medium text-text-primary">
+        {t(entry.titleKey)}
+      </h2>
+      <p className="mt-2 min-h-10 text-sm text-text-secondary">
+        {t(entry.descriptionKey)}
+      </p>
+      <Button asChild className="mt-5 bg-[#6f3f2f] text-white">
+        <Link to={entry.path}>打开</Link>
+      </Button>
+    </article>
+  );
+}
+
+export default function DevSettingPanython() {
   useEffect(() => {
     window.sessionStorage.setItem(DEV_FEATURE_SESSION_KEY, '1');
   }, []);
 
   return (
-    <section className="mx-auto mt-12 max-w-5xl px-4">
-      <header className="mb-8">
-        <h1 className="text-2xl font-semibold text-text-primary">
-          Panython 开发管理
-        </h1>
-        <p className="mt-2 text-sm text-text-secondary">
-          这些功能用于后台配置，不在普通用户工作台展示。
-        </p>
-      </header>
+    <section className="h-full min-h-0 overflow-y-auto px-4 py-8">
+      <div className="mx-auto max-w-7xl">
+        <header className="mb-8">
+          <h1 className="text-2xl font-semibold text-text-primary">
+            Panython 开发管理
+          </h1>
+          <p className="mt-2 text-sm text-text-secondary">
+            这些功能用于后台配置，不在普通用户工作台展示。
+          </p>
+        </header>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {devEntries.map((entry) => (
-          <article
-            key={entry.path}
-            className="rounded-lg border border-border bg-bg-card p-5"
-          >
-            <h2 className="text-lg font-medium text-text-primary">
-              {t(entry.titleKey)}
-            </h2>
-            <p className="mt-2 min-h-10 text-sm text-text-secondary">
-              {t(entry.descriptionKey)}
-            </p>
-            <Button asChild className="mt-5 bg-[#6f3f2f] text-white">
-              <Link to={entry.path}>打开</Link>
-            </Button>
-          </article>
-        ))}
-        <TtsEngineSettingsCard />
-        <RegisterUserCard />
-        <TenantRelationsCard />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {primaryDevEntries.map((entry) => (
+            <DevEntryCard key={entry.path} entry={entry} />
+          ))}
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(280px,380px)_minmax(0,1fr)]">
+          <DevEntryCard entry={configurationEntry} />
+          <TtsEngineSettingsCard />
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <RegisterUserCard />
+          <TenantRelationsCard />
+        </div>
       </div>
     </section>
   );

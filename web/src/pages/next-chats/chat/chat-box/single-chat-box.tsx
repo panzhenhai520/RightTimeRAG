@@ -2,6 +2,7 @@ import { NextMessageInput } from '@/components/message-input/next';
 import MessageItem from '@/components/message-item';
 import PdfSheet from '@/components/pdf-drawer';
 import { useClickDrawer } from '@/components/pdf-drawer/hooks';
+import { TtsPlaybackConsent } from '@/components/tts-playback-consent';
 import { MessageType } from '@/constants/chat';
 import { useFetchChat, useGetChatSearchParams } from '@/hooks/use-chat-request';
 import { useFetchUserInfo } from '@/hooks/use-user-setting-request';
@@ -190,6 +191,10 @@ export function SingleChatBox({
       </div>
 
       <div className="p-5 pt-0">
+        <TtsPlaybackConsent
+          enabled={Boolean(currentDialog?.prompt_config?.tts)}
+          className="mb-3"
+        />
         <NextMessageInput
           disabled={disabled}
           sendDisabled={sendDisabled}

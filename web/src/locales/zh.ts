@@ -1100,6 +1100,11 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取实体和关系
       read: '朗读内容',
       ttsGenerating: '正在生成语音...',
       ttsPlaying: '正在朗读',
+      ttsPlaybackConsentTip:
+        '当前助手已启用语音朗读。浏览器需要你点击一次，才允许自动播放或同步朗读。',
+      ttsPlaybackConsentAction: '启用语音播放',
+      ttsPlaybackEnabled: '语音播放已启用',
+      ttsPlaybackEnableFailed: '浏览器暂时未允许播放，请再次点击启用。',
       tts: '文本转语音',
       ttsTip: '是否用语音转换播放语音，请先在设置里面选择TTS（语音转换模型）。',
       ttsSpeed: '朗读速度',

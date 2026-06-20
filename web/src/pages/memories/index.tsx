@@ -1,11 +1,8 @@
-import { CardContainer } from '@/components/card-container';
 import { EmptyCardType } from '@/components/empty/constant';
 import { EmptyAppCard } from '@/components/empty/empty';
 import ListFilterBar from '@/components/list-filter-bar';
 import { Button } from '@/components/ui/button';
-import { RAGFlowPagination } from '@/components/ui/ragflow-pagination';
 import { useTranslate } from '@/hooks/common-hooks';
-import { pick } from 'lodash';
 import { Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -13,7 +10,7 @@ import { AddOrEditModal } from './add-or-edit-modal';
 import { defaultMemoryFields } from './constants';
 import { useFetchMemoryList, useRenameMemory, useSelectFilters } from './hooks';
 import { ICreateMemoryProps, IMemory } from './interface';
-import { MemoryCard } from './memory-card';
+import { MemoSpacetimeNetwork } from './memo-spacetime-network';
 
 export default function MemoryList() {
   // const { data } = useFetchFlowList();
@@ -22,14 +19,13 @@ export default function MemoryList() {
   // const [isEdit, setIsEdit] = useState(false);
   const {
     data: list,
-    pagination,
     searchString,
     handleInputChange,
-    setPagination,
     refetch: refetchList,
     filterValue,
     handleFilterSubmit,
-  } = useFetchMemoryList();
+    isLoading,
+  } = useFetchMemoryList({ page: 1, pageSize: 500 });
 
   const {
     openCreateModal,
@@ -50,13 +46,6 @@ export default function MemoryList() {
     setAddOrEditType('add');
     showMemoryRenameModal(defaultMemoryFields as unknown as IMemory);
   }, [showMemoryRenameModal]);
-  const handlePageChange = useCallback(
-    (page: number, pageSize?: number) => {
-      setPagination({ page, pageSize });
-    },
-    [setPagination],
-  );
-
   const [searchUrl, setMemoryUrl] = useSearchParams();
   const { filters } = useSelectFilters();
   const isCreate = searchUrl.get('isCreate') === 'true';
@@ -90,28 +79,11 @@ export default function MemoryList() {
           </header>
 
           {list?.data?.memory_list?.length ? (
-            <>
-              <CardContainer className="flex-1 auto-rows-fr overflow-auto px-5 pb-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                {list?.data.memory_list.map((x) => (
-                  <MemoryCard
-                    key={x.id}
-                    data={x}
-                    showMemoryRenameModal={() => {
-                      setAddOrEditType('edit');
-                      showMemoryRenameModal(x);
-                    }}
-                  />
-                ))}
-              </CardContainer>
-
-              <footer className="mt-4 px-5 pb-5">
-                <RAGFlowPagination
-                  {...pick(pagination, 'current', 'pageSize')}
-                  total={list?.data.total_count}
-                  onChange={handlePageChange}
-                />
-              </footer>
-            </>
+            <MemoSpacetimeNetwork
+              memories={list.data.memory_list}
+              loading={isLoading}
+              onCreate={openCreateModalFun}
+            />
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <EmptyAppCard

@@ -58,6 +58,9 @@ def _install_cv2_stub_if_unavailable():
 _install_cv2_stub_if_unavailable()
 
 from api.db.services.dialog_service import (  # noqa: E402
+    _classify_evidence_chunk,
+    _format_knowledge_chunk,
+    _prioritize_evidence_chunks,
     build_compact_reference,
     normalize_markdown_table_citations,
 )
@@ -104,3 +107,76 @@ def test_build_compact_reference_remaps_sparse_citations_to_contiguous_ids():
     assert [chunk["document_name"] for chunk in refs["chunks"]] == ["D.pdf", "F.pdf"]
     assert all("vector" not in chunk for chunk in refs["chunks"])
     assert [doc["doc_id"] for doc in refs["doc_aggs"]] == ["doc-d", "doc-f"]
+
+
+@pytest.mark.p2
+def test_structured_metadata_does_not_promote_title_only_chunks():
+    chunk = {
+        "content_with_weight": "28. 在租金及契诺方面的法律责任的保障",
+        "extra": {
+            "structured": {
+                "evidence_type": "title",
+                "clause_id": "28",
+                "clause_title": "在租金及契诺方面的法律责任的保障",
+            }
+        },
+    }
+
+    evidence_type, reason = _classify_evidence_chunk(chunk)
+
+    assert evidence_type == "title_only"
+    assert "不能单独" in reason
+
+
+@pytest.mark.p2
+def test_structured_metadata_promotes_grounded_clause_and_table_chunks():
+    clause_chunk = {
+        "content_with_weight": (
+            "Where a personal representative or trustee liable as such for any rent, "
+            "covenant, or agreement reserved by or contained in any lease shall satisfy "
+            "all liabilities under the lease or grant and set apart a sufficient fund."
+        ),
+        "extra": {
+            "structured": {
+                "evidence_type": "clause",
+                "clause_id": "28",
+                "clause_title": "Protection against liability in respect of rents and covenants",
+            }
+        },
+    }
+    table_chunk = {
+        "content_with_weight": "| 条款 | 条件 | 核心保障 |\n|---|---|---|\n| 第28条 | 已履行责任 | 个人责任豁免 |",
+        "extra": {"structured": {"evidence_type": "table"}},
+    }
+
+    assert _classify_evidence_chunk(clause_chunk)[0] == "original_text"
+    assert _classify_evidence_chunk(table_chunk)[0] == "original_text"
+
+    formatted = _format_knowledge_chunk(clause_chunk, 0)
+    assert "EvidenceType: clause" in formatted
+    assert "Clause: 28" in formatted
+    assert "ClauseTitle: Protection against liability" in formatted
+
+
+@pytest.mark.p2
+def test_prioritize_evidence_chunks_uses_structured_classification():
+    title_chunk = {
+        "doc_id": "doc-title",
+        "content_with_weight": "28. 在租金及契诺方面的法律责任的保障",
+        "extra": {"structured": {"evidence_type": "title"}},
+    }
+    grounded_chunk = {
+        "doc_id": "doc-clause",
+        "content_with_weight": (
+            "Where a personal representative or trustee liable as such for any rent, "
+            "covenant, or agreement reserved by or contained in any lease shall satisfy "
+            "all liabilities under the lease or grant and set apart a sufficient fund."
+        ),
+        "extra": {"structured": {"evidence_type": "clause", "clause_id": "28"}},
+    }
+    kbinfos = {"chunks": [title_chunk, grounded_chunk]}
+
+    _prioritize_evidence_chunks(kbinfos)
+
+    assert kbinfos["chunks"][0]["doc_id"] == "doc-clause"
+    assert kbinfos["chunks"][1]["doc_id"] == "doc-title"

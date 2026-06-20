@@ -1859,6 +1859,19 @@ def _chunk_value(chunk: dict, *keys, default=""):
     return default
 
 
+def _chunk_structured_metadata(chunk: dict) -> dict:
+    extra = chunk.get("extra")
+    if isinstance(extra, str):
+        try:
+            extra = json.loads(extra)
+        except Exception:  # noqa: BLE001 - malformed metadata should not break retrieval
+            extra = {}
+    if not isinstance(extra, dict):
+        return {}
+    structured = extra.get("structured") or extra.get("structured_extraction") or {}
+    return structured if isinstance(structured, dict) else {}
+
+
 def _format_knowledge_chunk(chunk: dict, chunk_id: int) -> str:
     def draw_node(label, value):
         if value is not None and not isinstance(value, str):
@@ -1875,6 +1888,11 @@ def _format_knowledge_chunk(chunk: dict, chunk_id: int) -> str:
     if isinstance(meta, dict):
         for key, value in meta.items():
             formatted += draw_node(key, value)
+    structured = _chunk_structured_metadata(chunk)
+    if structured:
+        formatted += draw_node("EvidenceType", structured.get("evidence_type"))
+        formatted += draw_node("Clause", structured.get("clause_id"))
+        formatted += draw_node("ClauseTitle", structured.get("clause_title"))
     formatted += "\n└── Content:\n"
     formatted += str(content or "")
     return formatted
@@ -1902,6 +1920,9 @@ def _chunk_score(chunk: dict) -> float:
 def _classify_evidence_chunk(chunk: dict) -> tuple[str, str]:
     content = _chunk_content(chunk).strip()
     compact = re.sub(r"\s+", "", content)
+    structured = _chunk_structured_metadata(chunk)
+    structured_type = str(structured.get("evidence_type") or "").lower()
+    structured_clause = structured.get("clause_id") or structured.get("clause_title")
     has_article_signal = bool(
         re.search(
             r"(第\s*\d+\s*条|Section\s+\d+|subsection|\(\d+\)|\(1\)|凡任何|Where\s+a\s+personal|shall|不得|可将|法律责任|liability)",
@@ -1913,8 +1934,14 @@ def _classify_evidence_chunk(chunk: dict) -> tuple[str, str]:
         if chunk.get("source_chunks"):
             return "raptor_summary_with_sources", "摘要型证据，已关联原文片段，可辅助定位但不应单独支持强结论"
         return "raptor_summary", "摘要型证据，缺少关联原文，只能作为导航线索"
+    if structured_type == "title":
+        return "title_only", "结构化识别为标题，不能单独作为结论依据"
+    if structured_type == "table":
+        return "original_text", "结构化识别为表格证据，可直接用于回答"
     if len(compact) < 80:
         return "title_only", "内容过短，主要像标题或目录，不能单独作为结论依据"
+    if structured_type in {"clause", "definition", "fact"} and (structured_clause or has_article_signal):
+        return "original_text", "结构化识别为原文证据，包含条文/事实信息，可直接用于回答"
     if not has_article_signal and len(compact) < 220:
         return "weak_context", "片段较短且缺少条文/事实信号，需要其他原文共同支持"
     return "original_text", "包含可直接用于回答的原文或条文信息"

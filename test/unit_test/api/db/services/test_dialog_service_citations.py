@@ -58,6 +58,7 @@ def _install_cv2_stub_if_unavailable():
 _install_cv2_stub_if_unavailable()
 
 from api.db.services.dialog_service import (  # noqa: E402
+    _build_evidence_audit,
     _classify_evidence_chunk,
     _format_knowledge_chunk,
     _prioritize_evidence_chunks,
@@ -263,3 +264,44 @@ def test_expand_raptor_chunks_for_generation_includes_linked_original_excerpts(m
     assert "This is a RAPTOR summary chunk" in expanded
     assert "Source excerpt 1:" in expanded
     assert "Original excerpt about rent" in expanded
+
+
+@pytest.mark.p2
+def test_evidence_audit_includes_answer_evidence_plan():
+    kbinfos = {
+        "chunks": [
+            {
+                "id": "chunk-title",
+                "doc_id": "doc-title",
+                "docnm_kwd": "Title.pdf",
+                "content_with_weight": "28. 在租金及契诺方面的法律责任的保障",
+            },
+            {
+                "id": "chunk-strong",
+                "doc_id": "doc-strong",
+                "docnm_kwd": "Trustee Ordinance.pdf",
+                "content_with_weight": (
+                    "Where a personal representative or trustee liable as such for any rent, "
+                    "covenant, or agreement reserved by or contained in any lease shall satisfy "
+                    "all liabilities under the lease or grant and set apart a sufficient fund."
+                ),
+            },
+        ],
+    }
+
+    audit = _build_evidence_audit(
+        kbinfos,
+        {0, 1},
+        "在租金及契诺方面的法律责任的保障有哪些",
+        "rent covenant liability protections",
+        "Answer [ID:0] [ID:1]",
+        {0: 0, 1: 1},
+    )
+
+    plan = audit["answer_evidence_plan"]
+    assert len(plan) == 2
+    assert plan[0]["evidence_strength"] == "weak"
+    assert "不能单独" in plan[0]["missing_evidence_reason"]
+    assert plan[1]["evidence_strength"] == "strong"
+    assert plan[1]["missing_evidence_reason"] == ""
+    assert plan[1]["supporting_chunk_ids"] == ["chunk-strong"]

@@ -159,6 +159,32 @@ export function EvidenceAuditPanel({ audit }: IProps) {
               ))}
             </div>
           )}
+
+          {(audit.answer_evidence_plan ?? []).length > 0 && (
+            <div className="rounded bg-slate-50 px-3 py-2 text-xs leading-5 dark:bg-[#0d1d2a]">
+              <div className="mb-1 font-semibold">
+                {t('chat.answerEvidencePlan')}
+              </div>
+              {(audit.answer_evidence_plan ?? []).map((plan, index) => (
+                <div key={`${index}-${plan.claim}`} className="space-y-0.5">
+                  <div>
+                    {plan.claim}:{' '}
+                    {(plan.fig_ids ?? [])
+                      .map((figId) => formatFig(figId))
+                      .filter(Boolean)
+                      .join(', ') ||
+                      plan.source_ids?.map((id) => `ID:${id}`).join(', ')}
+                  </div>
+                  <div className="opacity-80">
+                    {plan.evidence_strength}
+                    {plan.missing_evidence_reason
+                      ? ` · ${plan.missing_evidence_reason}`
+                      : ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </section>

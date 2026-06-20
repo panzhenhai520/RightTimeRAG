@@ -180,6 +180,14 @@ export interface IEvidenceAudit {
     source_ids: number[];
     fig_ids?: number[];
   }>;
+  answer_evidence_plan?: Array<{
+    claim: string;
+    supporting_chunk_ids: Array<string | number>;
+    source_ids: number[];
+    fig_ids?: number[];
+    evidence_strength: string;
+    missing_evidence_reason?: string;
+  }>;
   warnings?: string[];
 }
 

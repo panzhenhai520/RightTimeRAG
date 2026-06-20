@@ -1917,6 +1917,20 @@ def _chunk_score(chunk: dict) -> float:
     return 0.0
 
 
+def _evidence_strength(evidence_type: str) -> tuple[str, str]:
+    if evidence_type == "original_text":
+        return "strong", ""
+    if evidence_type == "raptor_summary_with_sources":
+        return "medium", "摘要证据已关联原文，但结论应优先回到关联原文核验"
+    if evidence_type == "weak_context":
+        return "weak", "片段上下文较弱，需要更多原文证据共同支持"
+    if evidence_type == "title_only":
+        return "weak", "标题或目录不能单独支撑结论"
+    if evidence_type == "raptor_summary":
+        return "weak", "摘要缺少关联原文，不能作为强结论依据"
+    return "unknown", "证据类型未知，需要人工复核"
+
+
 def _classify_evidence_chunk(chunk: dict) -> tuple[str, str]:
     content = _chunk_content(chunk).strip()
     compact = re.sub(r"\s+", "", content)
@@ -1945,6 +1959,28 @@ def _classify_evidence_chunk(chunk: dict) -> tuple[str, str]:
     if not has_article_signal and len(compact) < 220:
         return "weak_context", "片段较短且缺少条文/事实信号，需要其他原文共同支持"
     return "original_text", "包含可直接用于回答的原文或条文信息"
+
+
+def _build_answer_evidence_plan(evidence: list[dict], cited: set, citation_id_map: dict) -> list[dict]:
+    plan = []
+    for item in evidence:
+        index = item.get("id")
+        if index not in cited:
+            continue
+        fig_id = citation_id_map.get(index)
+        evidence_strength, missing_reason = _evidence_strength(str(item.get("type") or ""))
+        chunk_id = item.get("chunk_id") or index
+        plan.append(
+            {
+                "claim": f"引用 Fig.{fig_id + 1} 的回答结论" if fig_id is not None else f"引用 ID:{index} 的回答结论",
+                "supporting_chunk_ids": [chunk_id],
+                "source_ids": [index],
+                "fig_ids": [fig_id] if fig_id is not None else [],
+                "evidence_strength": evidence_strength,
+                "missing_evidence_reason": missing_reason,
+            }
+        )
+    return plan
 
 
 def _build_evidence_audit(
@@ -2014,6 +2050,7 @@ def _build_evidence_audit(
         )
     if any(item["type"] in {"title_only", "weak_context"} for item in evidence):
         warnings.append("存在标题型或弱上下文片段，生成答案时不应把它们单独当作充分依据")
+    answer_evidence_plan = _build_answer_evidence_plan(evidence, cited, citation_id_map)
 
     return {
         "intent": "knowledge_base_question",
@@ -2027,6 +2064,7 @@ def _build_evidence_audit(
         },
         "evidence": evidence,
         "answer_basis": answer_basis,
+        "answer_evidence_plan": answer_evidence_plan,
         "warnings": sorted(set(warnings)),
         "answer_citation_markers": sorted(set(CITATION_MARKER_PATTERN.findall(answer))) if answer else [],
     }

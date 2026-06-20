@@ -1328,6 +1328,7 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
         'Retrieved {{chunks}} chunks / {{docs}} docs, cited {{selected}}',
       evidenceAuditQuery: 'Rewritten query',
       evidenceAuditBasis: 'Answer basis',
+      answerEvidencePlan: 'Answer evidence plan',
       evidenceAuditSourceId: 'source ID',
       summaryCitation: 'Summary citation',
       relatedOriginalChunks: 'Related original chunks',

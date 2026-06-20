@@ -1206,6 +1206,7 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取实体和关系
         '召回 {{chunks}} 个片段 / {{docs}} 个文档，引用 {{selected}} 个',
       evidenceAuditQuery: '检索改写',
       evidenceAuditBasis: '答案依据',
+      answerEvidencePlan: '答案证据计划',
       evidenceAuditSourceId: '原始ID',
       summaryCitation: '引用摘要',
       relatedOriginalChunks: '关联原文片段',

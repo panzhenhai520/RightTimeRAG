@@ -813,11 +813,15 @@ def append_fallback_citations(answer: str, kbinfos: dict, max_refs: int = 3):
 ERROR_HISTORY_PATTERNS = (
     "**ERROR**:",
     "ERROR:",
+    "CONNECTION_ERROR",
+    "INVALID_REQUEST",
     "ApiError(",
     "Traceback (most recent call last)",
     "search_phase_execution_exception",
     "CUDA error",
     "invalid_request_error",
+    "layer-slice token span exceeds context",
+    "kv payload staging failed",
     "知识库中未找到您要的答案",
     "知识库内容为空",
 )
@@ -1062,6 +1066,7 @@ DS4_GENERATION_SEMAPHORE = asyncio.Semaphore(DS4_MAX_CONCURRENT_GENERATIONS)
 ACTIVE_TOKEN_COUNTER: ContextVar[DynamicTokenCounter | None] = ContextVar("active_rag_token_counter", default=None)
 CONTEXT_SPAN_ERROR_PATTERNS = (
     "layer-slice token span exceeds context",
+    "kv payload staging failed",
     "exceeds context",
     "context length",
     "maximum context",
@@ -2253,6 +2258,33 @@ def _message_fit_in_dynamic(msg: list[dict], max_length: int) -> tuple[int, list
     def count(messages: list[dict]) -> int:
         return _messages_token_count(messages)
 
+    def force_fit(messages: list[dict]) -> tuple[int, list[dict]]:
+        """Final hard guard for tokenizer approximation drift.
+
+        The normal trimming path keeps system + current user. Some tokenizers
+        count mixed CJK / punctuation more densely than the fallback truncator,
+        so this last pass repeatedly trims the largest non-current message
+        until the measured count is under the hard prompt limit.
+        """
+        current = count(messages)
+        attempts = 0
+        while current > max_length and messages and attempts < 16:
+            candidates = list(range(len(messages)))
+            if len(messages) > 1:
+                candidates = candidates[:-1]
+            idx = max(candidates, key=lambda i: _safe_token_count(messages[i].get("content", "")))
+            content = messages[idx].get("content", "")
+            content_tokens = max(1, _safe_token_count(content))
+            excess = max(1, current - max_length)
+            keep_tokens = max(1, content_tokens - excess - 8)
+            trimmed = _truncate_to_tokens(content, keep_tokens)
+            if trimmed == content:
+                trimmed = content[: max(0, len(content) // 2)]
+            messages[idx]["content"] = trimmed
+            current = count(messages)
+            attempts += 1
+        return current, messages
+
     current_count = count(fitted)
     if current_count < max_length:
         return current_count, fitted
@@ -2270,7 +2302,7 @@ def _message_fit_in_dynamic(msg: list[dict], max_length: int) -> tuple[int, list
 
     if len(fitted) == 1:
         fitted[0]["content"] = _truncate_to_tokens(fitted[0]["content"], max_length)
-        return count(fitted), fitted
+        return force_fit(fitted)
 
     system_tokens = max(0, _safe_token_count(fitted[0].get("content", "")))
     user_tokens = max(0, _safe_token_count(fitted[-1].get("content", "")))
@@ -2282,12 +2314,12 @@ def _message_fit_in_dynamic(msg: list[dict], max_length: int) -> tuple[int, list
         preserved_user = min(user_tokens, max_length)
         fitted[-1]["content"] = _truncate_to_tokens(fitted[-1]["content"], preserved_user)
         fitted[0]["content"] = _truncate_to_tokens(fitted[0]["content"], max(0, max_length - preserved_user))
-        return count(fitted), fitted
+        return force_fit(fitted)
 
     preserved_system = min(system_tokens, max_length)
     fitted[0]["content"] = _truncate_to_tokens(fitted[0]["content"], preserved_system)
     fitted[-1]["content"] = _truncate_to_tokens(fitted[-1]["content"], max(0, max_length - preserved_system))
-    return count(fitted), fitted
+    return force_fit(fitted)
 
 
 @asynccontextmanager

@@ -518,6 +518,7 @@ export default {
         title: '记忆时空',
         subtitle: '主题按创建日期和时间定位，圆点半径代表对话轮次。',
         stats: '统计',
+        topics: '主题',
         totalMemos: '备忘录',
         visible: '可见',
         connections: '连线',

@@ -564,6 +564,7 @@ Procedural Memory: Learned skills, habits, and automated procedures.`,
         subtitle:
           'Topics are placed by creation date and time. Radius reflects conversation turns.',
         stats: 'Statistics',
+        topics: 'Topics',
         totalMemos: 'Memos',
         visible: 'Visible',
         connections: 'Links',

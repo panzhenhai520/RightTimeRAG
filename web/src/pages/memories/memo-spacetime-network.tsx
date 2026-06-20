@@ -20,6 +20,11 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
+import {
+  extractTopicKeywords,
+  getMemoryTopicText,
+  inferCanonicalTopic,
+} from './canonical-topic';
 import { IMemory } from './interface';
 import { getMemoryDisplayName } from './utils';
 
@@ -28,7 +33,11 @@ type MemoCategory = 'raw' | 'semantic' | 'episodic' | 'procedural' | 'memo';
 type MemoSpacetimeNode = {
   id: string;
   topicId: string;
+  primaryMemoryId: string;
+  memoryIds: string[];
+  memoryCount: number;
   topic: string;
+  sourceTopics: string[];
   aliases: string[];
   preview: string;
   summary: string;
@@ -72,35 +81,6 @@ const CATEGORY_COLORS: Record<MemoCategory, string> = {
   memo: '#7c4f63',
 };
 
-const STOP_WORDS = new Set([
-  'the',
-  'and',
-  'for',
-  'with',
-  'about',
-  'this',
-  'that',
-  'from',
-  'into',
-  'what',
-  'which',
-  'how',
-  'why',
-  'are',
-  'was',
-  'were',
-  '请问',
-  '关于',
-  '什么',
-  '哪些',
-  '如何',
-  '是否',
-  '这个',
-  '那个',
-  '用户',
-  '问题',
-]);
-
 const DAY_WIDTH = 92;
 
 function getFirstMemoryType(memory: IMemory): MemoCategory {
@@ -139,28 +119,17 @@ function parseCreateTime(memory: IMemory) {
   return new Date();
 }
 
-function normalizeKeyword(keyword: string) {
-  return keyword
-    .toLowerCase()
-    .replace(/[_\s]+/g, ' ')
-    .trim();
-}
-
-function extractKeywords(text: string) {
-  const matches = text.match(/[\p{Script=Han}]{2,}|[A-Za-z][A-Za-z0-9-]{2,}/gu);
-  const keywords = (matches || [])
-    .map(normalizeKeyword)
-    .filter((x) => x.length > 1 && !STOP_WORDS.has(x))
-    .slice(0, 10);
-
-  return Array.from(new Set(keywords));
-}
-
 function buildNode(memory: IMemory, t: ReturnType<typeof useTranslation>['t']) {
   const topic = getMemoryDisplayName(memory, t);
   const preview = memory.latest_content_preview || memory.description || '';
-  const textForKeywords = [topic, preview].filter(Boolean).join(' ');
-  const keywords = extractKeywords(textForKeywords || topic);
+  const textForKeywords = getMemoryTopicText(memory, topic);
+  const canonicalTopic = inferCanonicalTopic(textForKeywords || topic);
+  const keywords = Array.from(
+    new Set([
+      ...extractTopicKeywords(textForKeywords || topic),
+      ...canonicalTopic.aliases.map((alias) => alias.toLowerCase()),
+    ]),
+  ).slice(0, 12);
   const category = getFirstMemoryType(memory);
   const memoryTypes = Array.isArray(memory.memory_type)
     ? memory.memory_type
@@ -169,9 +138,13 @@ function buildNode(memory: IMemory, t: ReturnType<typeof useTranslation>['t']) {
     : '';
 
   return {
-    id: memory.id,
-    topicId: memory.id,
-    topic,
+    id: canonicalTopic.id,
+    topicId: canonicalTopic.id,
+    primaryMemoryId: memory.id,
+    memoryIds: [memory.id],
+    memoryCount: 1,
+    topic: canonicalTopic.label || topic,
+    sourceTopics: [topic],
     aliases: keywords,
     preview,
     summary: preview,
@@ -179,7 +152,7 @@ function buildNode(memory: IMemory, t: ReturnType<typeof useTranslation>['t']) {
     category,
     createdAt: parseCreateTime(memory),
     turns: Math.max(1, Number(memory.message_count || 1)),
-    language: /[\p{Script=Han}]/u.test(textForKeywords) ? 'zh' : 'en',
+    language: canonicalTopic.language,
     ownerName: memory.owner_name,
     storageType: memory.storage_type,
     memoryTypeLabel: memory.is_chat_memo
@@ -189,6 +162,51 @@ function buildNode(memory: IMemory, t: ReturnType<typeof useTranslation>['t']) {
       ? formatDate(memory.latest_forget_at)
       : t('memory.messages.notForgotten'),
   };
+}
+
+function mergeList(a: string[], b: string[], limit = 16) {
+  return Array.from(new Set([...a, ...b].filter(Boolean))).slice(0, limit);
+}
+
+function groupCanonicalNodes(nodes: MemoSpacetimeNode[]) {
+  const grouped = new Map<string, MemoSpacetimeNode>();
+  nodes.forEach((node) => {
+    const existing = grouped.get(node.topicId);
+    if (!existing) {
+      grouped.set(node.topicId, node);
+      return;
+    }
+
+    const isNewer = node.createdAt.getTime() > existing.createdAt.getTime();
+    grouped.set(node.topicId, {
+      ...existing,
+      primaryMemoryId: isNewer
+        ? node.primaryMemoryId
+        : existing.primaryMemoryId,
+      memoryIds: mergeList(existing.memoryIds, node.memoryIds, 100),
+      memoryCount: existing.memoryCount + node.memoryCount,
+      sourceTopics: mergeList(existing.sourceTopics, node.sourceTopics, 12),
+      aliases: mergeList(existing.aliases, node.aliases, 18),
+      keywords: mergeList(existing.keywords, node.keywords, 18),
+      preview: mergeList(
+        existing.preview ? [existing.preview] : [],
+        node.preview ? [node.preview] : [],
+        3,
+      ).join('\n\n'),
+      summary: mergeList(
+        existing.summary ? [existing.summary] : [],
+        node.summary ? [node.summary] : [],
+        3,
+      ).join('\n\n'),
+      createdAt: isNewer ? node.createdAt : existing.createdAt,
+      turns: existing.turns + node.turns,
+      forgetLabel: isNewer ? node.forgetLabel : existing.forgetLabel,
+    });
+  });
+
+  return Array.from(grouped.values()).sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+  );
 }
 
 function getCanvasTheme(): CanvasTheme {
@@ -339,10 +357,11 @@ export function MemoSpacetimeNetwork({
     new Date().toISOString().slice(0, 10),
   );
 
-  const nodes = useMemo(
+  const rawNodes = useMemo(
     () => memories.map((memory) => buildNode(memory, t)),
     [memories, t],
   );
+  const nodes = useMemo(() => groupCanonicalNodes(rawNodes), [rawNodes]);
 
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedId),
@@ -653,7 +672,7 @@ export function MemoSpacetimeNetwork({
           <div className="grid grid-cols-2 gap-2 text-xs text-text-secondary">
             <div className="rounded-md bg-bg-base/60 p-2">
               <div>
-                {t('memories.spacetime.totalMemos', { defaultValue: 'Memos' })}
+                {t('memories.spacetime.topics', { defaultValue: 'Topics' })}
               </div>
               <div className="mt-1 text-base font-semibold text-text-primary">
                 {nodes.length}
@@ -677,10 +696,10 @@ export function MemoSpacetimeNetwork({
             </div>
             <div className="rounded-md bg-bg-base/60 p-2">
               <div>
-                {t('memory.sideBar.messages', { defaultValue: 'Messages' })}
+                {t('memories.spacetime.totalMemos', { defaultValue: 'Memos' })}
               </div>
               <div className="mt-1 text-base font-semibold text-text-primary">
-                {nodes.reduce((sum, node) => sum + node.turns, 0)}
+                {rawNodes.length}
               </div>
             </div>
           </div>
@@ -772,8 +791,25 @@ export function MemoSpacetimeNetwork({
                 <div className="mt-1">
                   {formatDate(selectedNode.createdAt)} · {selectedNode.turns}{' '}
                   {t('memory.sideBar.messages', { defaultValue: 'Messages' })}
+                  {' · '}
+                  {selectedNode.memoryCount}{' '}
+                  {t('memories.spacetime.totalMemos', {
+                    defaultValue: 'Memos',
+                  })}
                 </div>
               </div>
+              {selectedNode.aliases.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedNode.aliases.slice(0, 7).map((alias) => (
+                    <span
+                      className="rounded-full bg-accent-primary/10 px-2 py-0.5 text-accent-primary"
+                      key={alias}
+                    >
+                      {alias}
+                    </span>
+                  ))}
+                </div>
+              )}
               {selectedNode.preview && (
                 <p className="line-clamp-6 whitespace-pre-line">
                   {selectedNode.preview}
@@ -792,7 +828,7 @@ export function MemoSpacetimeNetwork({
               <Button
                 className="w-full"
                 size="sm"
-                onClick={() => openMemory(selectedNode.id)}
+                onClick={() => openMemory(selectedNode.primaryMemoryId)}
               >
                 <ExternalLink className="size-4" />
                 {t('memories.spacetime.openMemo', {
@@ -846,7 +882,11 @@ export function MemoSpacetimeNetwork({
                     </div>
                     <div className="mt-0.5 text-text-secondary">
                       {formatDate(hoveredNode.createdAt)} ·{' '}
-                      {formatTime(hoveredNode.createdAt)}
+                      {formatTime(hoveredNode.createdAt)} ·{' '}
+                      {hoveredNode.memoryCount}{' '}
+                      {t('memories.spacetime.totalMemos', {
+                        defaultValue: 'Memos',
+                      })}
                     </div>
                   </div>
                 </div>
@@ -869,7 +909,7 @@ export function MemoSpacetimeNetwork({
                   className="w-full"
                   size="sm"
                   variant="outline"
-                  onClick={() => openMemory(hoveredNode.id)}
+                  onClick={() => openMemory(hoveredNode.primaryMemoryId)}
                 >
                   <ExternalLink className="size-4" />
                   {t('memories.spacetime.openMemo', {

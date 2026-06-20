@@ -27,6 +27,7 @@ from api.db.joint_services.memory_message_service import (
     _sanitize_memory_text,
 )
 from api.utils.memory_utils import format_ret_data_from_memory, get_memory_display_name, get_memory_type_human, is_chat_memo_name
+from api.utils.memo_structured_summary import parse_memo_structured_summary_content
 from api.utils.tenant_utils import ensure_tenant_model_id_for_params
 from api.constants import MEMORY_NAME_LIMIT, MEMORY_SIZE_LIMIT
 from memory.services.messages import MessageService
@@ -47,6 +48,27 @@ def _compact_memory_preview(content: str | None, max_chars: int = 420) -> str:
     if len(content) > max_chars:
         return content[:max_chars].rstrip() + "..."
     return content
+
+
+def _extract_structured_summary_from_message(message: dict | None) -> dict:
+    for extract_message in (message or {}).get("extract") or []:
+        structured = parse_memo_structured_summary_content(extract_message.get("content"))
+        if not structured:
+            continue
+        return {
+            "display_title": structured.display_title,
+            "canonical_topic_candidate": structured.canonical_topic_candidate,
+            "aliases": structured.aliases,
+            "language": structured.language,
+            "entities": [entity.model_dump() for entity in structured.entities],
+            "dates": structured.dates,
+            "amounts": [amount.model_dump() for amount in structured.amounts],
+            "facts": [fact.model_dump() for fact in structured.facts],
+            "open_questions": structured.open_questions,
+            "source_message_ids": structured.source_message_ids,
+            "related_kb_ids": structured.related_kb_ids,
+        }
+    return {}
 
 
 def _split_filter_values(values):
@@ -284,6 +306,7 @@ async def list_memory(filter_params: dict, keywords: str, page: int=1, page_size
         message_count = 0
         latest_content_preview = ""
         latest_forget_at = None
+        structured_summary = {}
         try:
             message_page = MessageService.list_message(memory["tenant_id"], memory["id"], page=1, page_size=1)
             message_count = message_page.get("total_count", 0)
@@ -292,6 +315,7 @@ async def list_memory(filter_params: dict, keywords: str, page: int=1, page_size
                 latest_message = latest_messages[0]
                 latest_content_preview = _compact_memory_preview(latest_message.get("content"))
                 latest_forget_at = latest_message.get("forget_at")
+                structured_summary = _extract_structured_summary_from_message(latest_message)
         except Exception:
             pass
         memory.update({
@@ -301,6 +325,7 @@ async def list_memory(filter_params: dict, keywords: str, page: int=1, page_size
             "message_count": message_count,
             "latest_content_preview": latest_content_preview,
             "latest_forget_at": latest_forget_at,
+            "structured_summary": structured_summary,
         })
     return {
         "memory_list": memory_list, "total_count": count

@@ -124,9 +124,11 @@ function buildNode(memory: IMemory, t: ReturnType<typeof useTranslation>['t']) {
   const preview = memory.latest_content_preview || memory.description || '';
   const textForKeywords = getMemoryTopicText(memory, topic);
   const canonicalTopic = inferCanonicalTopic(textForKeywords || topic);
+  const structuredAliases = memory.structured_summary?.aliases ?? [];
   const keywords = Array.from(
     new Set([
       ...extractTopicKeywords(textForKeywords || topic),
+      ...structuredAliases.map((alias) => alias.toLowerCase()),
       ...canonicalTopic.aliases.map((alias) => alias.toLowerCase()),
     ]),
   ).slice(0, 12);

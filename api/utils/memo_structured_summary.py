@@ -333,3 +333,92 @@ def format_memo_structured_summary_content(summary: MemoStructuredSummary) -> st
     if summary.related_kb_ids:
         lines.append("Related KB IDs: " + ", ".join(summary.related_kb_ids))
     return "\n".join(line for line in lines if line).strip()
+
+
+def parse_memo_structured_summary_content(content: str | None) -> MemoStructuredSummary | None:
+    text = sanitize_memo_text(content)
+    if not text.startswith("Memo structured summary version:"):
+        return None
+
+    values: dict[str, Any] = {
+        "version": MEMO_STRUCTURED_SUMMARY_VERSION,
+        "display_title": "",
+        "canonical_topic_candidate": "",
+        "aliases": [],
+        "language": "unknown",
+        "entities": [],
+        "dates": [],
+        "amounts": [],
+        "facts": [],
+        "open_questions": [],
+        "source_message_ids": [],
+        "related_kb_ids": [],
+    }
+    section = ""
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("Memo structured summary version:"):
+            values["version"] = line.split(":", 1)[1].strip() or MEMO_STRUCTURED_SUMMARY_VERSION
+            section = ""
+        elif line.startswith("Title:"):
+            values["display_title"] = line.split(":", 1)[1].strip()
+            section = ""
+        elif line.startswith("Canonical topic:"):
+            values["canonical_topic_candidate"] = line.split(":", 1)[1].strip()
+            section = ""
+        elif line.startswith("Language:"):
+            language = line.split(":", 1)[1].strip()
+            values["language"] = language if language in {"zh", "en", "mixed", "unknown"} else "unknown"
+            section = ""
+        elif line.startswith("Aliases:"):
+            values["aliases"] = [item.strip() for item in line.split(":", 1)[1].split(",") if item.strip()]
+            section = ""
+        elif line == "Entities:":
+            section = "entities"
+        elif line.startswith("Dates:"):
+            values["dates"] = [item.strip() for item in line.split(":", 1)[1].split(",") if item.strip()]
+            section = ""
+        elif line.startswith("Amounts:"):
+            values["amounts"] = [
+                MemoAmount(text=item.strip(), normalized=item.strip())
+                for item in line.split(":", 1)[1].split(",")
+                if item.strip()
+            ]
+            section = ""
+        elif line == "Facts:":
+            section = "facts"
+        elif line == "Open questions:":
+            section = "open_questions"
+        elif line.startswith("Source message IDs:"):
+            values["source_message_ids"] = [item.strip() for item in line.split(":", 1)[1].split(",") if item.strip()]
+            section = ""
+        elif line.startswith("Related KB IDs:"):
+            values["related_kb_ids"] = [item.strip() for item in line.split(":", 1)[1].split(",") if item.strip()]
+            section = ""
+        elif line.startswith("- ") and section == "entities":
+            body = line[2:].strip()
+            match = re.match(r"(?P<text>.*)\s+\((?P<label>[^)]+)\)$", body)
+            if match:
+                values["entities"].append(
+                    MemoEntity(text=match.group("text").strip(), label=match.group("label").strip())
+                )
+            elif body:
+                values["entities"].append(MemoEntity(text=body))
+        elif line.startswith("- ") and section == "facts":
+            fact = line[2:].strip()
+            if fact:
+                values["facts"].append(MemoFact(text=fact, source_message_ids=values["source_message_ids"]))
+        elif line.startswith("- ") and section == "open_questions":
+            question = line[2:].strip()
+            if question:
+                values["open_questions"].append(question)
+
+    if not values["display_title"] and not values["canonical_topic_candidate"]:
+        return None
+    if not values["canonical_topic_candidate"]:
+        values["canonical_topic_candidate"] = values["display_title"]
+    if not values["display_title"]:
+        values["display_title"] = values["canonical_topic_candidate"]
+    return MemoStructuredSummary(**values)

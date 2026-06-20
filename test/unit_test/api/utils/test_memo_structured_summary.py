@@ -22,6 +22,7 @@ from api.utils.memo_structured_summary import (
     build_memo_structured_summary,
     format_memo_structured_summary_content,
     memo_structured_summary_to_search_text,
+    parse_memo_structured_summary_content,
     sanitize_memo_text,
     sanitize_memo_title,
 )
@@ -125,3 +126,26 @@ def test_format_memo_structured_summary_content_keeps_stable_labels():
     assert "Canonical topic: 租金及契诺责任保障" in content
     assert "Source message IDs: 88" in content
     assert "Related KB IDs: kb-trust-law" in content
+
+
+def test_parse_memo_structured_summary_content_round_trips_key_fields():
+    original = build_memo_structured_summary(
+        "User: Apple Inc. 与苹果公司季度收入\nAssistant: AAPL 2026 revenue reached $123 million.",
+        aliases=["Apple Inc.", "苹果公司", "AAPL"],
+        source_message_ids=[99],
+        related_kb_ids=["kb-apple"],
+    )
+
+    parsed = parse_memo_structured_summary_content(format_memo_structured_summary_content(original))
+
+    assert parsed is not None
+    assert parsed.display_title == "Apple Inc. 与苹果公司季度收入"
+    assert parsed.canonical_topic_candidate == "Apple Inc. 与苹果公司季度收入"
+    assert parsed.aliases == ["Apple Inc.", "苹果公司", "AAPL"]
+    assert parsed.source_message_ids == ["99"]
+    assert parsed.related_kb_ids == ["kb-apple"]
+    assert [amount.text for amount in parsed.amounts] == ["$123 million"]
+
+
+def test_parse_memo_structured_summary_content_ignores_non_structured_text():
+    assert parse_memo_structured_summary_content("普通备忘录内容") is None

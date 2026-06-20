@@ -17,6 +17,19 @@ export type MemoryType = 'raw' | 'semantic' | 'episodic' | 'procedural';
 export type StorageType = 'table' | 'graph';
 export type Permissions = 'me' | 'team';
 export type ForgettingPolicy = 'FIFO' | 'LRU';
+export interface IMemoryStructuredSummary {
+  display_title?: string;
+  canonical_topic_candidate?: string;
+  aliases?: string[];
+  language?: string;
+  entities?: Array<{ text: string; label: string; normalized?: string }>;
+  dates?: string[];
+  amounts?: Array<{ text: string; normalized?: string }>;
+  facts?: Array<{ text: string; source_message_ids?: string[] }>;
+  open_questions?: string[];
+  source_message_ids?: string[];
+  related_kb_ids?: string[];
+}
 export interface ICreateMemoryProps {
   name: string;
   memory_type: MemoryType[];
@@ -29,6 +42,7 @@ export interface IMemory extends ICreateMemoryProps {
   is_chat_memo?: boolean;
   latest_content_preview?: string;
   latest_forget_at?: string | null;
+  structured_summary?: IMemoryStructuredSummary;
   message_count?: number;
   avatar: string;
   tenant_id: string;

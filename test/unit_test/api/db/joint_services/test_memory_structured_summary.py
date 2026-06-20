@@ -23,6 +23,7 @@ from api.db.joint_services.memory_message_service import (
     _build_structured_summary_message,
     _memory_supports_structured_summary,
 )
+from api.apps.services.memory_api_service import _extract_structured_summary_from_message
 from common.constants import MemoryType
 
 
@@ -67,6 +68,29 @@ ERROR: INVALID_REQUEST - layer-slice token span exceeds context
     assert "Related KB IDs: kb-trust-law" in message["content"]
     assert "Searching datasets" not in message["content"]
     assert "ERROR:" not in message["content"]
+
+
+def test_extract_structured_summary_from_latest_raw_extract():
+    structured_message = _build_structured_summary_message(
+        "memory-1",
+        {
+            "user_id": "user-1",
+            "agent_id": "chat-1",
+            "session_id": "session-1",
+            "memo_topic": "Apple Inc. 与苹果公司季度收入",
+            "aliases": ["Apple Inc.", "苹果公司", "AAPL"],
+            "user_input": "User: Apple Inc. 与苹果公司季度收入\nAssistant: AAPL revenue was discussed.",
+            "agent_response": "",
+        },
+        source_message_id=77,
+        message_id=78,
+    )
+
+    structured = _extract_structured_summary_from_message({"extract": [structured_message]})
+
+    assert structured["canonical_topic_candidate"] == "Apple Inc. 与苹果公司季度收入"
+    assert structured["aliases"] == ["Apple Inc.", "苹果公司", "AAPL"]
+    assert structured["source_message_ids"] == ["77"]
 
 
 @pytest.mark.asyncio

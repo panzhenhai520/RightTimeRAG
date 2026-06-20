@@ -167,7 +167,13 @@ export function getMemoryTopicText(
   memory: Partial<IMemory>,
   displayName: string,
 ) {
+  const structuredSummary = memory.structured_summary;
   return [
+    structuredSummary?.canonical_topic_candidate,
+    structuredSummary?.display_title,
+    ...(structuredSummary?.aliases ?? []),
+    ...(structuredSummary?.entities?.map((entity) => entity.text) ?? []),
+    ...(structuredSummary?.facts?.map((fact) => fact.text) ?? []),
     displayName,
     memory.display_name,
     memory.description,

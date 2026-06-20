@@ -102,12 +102,16 @@ export function MemoProfilePanel({
         </div>
         <div className="space-y-1 text-xs text-text-secondary">
           {learningPath.map((topic, index) => (
-            <div className="flex items-center gap-2" key={topic.topicId}>
+            <button
+              className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition hover:bg-accent-primary/10"
+              key={topic.topicId}
+              onClick={() => onOpenMemory(topic.memoryIds[0])}
+            >
               <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent-primary/10 text-[10px] text-accent-primary">
                 {index + 1}
               </span>
               <span className="truncate">{topic.topicLabel}</span>
-            </div>
+            </button>
           ))}
         </div>
       </section>
@@ -121,9 +125,10 @@ export function MemoProfilePanel({
         </div>
         <div className="space-y-1.5">
           {trends.slice(0, 4).map((trend) => (
-            <div
-              className="rounded-md bg-bg-base/55 px-2 py-1.5 text-xs"
+            <button
+              className="w-full rounded-md bg-bg-base/55 px-2 py-1.5 text-left text-xs transition hover:bg-accent-primary/10"
               key={trend.topicId}
+              onClick={() => onOpenMemory(trend.evidenceMemoryIds[0])}
             >
               <div className="truncate font-medium text-text-primary">
                 {trend.topicLabel}
@@ -136,7 +141,7 @@ export function MemoProfilePanel({
                 {trend.activityDelta > 0 ? '+' : ''}
                 {trend.activityDelta}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </section>

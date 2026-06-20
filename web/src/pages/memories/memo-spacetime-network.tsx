@@ -2,13 +2,19 @@ import { Button } from '@/components/ui/button';
 import { Routes } from '@/routes';
 import { formatDate } from '@/utils/date';
 import {
-  BarChart3,
-  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
+  GitBranch,
+  Info,
+  LocateFixed,
   MessageSquareText,
+  MousePointer2,
   Network,
   RotateCcw,
-  ZoomIn,
+  Share2,
+  SkipBack,
+  SkipForward,
 } from 'lucide-react';
 import {
   MouseEvent as ReactMouseEvent,
@@ -68,6 +74,23 @@ type PositionedNode = MemoSpacetimeNode & {
   visible: boolean;
 };
 
+type DateFocusReport = {
+  dateLabel: string;
+  nodeCount: number;
+  turnCount: number;
+  categories: string[];
+  timeRange: string;
+  hasNodes: boolean;
+};
+
+type KeywordWeaveReport = {
+  topKeyword: string;
+  topKeywords: Array<[string, number]>;
+  connectedCount: number;
+  daySpan: number;
+  primaryTopic: string;
+};
+
 type CanvasTheme = {
   background: string;
   panel: string;
@@ -88,6 +111,7 @@ const CATEGORY_COLORS: Record<MemoCategory, string> = {
 };
 
 const DAY_WIDTH = 92;
+const ONE_DAY_MS = 86_400_000;
 
 function getFirstMemoryType(memory: IMemory): MemoCategory {
   const memoryType = Array.isArray(memory.memory_type)
@@ -219,52 +243,20 @@ function groupCanonicalNodes(nodes: MemoSpacetimeNode[]) {
 }
 
 function getCanvasTheme(): CanvasTheme {
-  const isDark = document.documentElement.classList.contains('dark');
   const styles = getComputedStyle(document.documentElement);
   const accent = styles.getPropertyValue('--accent-primary').trim();
-  const accentColor = accent ? `rgb(${accent})` : '#7c4f63';
-
-  if (isDark) {
-    return {
-      background: '#172833',
-      panel: 'rgba(255,255,255,0.045)',
-      grid: 'rgba(220,236,244,0.12)',
-      gridStrong: 'rgba(220,236,244,0.24)',
-      text: 'rgba(230,239,244,0.88)',
-      muted: 'rgba(205,221,229,0.58)',
-      accent: '#8fb3c5',
-      edge: 'rgba(143,179,197,0.24)',
-    };
-  }
+  const accentColor = accent ? `rgb(${accent})` : '#6366f1';
 
   return {
-    background: '#fbf6f4',
-    panel: 'rgba(255,255,255,0.78)',
-    grid: 'rgba(118,84,74,0.13)',
-    gridStrong: 'rgba(118,84,74,0.26)',
-    text: 'rgba(35,38,43,0.84)',
-    muted: 'rgba(80,76,75,0.58)',
+    background: '#070b14',
+    panel: 'rgba(15,23,42,0.36)',
+    grid: 'rgba(71,85,105,0.34)',
+    gridStrong: 'rgba(99,102,241,0.38)',
+    text: 'rgba(226,232,240,0.9)',
+    muted: 'rgba(148,163,184,0.72)',
     accent: accentColor,
-    edge: 'rgba(124,79,99,0.2)',
+    edge: 'rgba(148,163,184,0.08)',
   };
-}
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-) {
-  const r = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + width, y, x + width, y + height, r);
-  ctx.arcTo(x + width, y + height, x, y + height, r);
-  ctx.arcTo(x, y + height, x, y, r);
-  ctx.arcTo(x, y, x + width, y, r);
-  ctx.closePath();
 }
 
 function sharedKeywordCount(a: MemoSpacetimeNode, b: MemoSpacetimeNode) {
@@ -290,6 +282,17 @@ function addDays(date: Date, days: number) {
   const copy = new Date(date);
   copy.setDate(copy.getDate() + days);
   return copy;
+}
+
+function formatInputDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isSameDay(a: Date, b: Date) {
+  return getStartOfDay(a).getTime() === getStartOfDay(b).getTime();
 }
 
 function getVisibleCenterDate(offsetDays: number) {
@@ -365,6 +368,11 @@ export function MemoSpacetimeNetwork({
   const [focusDate, setFocusDate] = useState(
     new Date().toISOString().slice(0, 10),
   );
+  const [dateFocusReport, setDateFocusReport] = useState<DateFocusReport>();
+  const [keywordWeaveReport, setKeywordWeaveReport] =
+    useState<KeywordWeaveReport>();
+  const [activeKeyword, setActiveKeyword] = useState<string>();
+  const [dashOffset, setDashOffset] = useState(0);
 
   const rawNodes = useMemo(
     () => memories.map((memory) => buildNode(memory, t)),
@@ -393,6 +401,142 @@ export function MemoSpacetimeNetwork({
     () => nodes.find((node) => node.id === hoveredId),
     [hoveredId, nodes],
   );
+
+  const firstNodeDate = useMemo(() => {
+    const first = nodes.reduce<Date | undefined>((earliest, node) => {
+      if (!earliest) return node.createdAt;
+      return node.createdAt.getTime() < earliest.getTime()
+        ? node.createdAt
+        : earliest;
+    }, undefined);
+    return first ? getStartOfDay(first) : getStartOfDay(new Date());
+  }, [nodes]);
+
+  const selectedRelatedNodes = useMemo(() => {
+    if (!selectedNode) return [];
+    return nodes
+      .filter((node) => node.id !== selectedNode.id)
+      .map((node) => ({
+        node,
+        shared: selectedNode.keywords.filter((keyword) =>
+          node.keywords.includes(keyword),
+        ),
+      }))
+      .filter((item) => item.shared.length > 0)
+      .sort((a, b) => b.shared.length - a.shared.length);
+  }, [nodes, selectedNode]);
+
+  const setViewportToDate = useCallback((date: Date) => {
+    const today = getStartOfDay(new Date()).getTime();
+    setDateOffsetDays((getStartOfDay(date).getTime() - today) / ONE_DAY_MS);
+  }, []);
+
+  const focusNode = useCallback(
+    (node: MemoSpacetimeNode) => {
+      setSelectedId(node.id);
+      setFocusDate(formatInputDate(node.createdAt));
+      setViewportToDate(node.createdAt);
+    },
+    [setViewportToDate],
+  );
+
+  const buildDateReport = useCallback(
+    (inputValue: string) => {
+      const date = new Date(inputValue);
+      if (Number.isNaN(date.getTime())) return;
+      const target = getStartOfDay(date);
+      const nodesOnDay = nodes
+        .filter((node) => isSameDay(node.createdAt, target))
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+      setViewportToDate(target);
+      setActiveKeyword(undefined);
+      setKeywordWeaveReport(undefined);
+
+      if (!nodesOnDay.length) {
+        setSelectedId(undefined);
+        setDateFocusReport({
+          dateLabel: formatDay(target),
+          nodeCount: 0,
+          turnCount: 0,
+          categories: [],
+          timeRange: t('memories.spacetime.noTimeRange', {
+            defaultValue: 'No records',
+          }),
+          hasNodes: false,
+        });
+        return;
+      }
+
+      const categories = Array.from(
+        new Set(nodesOnDay.map((node) => node.memoryTypeLabel)),
+      );
+      const turnCount = nodesOnDay.reduce((sum, node) => sum + node.turns, 0);
+      const first = nodesOnDay[0].createdAt;
+      const last = nodesOnDay[nodesOnDay.length - 1].createdAt;
+
+      setSelectedId(nodesOnDay[0].id);
+      setDateFocusReport({
+        dateLabel: formatDay(target),
+        nodeCount: nodesOnDay.length,
+        turnCount,
+        categories,
+        timeRange: `${formatTime(first)} - ${formatTime(last)}`,
+        hasNodes: true,
+      });
+    },
+    [nodes, setViewportToDate, t],
+  );
+
+  const analyzeKeywordConnections = useCallback(() => {
+    const counts = nodes.reduce<Record<string, number>>((acc, node) => {
+      node.keywords.forEach((keyword) => {
+        acc[keyword] = (acc[keyword] || 0) + 1;
+      });
+      return acc;
+    }, {});
+    const repeated = Object.entries(counts)
+      .filter(([, count]) => count > 1)
+      .sort((a, b) => b[1] - a[1]);
+
+    if (!repeated.length) {
+      setActiveKeyword(undefined);
+      setKeywordWeaveReport(undefined);
+      return;
+    }
+
+    const topKeyword = repeated[0][0];
+    const connectedNodes = nodes.filter((node) =>
+      node.keywords.includes(topKeyword),
+    );
+    const primaryNode = connectedNodes.reduce(
+      (best, node) => {
+        const score = nodes.filter(
+          (other) =>
+            other.id !== node.id && sharedKeywordCount(node, other) > 0,
+        ).length;
+        return score > best.score ? { node, score } : best;
+      },
+      { node: connectedNodes[0], score: 0 },
+    ).node;
+    const timestamps = connectedNodes.map((node) =>
+      getStartOfDay(node.createdAt).getTime(),
+    );
+    const daySpan =
+      Math.round(
+        (Math.max(...timestamps) - Math.min(...timestamps)) / ONE_DAY_MS,
+      ) + 1;
+
+    setActiveKeyword(topKeyword);
+    setKeywordWeaveReport({
+      topKeyword,
+      topKeywords: repeated.slice(0, 3),
+      connectedCount: connectedNodes.length,
+      daySpan,
+      primaryTopic: primaryNode.topic,
+    });
+    focusNode(primaryNode);
+  }, [focusNode, nodes]);
 
   useEffect(() => {
     setSelectedId((current) =>
@@ -430,6 +574,22 @@ export function MemoSpacetimeNetwork({
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (!activeKeyword && !selectedId && !hoveredId) return;
+    let frame = 0;
+    let disposed = false;
+    const tick = () => {
+      if (disposed) return;
+      setDashOffset((current) => (current - 0.6) % 24);
+      frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+    return () => {
+      disposed = true;
+      window.cancelAnimationFrame(frame);
+    };
+  }, [activeKeyword, hoveredId, selectedId]);
+
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -459,8 +619,20 @@ export function MemoSpacetimeNetwork({
     positionedRef.current = positioned;
 
     ctx.fillStyle = theme.panel;
-    roundRect(ctx, plot.left, plot.top, plot.plotWidth, plot.plotHeight, 18);
-    ctx.fill();
+    ctx.fillRect(plot.left, plot.top, plot.plotWidth, plot.plotHeight);
+
+    ctx.fillStyle = theme.muted;
+    ctx.font = '600 12px Inter, sans-serif';
+    ctx.fillText(
+      t('memories.spacetime.dateAxis', { defaultValue: 'Date' }),
+      plot.left - 62,
+      plot.top - 8,
+    );
+    ctx.fillText(
+      t('memories.spacetime.timeAxis', { defaultValue: 'Time' }),
+      plot.left - 36,
+      plot.top + 4,
+    );
 
     ctx.strokeStyle = theme.grid;
     ctx.lineWidth = 1;
@@ -494,19 +666,48 @@ export function MemoSpacetimeNetwork({
     }
     ctx.textAlign = 'left';
 
+    const activeNodeId = hoveredId || selectedId;
     positioned.forEach((source, sourceIndex) => {
       if (!source.visible) return;
       positioned.slice(sourceIndex + 1).forEach((target) => {
         if (!target.visible) return;
         const shared = sharedKeywordCount(source, target);
         if (!shared) return;
-        ctx.strokeStyle = shared > 1 ? theme.accent : theme.edge;
-        ctx.globalAlpha = Math.min(0.58, 0.14 + shared * 0.12);
-        ctx.lineWidth = Math.min(2.4, 0.7 + shared * 0.45);
+        const isNodeActive =
+          activeNodeId &&
+          (source.id === activeNodeId || target.id === activeNodeId);
+        const isKeywordActive =
+          activeKeyword &&
+          source.keywords.includes(activeKeyword) &&
+          target.keywords.includes(activeKeyword);
+        const isActive = isNodeActive || isKeywordActive;
+        ctx.strokeStyle = isActive ? '#6366f1' : theme.edge;
+        ctx.globalAlpha = isActive
+          ? 0.84
+          : Math.min(0.16, 0.05 + shared * 0.04);
+        ctx.lineWidth = isActive ? 2.4 : 1;
+        if (isActive) {
+          ctx.setLineDash([7, 9]);
+          ctx.lineDashOffset = dashOffset;
+          ctx.shadowColor = '#4f46e5';
+          ctx.shadowBlur = 9;
+        } else {
+          ctx.setLineDash([]);
+          ctx.shadowBlur = 0;
+        }
         ctx.beginPath();
         ctx.moveTo(source.x, source.y);
-        ctx.lineTo(target.x, target.y);
+        if (Math.abs(source.x - target.x) < 2) {
+          const midY = (source.y + target.y) / 2;
+          const offset = -Math.min(80, Math.abs(source.y - target.y) * 0.35);
+          ctx.quadraticCurveTo(source.x + offset, midY, target.x, target.y);
+        } else {
+          const midX = (source.x + target.x) / 2;
+          ctx.bezierCurveTo(midX, source.y, midX, target.y, target.x, target.y);
+        }
         ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
       });
     });
@@ -517,17 +718,25 @@ export function MemoSpacetimeNetwork({
       const isHovered = node.id === hoveredId;
       const color = CATEGORY_COLORS[node.category];
 
-      ctx.shadowColor = isSelected || isHovered ? color : 'transparent';
-      ctx.shadowBlur = isSelected || isHovered ? 16 : 0;
+      const isKeywordActive =
+        activeKeyword && node.keywords.includes(activeKeyword);
+
+      ctx.shadowColor =
+        isSelected || isHovered || isKeywordActive ? color : 'transparent';
+      ctx.shadowBlur = isSelected || isHovered || isKeywordActive ? 18 : 0;
       ctx.fillStyle = color;
-      ctx.globalAlpha = isSelected || isHovered ? 0.95 : 0.78;
+      ctx.globalAlpha =
+        isSelected || isHovered || isKeywordActive ? 0.98 : 0.82;
       ctx.beginPath();
       ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
       ctx.shadowBlur = 0;
-      ctx.strokeStyle = isSelected ? '#fff' : 'rgba(255,255,255,0.68)';
-      ctx.lineWidth = isSelected ? 3 : 1.4;
+      ctx.strokeStyle =
+        isSelected || isHovered || isKeywordActive
+          ? '#e0e7ff'
+          : 'rgba(255,255,255,0.68)';
+      ctx.lineWidth = isSelected || isHovered || isKeywordActive ? 3 : 1.4;
       ctx.stroke();
 
       ctx.fillStyle = theme.text;
@@ -539,12 +748,15 @@ export function MemoSpacetimeNetwork({
     });
     ctx.textAlign = 'left';
   }, [
+    activeKeyword,
     canvasSize.height,
     canvasSize.width,
+    dashOffset,
     dateOffsetDays,
     hoveredId,
     nodes,
     selectedId,
+    t,
     zoom,
   ]);
 
@@ -633,17 +845,31 @@ export function MemoSpacetimeNetwork({
   const resetViewport = useCallback(() => {
     setZoom(1);
     setDateOffsetDays(0);
-    setFocusDate(new Date().toISOString().slice(0, 10));
-  }, []);
+    setFocusDate(formatInputDate(new Date()));
+    setDateFocusReport(undefined);
+    setKeywordWeaveReport(undefined);
+    setActiveKeyword(undefined);
+    setSelectedId(nodes[0]?.id);
+  }, [nodes]);
 
   const focusOnDate = useCallback(() => {
-    const date = new Date(focusDate);
-    if (Number.isNaN(date.getTime())) return;
-    const today = getStartOfDay(new Date()).getTime();
-    setDateOffsetDays((getStartOfDay(date).getTime() - today) / 86_400_000);
-  }, [focusDate]);
+    buildDateReport(focusDate);
+  }, [buildDateReport, focusDate]);
 
-  const visibleNodes = positionedRef.current.filter((node) => node.visible);
+  const shiftDays = useCallback(
+    (days: number, resetToFirst = false) => {
+      if (resetToFirst) {
+        setViewportToDate(firstNodeDate);
+        setFocusDate(formatInputDate(firstNodeDate));
+      } else {
+        setDateOffsetDays((current) => current + days);
+      }
+      setActiveKeyword(undefined);
+      setKeywordWeaveReport(undefined);
+    },
+    [firstNodeDate, setViewportToDate],
+  );
+
   const topKeywords = useMemo(() => {
     const counts = nodes.reduce<Record<string, number>>((acc, node) => {
       node.keywords.forEach((keyword) => {
@@ -657,287 +883,498 @@ export function MemoSpacetimeNetwork({
       .slice(0, 8);
   }, [nodes]);
 
-  const denseConnections = useMemo(() => {
-    let count = 0;
-    nodes.forEach((source, index) => {
-      nodes.slice(index + 1).forEach((target) => {
-        if (sharedKeywordCount(source, target)) count += 1;
-      });
+  const legendItems = useMemo(() => {
+    const map = new Map<MemoCategory, string>();
+    nodes.forEach((node) => {
+      if (!map.has(node.category)) {
+        map.set(node.category, node.memoryTypeLabel);
+      }
     });
-    return count;
+    return Array.from(map.entries()).slice(0, 5);
   }, [nodes]);
 
   return (
-    <section className="flex min-h-0 flex-1 gap-4 px-5 pb-5">
-      <aside className="flex w-[300px] shrink-0 flex-col gap-3 overflow-y-auto rounded-xl border border-border-default/50 bg-bg-base/70 p-4 shadow-sm dark:bg-bg-component/45">
-        <div>
-          <div className="flex items-center gap-2 text-lg font-semibold text-text-primary">
-            <Network className="size-5 text-accent-primary" />
-            {t('memories.spacetime.title', {
-              defaultValue: 'Memory spacetime',
-            })}
+    <section className="mx-5 mb-5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-800 bg-[#070b14] text-slate-100 shadow-2xl">
+      <header className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-6 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-tr from-indigo-500 via-blue-600 to-purple-600 shadow-lg shadow-indigo-500/20">
+            <Network className="size-6 text-white" />
           </div>
-          <p className="mt-1 text-xs leading-5 text-text-secondary">
-            {t('memories.spacetime.subtitle', {
-              defaultValue:
-                'Topics are placed by creation date and time. Radius reflects conversation turns.',
-            })}
-          </p>
-        </div>
-
-        <div className="rounded-lg bg-bg-card/50 p-3">
-          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-text-primary">
-            <BarChart3 className="size-4 text-accent-primary" />
-            {t('memories.spacetime.stats', { defaultValue: 'Statistics' })}
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs text-text-secondary">
-            <div className="rounded-md bg-bg-base/60 p-2">
-              <div>
-                {t('memories.spacetime.topics', { defaultValue: 'Topics' })}
-              </div>
-              <div className="mt-1 text-base font-semibold text-text-primary">
-                {nodes.length}
-              </div>
-            </div>
-            <div className="rounded-md bg-bg-base/60 p-2">
-              <div>
-                {t('memories.spacetime.visible', { defaultValue: 'Visible' })}
-              </div>
-              <div className="mt-1 text-base font-semibold text-text-primary">
-                {visibleNodes.length || nodes.length}
-              </div>
-            </div>
-            <div className="rounded-md bg-bg-base/60 p-2">
-              <div>
-                {t('memories.spacetime.connections', { defaultValue: 'Links' })}
-              </div>
-              <div className="mt-1 text-base font-semibold text-text-primary">
-                {denseConnections}
-              </div>
-            </div>
-            <div className="rounded-md bg-bg-base/60 p-2">
-              <div>
-                {t('memories.spacetime.totalMemos', { defaultValue: 'Memos' })}
-              </div>
-              <div className="mt-1 text-base font-semibold text-text-primary">
-                {rawNodes.length}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <MemoProfilePanel
-          inputs={profileInputs}
-          metrics={profileMetrics}
-          trends={profileTrends}
-          onOpenMemory={openMemory}
-        />
-
-        <div className="rounded-lg bg-bg-card/50 p-3">
-          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-text-primary">
-            <CalendarDays className="size-4 text-accent-primary" />
-            {t('memories.spacetime.focusDate', { defaultValue: 'Focus date' })}
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="date"
-              value={focusDate}
-              onChange={(event) => setFocusDate(event.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-border-default/60 bg-bg-base px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary"
-            />
-            <Button size="sm" variant="outline" onClick={focusOnDate}>
-              <CalendarDays className="size-4 text-accent-primary" />
-            </Button>
-          </div>
-          <div className="mt-3 flex items-center gap-3">
-            <ZoomIn className="size-4 text-text-secondary" />
-            <input
-              aria-label={t('memories.spacetime.zoom', {
-                defaultValue: 'Zoom',
+          <div>
+            <h2 className="text-xl font-extrabold tracking-wide text-slate-100">
+              {t('memories.spacetime.title', {
+                defaultValue: 'Memory spacetime',
               })}
-              type="range"
-              min="0.55"
-              max="2.2"
-              step="0.05"
-              value={zoom}
-              onChange={(event) => setZoom(Number(event.target.value))}
-              className="w-full accent-[rgb(var(--accent-primary))]"
-            />
-            <span className="w-10 text-right text-xs text-text-secondary">
-              {Math.round(zoom * 100)}%
-            </span>
+            </h2>
+            <p className="text-xs text-slate-400">
+              {t('memories.spacetime.subtitle', {
+                defaultValue:
+                  'Topics are placed by creation date and time. Radius reflects conversation turns.',
+              })}
+            </p>
           </div>
+        </div>
+        <div className="flex items-center gap-3">
           <Button
-            className="mt-3 w-full"
             size="sm"
             variant="outline"
+            className="border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700"
             onClick={resetViewport}
           >
             <RotateCcw className="size-4" />
             {t('memories.spacetime.reset', { defaultValue: 'Reset viewport' })}
           </Button>
-        </div>
-
-        <div className="rounded-lg bg-bg-card/50 p-3">
-          <div className="mb-2 text-sm font-medium text-text-primary">
-            {t('memories.spacetime.keywordAnalysis', {
-              defaultValue: 'Keyword connections',
+          <div className="rounded-md border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-slate-500">
+            {t('memories.spacetime.loaded', {
+              defaultValue: 'Memory center loaded',
             })}
+            : <span className="font-bold text-indigo-400">{nodes.length}</span>{' '}
+            {t('memories.spacetime.nodes', { defaultValue: 'nodes' })}
           </div>
-          {topKeywords.length ? (
-            <div className="flex flex-wrap gap-2">
-              {topKeywords.map(([keyword, count]) => (
-                <span
-                  key={keyword}
-                  className="rounded-full bg-accent-primary/10 px-2.5 py-1 text-xs text-accent-primary"
-                >
-                  {keyword} · {count}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-text-secondary">
-              {t('memories.spacetime.noKeywords', {
-                defaultValue: 'No keyword links yet.',
+        </div>
+      </header>
+
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <aside className="flex w-96 shrink-0 flex-col overflow-y-auto border-r border-slate-800 bg-slate-900 shadow-2xl">
+          <div className="border-b border-slate-800 p-5">
+            <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+              <span className="size-1.5 rounded-full bg-indigo-500" />
+              {t('memories.spacetime.viewportControls', {
+                defaultValue: 'Viewport dimensions and panning',
               })}
-            </p>
-          )}
-        </div>
-
-        <div className="min-h-0 flex-1 rounded-lg bg-bg-card/50 p-3">
-          <div className="mb-2 text-sm font-medium text-text-primary">
-            {t('memories.spacetime.selectedMemo', {
-              defaultValue: 'Selected memo',
-            })}
-          </div>
-          {selectedNode ? (
-            <div className="space-y-3 text-xs leading-5 text-text-secondary">
-              <div>
-                <div className="line-clamp-3 text-sm font-semibold text-text-primary">
-                  {selectedNode.topic}
-                </div>
-                <div className="mt-1">
-                  {formatDate(selectedNode.createdAt)} · {selectedNode.turns}{' '}
-                  {t('memory.sideBar.messages', { defaultValue: 'Messages' })}
-                  {' · '}
-                  {selectedNode.memoryCount}{' '}
-                  {t('memories.spacetime.totalMemos', {
-                    defaultValue: 'Memos',
-                  })}
-                </div>
-              </div>
-              {selectedNode.aliases.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedNode.aliases.slice(0, 7).map((alias) => (
-                    <span
-                      className="rounded-full bg-accent-primary/10 px-2 py-0.5 text-accent-primary"
-                      key={alias}
-                    >
-                      {alias}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {selectedNode.preview && (
-                <p className="line-clamp-6 whitespace-pre-line">
-                  {selectedNode.preview}
-                </p>
-              )}
-              <div className="flex flex-wrap gap-1.5">
-                {selectedNode.keywords.slice(0, 6).map((keyword) => (
-                  <span
-                    className="rounded-full bg-bg-base px-2 py-0.5"
-                    key={keyword}
-                  >
-                    {keyword}
-                  </span>
-                ))}
-              </div>
-              <Button
-                className="w-full"
-                size="sm"
-                onClick={() => openMemory(selectedNode.primaryMemoryId)}
-              >
-                <ExternalLink className="size-4" />
-                {t('memories.spacetime.openMemo', {
-                  defaultValue: 'Open memo',
+            </h3>
+            <div className="mb-4">
+              <label className="mb-2 block text-[11px] text-slate-400">
+                {t('memories.spacetime.horizontalPan', {
+                  defaultValue:
+                    'Horizontal date panning. You can also drag the canvas.',
                 })}
-              </Button>
+              </label>
+              <div className="grid grid-cols-5 gap-1">
+                <button
+                  type="button"
+                  onClick={() => shiftDays(-6)}
+                  className="flex items-center justify-center gap-1 rounded border border-slate-700/80 bg-slate-800 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-slate-700"
+                >
+                  <SkipBack className="size-3.5" />
+                  -6d
+                </button>
+                <button
+                  type="button"
+                  onClick={() => shiftDays(-1)}
+                  className="flex items-center justify-center gap-1 rounded border border-slate-700/80 bg-slate-800 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-slate-700"
+                >
+                  <ChevronLeft className="size-3.5" />
+                  -1d
+                </button>
+                <button
+                  type="button"
+                  onClick={() => shiftDays(0, true)}
+                  className="rounded border border-indigo-800/80 bg-indigo-950/60 py-1.5 text-xs font-bold text-indigo-300 transition hover:bg-indigo-900/70"
+                >
+                  {t('memories.spacetime.firstDay', {
+                    defaultValue: 'First',
+                  })}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => shiftDays(1)}
+                  className="flex items-center justify-center gap-1 rounded border border-slate-700/80 bg-slate-800 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-slate-700"
+                >
+                  +1d
+                  <ChevronRight className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => shiftDays(6)}
+                  className="flex items-center justify-center gap-1 rounded border border-slate-700/80 bg-slate-800 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-slate-700"
+                >
+                  +6d
+                  <SkipForward className="size-3.5" />
+                </button>
+              </div>
             </div>
-          ) : (
-            <p className="text-xs text-text-secondary">
-              {t('memories.spacetime.selectHint', {
-                defaultValue: 'Select a circle to inspect this memo.',
-              })}
-            </p>
-          )}
-        </div>
-      </aside>
-
-      <div
-        ref={wrapperRef}
-        className="relative min-w-0 flex-1 overflow-hidden rounded-xl border border-border-default/45 bg-bg-base shadow-sm dark:bg-bg-component/40"
-      >
-        {loading && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-bg-base/60 backdrop-blur-sm">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-primary border-t-transparent" />
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="text-xs font-medium text-slate-400">
+                  {t('memories.spacetime.globalZoom', {
+                    defaultValue: 'Proportional canvas zoom',
+                  })}
+                </label>
+                <span className="font-mono text-xs font-bold text-indigo-400">
+                  {Math.round(zoom * 100)}%
+                </span>
+              </div>
+              <input
+                aria-label={t('memories.spacetime.zoom', {
+                  defaultValue: 'Zoom',
+                })}
+                type="range"
+                min="0.5"
+                max="2.5"
+                step="0.05"
+                value={zoom}
+                onChange={(event) => setZoom(Number(event.target.value))}
+                className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-800 accent-indigo-500"
+              />
+              <div className="mt-1 flex justify-between text-[10px] text-slate-500">
+                <span>50%</span>
+                <span className="text-indigo-500">100%</span>
+                <span>250%</span>
+              </div>
+            </div>
           </div>
-        )}
-        {nodes.length ? (
-          <>
-            <canvas
-              ref={canvasRef}
-              className="block size-full"
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onWheel={handleWheel}
-            />
-            {hoveredNode && tooltip && (
-              <div
-                className="pointer-events-auto absolute z-30 w-72 rounded-xl border border-border-default/60 bg-bg-base/95 p-3 text-xs shadow-xl backdrop-blur dark:bg-bg-component/95"
-                style={{
-                  left: Math.min(tooltip.x + 16, canvasSize.width - 300),
-                  top: Math.min(tooltip.y + 16, canvasSize.height - 220),
-                }}
-              >
-                <div className="mb-2 flex items-start gap-2">
-                  <MessageSquareText className="mt-0.5 size-4 shrink-0 text-accent-primary" />
-                  <div className="min-w-0">
-                    <div className="line-clamp-2 font-semibold text-text-primary">
-                      {hoveredNode.topic}
+
+          <div className="border-b border-slate-800 bg-slate-900/40 p-5">
+            <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+              <span className="size-1.5 rounded-full bg-emerald-500" />
+              {t('memories.spacetime.spacetimeClues', {
+                defaultValue: 'Spacetime clues',
+              })}
+            </h3>
+            <div className="space-y-4">
+              <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3 transition hover:border-slate-700">
+                <label className="mb-1 block text-[10px] text-slate-500">
+                  {t('memories.spacetime.focusDateHint', {
+                    defaultValue: 'Choose a focus date. Updates immediately.',
+                  })}
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={focusDate}
+                    onChange={(event) => {
+                      setFocusDate(event.target.value);
+                      buildDateReport(event.target.value);
+                    }}
+                    className="min-w-0 flex-1 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-center font-mono text-xs font-bold text-white outline-none transition hover:bg-slate-800 focus:border-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={focusOnDate}
+                    className="rounded-lg border border-indigo-800/60 bg-indigo-950/50 p-2 text-indigo-300 transition hover:bg-indigo-900/70"
+                  >
+                    <LocateFixed className="size-4" />
+                  </button>
+                </div>
+                {dateFocusReport && (
+                  <div
+                    className={
+                      dateFocusReport.hasNodes
+                        ? 'mt-3.5 space-y-2.5 rounded-xl border border-indigo-500/25 bg-indigo-950/45 p-3.5 text-xs'
+                        : 'mt-3.5 space-y-1.5 rounded-xl border border-slate-800/80 bg-slate-950 p-3.5 text-xs text-slate-400'
+                    }
+                  >
+                    <div className="flex items-center gap-1.5 border-b border-indigo-900/40 pb-1.5 font-bold text-indigo-300">
+                      <span className="size-2 rounded-full bg-indigo-400" />
+                      {dateFocusReport.hasNodes
+                        ? t('memories.spacetime.memoryExtraction', {
+                            date: dateFocusReport.dateLabel,
+                            defaultValue: 'Memo extraction [{{date}}]',
+                          })
+                        : t('memories.spacetime.noDateNodes', {
+                            defaultValue: 'No memo data at this coordinate',
+                          })}
                     </div>
-                    <div className="mt-0.5 text-text-secondary">
-                      {formatDate(hoveredNode.createdAt)} ·{' '}
-                      {formatTime(hoveredNode.createdAt)} ·{' '}
-                      {hoveredNode.memoryCount}{' '}
-                      {t('memories.spacetime.totalMemos', {
-                        defaultValue: 'Memos',
+                    {dateFocusReport.hasNodes ? (
+                      <>
+                        <div className="grid grid-cols-2 gap-2 text-slate-300">
+                          <div className="rounded border border-indigo-800/20 bg-indigo-950/20 p-2">
+                            <span className="block text-[9px] text-slate-500">
+                              {t('memories.spacetime.memoryFrequency', {
+                                defaultValue: 'Memo frequency',
+                              })}
+                            </span>
+                            <span className="font-mono text-sm font-bold text-white">
+                              {dateFocusReport.nodeCount}
+                            </span>
+                          </div>
+                          <div className="rounded border border-indigo-800/20 bg-indigo-950/20 p-2">
+                            <span className="block text-[9px] text-slate-500">
+                              {t('memories.spacetime.totalTurns', {
+                                defaultValue: 'Total turns',
+                              })}
+                            </span>
+                            <span className="font-mono text-sm font-bold text-white">
+                              {dateFocusReport.turnCount}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-y-1 text-[11px] leading-normal text-slate-400">
+                          <div>
+                            {t('memories.spacetime.containsCategories', {
+                              defaultValue: 'Categories',
+                            })}
+                            :{' '}
+                            <span className="font-bold text-indigo-200">
+                              {dateFocusReport.categories.join(', ')}
+                            </span>
+                          </div>
+                          <div>
+                            {t('memories.spacetime.timeSpan', {
+                              defaultValue: 'Time span',
+                            })}
+                            :{' '}
+                            <span className="font-bold text-indigo-200">
+                              {dateFocusReport.timeRange}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-[11px] leading-relaxed">
+                        {t('memories.spacetime.emptyDateHint', {
+                          defaultValue:
+                            'The viewport has moved to this empty coordinate.',
+                        })}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3 transition hover:border-slate-700">
+                <span className="mb-1 block text-xs font-bold text-indigo-400">
+                  {t('memories.spacetime.keywordClues', {
+                    defaultValue: 'Keyword horizontal clues',
+                  })}
+                </span>
+                <p className="mb-2.5 text-[10px] leading-normal text-slate-400">
+                  {t('memories.spacetime.keywordCluesDescription', {
+                    defaultValue:
+                      'Cluster overlapping keywords across time and locate the strongest similar circuit.',
+                  })}
+                </p>
+                <button
+                  type="button"
+                  onClick={analyzeKeywordConnections}
+                  className="flex w-full items-center justify-center gap-1 rounded border border-indigo-500/30 bg-indigo-500/10 py-1.5 text-xs font-bold text-indigo-300 transition hover:bg-indigo-500/20"
+                >
+                  <GitBranch className="size-3.5" />
+                  {t('memories.spacetime.analyzeGlobalWeave', {
+                    defaultValue: 'Analyze global strongest weave',
+                  })}
+                </button>
+                {keywordWeaveReport ? (
+                  <div className="mt-3.5 space-y-2.5 rounded-xl border border-indigo-500/25 bg-indigo-950/45 p-3.5 text-xs">
+                    <div className="flex items-center gap-1.5 border-b border-indigo-900/40 pb-1.5 font-bold text-indigo-300">
+                      <Share2 className="size-3.5" />
+                      {t('memories.spacetime.horizontalReport', {
+                        defaultValue: 'Horizontal clue report',
                       })}
                     </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="mr-1 block text-[10px] text-slate-400">
+                        {t('memories.spacetime.strongTies', {
+                          defaultValue: 'Strong ties',
+                        })}
+                        :
+                      </span>
+                      {keywordWeaveReport.topKeywords.map(
+                        ([keyword, count]) => (
+                          <span
+                            key={keyword}
+                            className="rounded border border-indigo-500/30 bg-indigo-950/60 px-2 py-0.5 font-mono text-[10px] font-bold text-indigo-300"
+                          >
+                            {keyword} ({count})
+                          </span>
+                        ),
+                      )}
+                    </div>
+                    <div className="space-y-1.5 text-[11px] text-slate-300">
+                      <p>
+                        {t('memories.spacetime.subnetwork', {
+                          defaultValue: 'Related subnetwork',
+                        })}
+                        :{' '}
+                        <span className="font-mono text-sm font-bold text-white">
+                          {keywordWeaveReport.connectedCount}
+                        </span>
+                      </p>
+                      <p>
+                        {t('memories.spacetime.horizontalSpan', {
+                          defaultValue: 'Horizontal time span',
+                        })}
+                        :{' '}
+                        <span className="font-mono text-sm font-bold text-white">
+                          {keywordWeaveReport.daySpan}
+                        </span>
+                      </p>
+                    </div>
+                    <p className="border-t border-indigo-900/40 pt-1 text-[10px] italic leading-normal text-slate-400">
+                      {t('memories.spacetime.primaryNodeHint', {
+                        topic: keywordWeaveReport.primaryTopic,
+                        defaultValue:
+                          'Located the core hub node: {{topic}}. The related weave is highlighted.',
+                      })}
+                    </p>
                   </div>
-                </div>
-                {hoveredNode.preview && (
-                  <p className="mb-3 line-clamp-4 whitespace-pre-line text-text-secondary">
-                    {hoveredNode.preview}
+                ) : topKeywords.length ? (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {topKeywords.slice(0, 8).map(([keyword, count]) => (
+                      <span
+                        key={keyword}
+                        className="rounded-full bg-indigo-950/50 px-2 py-0.5 text-[10px] text-indigo-300"
+                      >
+                        {keyword} · {count}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs italic text-slate-500">
+                    {t('memories.spacetime.noKeywords', {
+                      defaultValue: 'No keyword links yet.',
+                    })}
                   </p>
                 )}
-                <div className="mb-3 flex flex-wrap gap-1.5">
-                  {hoveredNode.keywords.slice(0, 5).map((keyword) => (
-                    <span
-                      className="rounded-full bg-accent-primary/10 px-2 py-0.5 text-accent-primary"
-                      key={keyword}
-                    >
-                      {keyword}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-grow p-5">
+            <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+              <span className="size-1.5 rounded-full bg-purple-500" />
+              {t('memories.spacetime.selectedPointInfo', {
+                defaultValue: 'Selected memory point',
+              })}
+            </h3>
+            {selectedNode ? (
+              <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 shadow-xl shadow-indigo-950/20">
+                <div className="mb-3 flex items-start justify-between">
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white"
+                    style={{
+                      backgroundColor: CATEGORY_COLORS[selectedNode.category],
+                    }}
+                  >
+                    {selectedNode.memoryTypeLabel}
+                  </span>
+                  <span className="font-mono text-xs text-slate-500">
+                    ID: {selectedNode.primaryMemoryId.slice(0, 8)}
+                  </span>
+                </div>
+                <h4 className="mb-2.5 line-clamp-3 text-sm font-bold leading-snug text-slate-200">
+                  {selectedNode.topic}
+                </h4>
+                <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg border border-slate-800/80 bg-slate-900/60 p-2.5 text-xs">
+                  <div>
+                    <span className="block text-[10px] text-slate-500">
+                      {t('memories.spacetime.createdDate', {
+                        defaultValue: 'Date',
+                      })}
                     </span>
-                  ))}
+                    <span className="font-mono font-bold text-slate-300">
+                      {formatInputDate(selectedNode.createdAt)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] text-slate-500">
+                      {t('memories.spacetime.exactTime', {
+                        defaultValue: 'Time',
+                      })}
+                    </span>
+                    <span className="font-mono font-bold text-slate-300">
+                      {formatTime(selectedNode.createdAt)}
+                    </span>
+                  </div>
+                </div>
+                <div className="mb-3.5">
+                  <div className="mb-1 flex justify-between text-xs">
+                    <span className="flex items-center gap-1 text-slate-400">
+                      <MessageSquareText className="size-3.5 text-indigo-400" />
+                      {t('memories.spacetime.turnsScale', {
+                        defaultValue: 'Conversation turns',
+                      })}
+                    </span>
+                    <span className="font-mono font-bold text-indigo-400">
+                      {selectedNode.turns}
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500"
+                      style={{
+                        width: `${Math.min(100, (selectedNode.turns / 20) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="mb-4">
+                  <span className="mb-1.5 block text-[10px] text-slate-500">
+                    {t('memories.spacetime.coreKeywords', {
+                      defaultValue: 'Core keywords',
+                    })}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedNode.keywords.slice(0, 10).map((keyword) => (
+                      <span
+                        key={keyword}
+                        className="rounded border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[11px] text-slate-300"
+                      >
+                        # {keyword}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {selectedNode.preview && (
+                  <p className="mb-4 line-clamp-5 whitespace-pre-line rounded-lg border border-slate-800 bg-slate-900/60 p-2.5 text-xs leading-5 text-slate-400">
+                    {selectedNode.preview}
+                  </p>
+                )}
+                <div className="border-t border-slate-800 pt-3">
+                  <span className="mb-2 flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                    <span className="size-1.5 rounded-full bg-indigo-400" />
+                    {t('memories.spacetime.sharedMemos', {
+                      defaultValue: 'Shared related memos',
+                    })}
+                  </span>
+                  <div className="max-h-40 space-y-1.5 overflow-y-auto">
+                    {selectedRelatedNodes.length ? (
+                      selectedRelatedNodes.map(({ node, shared }) => (
+                        <button
+                          type="button"
+                          key={node.id}
+                          onClick={() => focusNode(node)}
+                          className="flex w-full flex-col gap-1 rounded-lg border border-slate-800 bg-slate-900/80 p-2 text-left transition hover:bg-slate-800/80"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-[11px] font-bold text-slate-200">
+                              {node.topic}
+                            </span>
+                            <span
+                              className="shrink-0 rounded-full px-1.5 text-[9px] text-white"
+                              style={{
+                                backgroundColor: CATEGORY_COLORS[node.category],
+                              }}
+                            >
+                              {node.memoryTypeLabel}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2 text-[10px] text-slate-400">
+                            <span>
+                              {formatDay(node.createdAt)}{' '}
+                              {formatTime(node.createdAt)} ({node.turns})
+                            </span>
+                            <span className="truncate text-indigo-400">
+                              {shared.join(', ')}
+                            </span>
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <p className="text-[11px] italic text-slate-500">
+                        {t('memories.spacetime.noSharedMemos', {
+                          defaultValue: 'No shared related points yet.',
+                        })}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <Button
-                  className="w-full"
+                  className="mt-3 w-full border-indigo-800/60 bg-indigo-950/70 text-indigo-200 hover:bg-indigo-900"
                   size="sm"
                   variant="outline"
-                  onClick={() => openMemory(hoveredNode.primaryMemoryId)}
+                  onClick={() => openMemory(selectedNode.primaryMemoryId)}
                 >
                   <ExternalLink className="size-4" />
                   {t('memories.spacetime.openMemo', {
@@ -945,31 +1382,148 @@ export function MemoSpacetimeNetwork({
                   })}
                 </Button>
               </div>
-            )}
-          </>
-        ) : (
-          <div className="flex size-full flex-col items-center justify-center gap-4 p-8 text-center">
-            <Network className="size-12 text-text-secondary" />
-            <div>
-              <h3 className="text-lg font-semibold text-text-primary">
-                {t('memories.spacetime.emptyTitle', {
-                  defaultValue: 'No memos to visualize',
+            ) : (
+              <div className="rounded-lg border border-dashed border-slate-800 px-4 py-8 text-center text-xs text-slate-500">
+                <MousePointer2 className="mx-auto mb-2 size-8 opacity-50" />
+                {t('memories.spacetime.selectHint', {
+                  defaultValue: 'Select a circle to inspect this memo.',
                 })}
-              </h3>
-              <p className="mt-2 text-sm text-text-secondary">
-                {t('memories.spacetime.emptyDescription', {
-                  defaultValue:
-                    'Create a memo or add a chat session to memo first.',
-                })}
-              </p>
-            </div>
-            {onCreate && (
-              <Button onClick={onCreate}>
-                {t('memories.createMemory', { defaultValue: 'Create memory' })}
-              </Button>
+              </div>
             )}
           </div>
-        )}
+
+          <div className="border-t border-slate-800 bg-slate-900/20 p-5">
+            <MemoProfilePanel
+              inputs={profileInputs}
+              metrics={profileMetrics}
+              trends={profileTrends}
+              onOpenMemory={openMemory}
+            />
+          </div>
+        </aside>
+
+        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-800/80 bg-slate-900 px-4 py-2 text-xs">
+            <span className="flex items-center gap-1.5 text-slate-400">
+              <Info className="size-4 text-indigo-400" />
+              {t('memories.spacetime.canvasTip', {
+                defaultValue:
+                  'Mouse wheel pans the time axis. Drag blank space to move dates. Ctrl/Command + wheel zooms.',
+              })}
+            </span>
+            <div className="flex items-center gap-3 text-[11px] text-slate-400">
+              {legendItems.map(([category, label]) => (
+                <span className="flex items-center gap-1" key={category}>
+                  <span
+                    className="size-2.5 rounded-full shadow"
+                    style={{ backgroundColor: CATEGORY_COLORS[category] }}
+                  />
+                  {label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div
+            ref={wrapperRef}
+            className="relative min-h-0 flex-1 overflow-hidden bg-[#070b14]"
+          >
+            {loading && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-primary border-t-transparent" />
+              </div>
+            )}
+            {nodes.length ? (
+              <>
+                <canvas
+                  ref={canvasRef}
+                  className="block size-full"
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                  onWheel={handleWheel}
+                />
+                {hoveredNode && tooltip && (
+                  <div
+                    className="pointer-events-auto absolute z-30 w-72 rounded-xl border border-slate-700/80 bg-slate-900/95 p-3 text-xs shadow-2xl backdrop-blur"
+                    style={{
+                      left: Math.min(tooltip.x + 16, canvasSize.width - 300),
+                      top: Math.min(tooltip.y + 16, canvasSize.height - 220),
+                    }}
+                  >
+                    <div className="mb-2 flex items-start gap-2">
+                      <MessageSquareText className="mt-0.5 size-4 shrink-0 text-accent-primary" />
+                      <div className="min-w-0">
+                        <div className="line-clamp-2 font-semibold text-slate-100">
+                          {hoveredNode.topic}
+                        </div>
+                        <div className="mt-0.5 text-slate-400">
+                          {formatDate(hoveredNode.createdAt)} ·{' '}
+                          {formatTime(hoveredNode.createdAt)} ·{' '}
+                          {hoveredNode.memoryCount}{' '}
+                          {t('memories.spacetime.totalMemos', {
+                            defaultValue: 'Memos',
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    {hoveredNode.preview && (
+                      <p className="mb-3 line-clamp-4 whitespace-pre-line text-slate-400">
+                        {hoveredNode.preview}
+                      </p>
+                    )}
+                    <div className="mb-3 flex flex-wrap gap-1.5">
+                      {hoveredNode.keywords.slice(0, 5).map((keyword) => (
+                        <span
+                          className="rounded-full bg-accent-primary/10 px-2 py-0.5 text-accent-primary"
+                          key={keyword}
+                        >
+                          {keyword}
+                        </span>
+                      ))}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full border-slate-700 bg-slate-950 text-slate-200 hover:bg-slate-800"
+                      onClick={() => openMemory(hoveredNode.primaryMemoryId)}
+                    >
+                      <ExternalLink className="size-4" />
+                      {t('memories.spacetime.openMemo', {
+                        defaultValue: 'Open memo',
+                      })}
+                    </Button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex size-full flex-col items-center justify-center gap-4 p-8 text-center">
+                <Network className="size-12 text-slate-500" />
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-100">
+                    {t('memories.spacetime.emptyTitle', {
+                      defaultValue: 'No memos to visualize',
+                    })}
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-400">
+                    {t('memories.spacetime.emptyDescription', {
+                      defaultValue:
+                        'Create a memo or add a chat session to memo first.',
+                    })}
+                  </p>
+                </div>
+                {onCreate && (
+                  <Button onClick={onCreate}>
+                    {t('memories.createMemory', {
+                      defaultValue: 'Create memory',
+                    })}
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </main>
       </div>
     </section>
   );

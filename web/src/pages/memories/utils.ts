@@ -11,6 +11,13 @@ function cleanChatMemoTitle(title?: string) {
 }
 
 export function getMemoryDisplayName(memory: Partial<IMemory>, t: TFunction) {
+  const structuredTitle = cleanChatMemoTitle(
+    memory.structured_summary?.display_title,
+  );
+  if (structuredTitle) {
+    return structuredTitle;
+  }
+
   if (memory.is_chat_memo) {
     return (
       cleanChatMemoTitle(memory.display_name) ||

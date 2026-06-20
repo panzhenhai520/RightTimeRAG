@@ -124,6 +124,7 @@ function buildNode(memory: IMemory, t: ReturnType<typeof useTranslation>['t']) {
   const preview = memory.latest_content_preview || memory.description || '';
   const textForKeywords = getMemoryTopicText(memory, topic);
   const canonicalTopic = inferCanonicalTopic(textForKeywords || topic);
+  const structuredTitle = memory.structured_summary?.display_title;
   const structuredAliases = memory.structured_summary?.aliases ?? [];
   const keywords = Array.from(
     new Set([
@@ -145,7 +146,7 @@ function buildNode(memory: IMemory, t: ReturnType<typeof useTranslation>['t']) {
     primaryMemoryId: memory.id,
     memoryIds: [memory.id],
     memoryCount: 1,
-    topic: canonicalTopic.label || topic,
+    topic: structuredTitle || topic || canonicalTopic.label,
     sourceTopics: [topic],
     aliases: keywords,
     preview,

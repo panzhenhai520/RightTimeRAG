@@ -3417,6 +3417,28 @@ wheels = [
 ]
 
 [[package]]
+name = "instructor"
+version = "1.15.3"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "docstring-parser" },
+    { name = "jinja2" },
+    { name = "jiter" },
+    { name = "openai" },
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+    { name = "requests" },
+    { name = "rich" },
+    { name = "tenacity" },
+    { name = "typer" },
+]
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/3c/5b/40d7906e46aa8607b7259fdfb0114865d87ba52e7554499d8f4830c16d63/instructor-1.15.3.tar.gz", hash = "sha256:2d13f1201a2a9c0a350a6286990f7609b29d04efd6da8f641354a110a3f8bb0b" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/54/b3/f999fa377b2e639b0b212216b9f493e72de8ed8ed64b803fb1fe6b776f99/instructor-1.15.3-py3-none-any.whl", hash = "sha256:12553651b77b933ac3e96e53c18d0d3e7c5e627d1ea35625c1e4e11be0d41c59" },
+]
+
+[[package]]
 name = "invoke"
 version = "3.0.3"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
@@ -8963,6 +8985,7 @@ dependencies = [
     { name = "html-text" },
     { name = "infinity-emb" },
     { name = "infinity-sdk" },
+    { name = "instructor" },
     { name = "jira" },
     { name = "json-repair" },
     { name = "langfuse" },
@@ -9111,6 +9134,7 @@ requires-dist = [
     { name = "html-text", specifier = "==0.6.2" },
     { name = "infinity-emb", specifier = ">=0.0.66,<0.0.67" },
     { name = "infinity-sdk", specifier = "==0.7.0" },
+    { name = "instructor", specifier = ">=1.15.3" },
     { name = "jira", specifier = "==3.10.5" },
     { name = "json-repair", specifier = "==0.35.0" },
     { name = "langfuse", specifier = ">=4.0.1" },

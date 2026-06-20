@@ -32,6 +32,8 @@ export interface MemoTopicMetric {
   keywords: string[];
   relatedKbIds: string[];
   sourceKinds: MemoProfileSourceKind[];
+  sourceBreakdown: Record<MemoProfileSourceKind, number>;
+  assistantIds: string[];
   memoCount: number;
   turnCount: number;
   frequency: number;
@@ -104,6 +106,19 @@ function inferSourceKind(memory: Partial<IMemory>): MemoProfileSourceKind {
     return 'agent';
   }
   return 'chat';
+}
+
+function buildSourceBreakdown(inputs: MemoProfileInput[]) {
+  const breakdown: Record<MemoProfileSourceKind, number> = {
+    chat: 0,
+    search: 0,
+    agent: 0,
+    memory: 0,
+  };
+  inputs.forEach((input) => {
+    breakdown[input.sourceKind] += 1;
+  });
+  return breakdown;
 }
 
 export function buildMemoProfileInput(memory: IMemory): MemoProfileInput {
@@ -213,6 +228,8 @@ export function buildMemoProfileMetrics(
       keywords: unique(sorted.flatMap((item) => item.keywords)),
       relatedKbIds: unique(sorted.flatMap((item) => item.relatedKbIds)),
       sourceKinds: unique(sorted.map((item) => item.sourceKind)),
+      sourceBreakdown: buildSourceBreakdown(sorted),
+      assistantIds: unique(sorted.map((item) => item.assistantId || '')),
       memoCount: sorted.length,
       turnCount: sorted.reduce((total, item) => total + item.turns, 0),
       frequency: sorted.length / totalMemos,

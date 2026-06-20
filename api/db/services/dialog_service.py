@@ -21,6 +21,7 @@ import os
 import re
 import time
 import uuid
+from collections import Counter
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from copy import deepcopy
@@ -936,6 +937,105 @@ STRONG_CONTEXT_FOLLOWUP_PATTERNS = (
     "这个报告",
 )
 
+SEMANTIC_ROUTE_SCORE_THRESHOLD = float(os.environ.get("RAGFLOW_SEMANTIC_ROUTE_THRESHOLD", "0.32"))
+SEMANTIC_ROUTE_EXAMPLES = {
+    "pure_chat": (
+        "你好",
+        "谢谢",
+        "讲个笑话",
+        "你能做什么",
+        "hello",
+        "thanks",
+        "tell me a joke",
+        "what can you do",
+    ),
+    "model_identity": (
+        "你是谁",
+        "你是什么模型",
+        "你有多少参数",
+        "你的上下文多长",
+        "和deepseek r1对比",
+        "who are you",
+        "what model are you",
+        "how many parameters do you have",
+        "what is your context length",
+    ),
+    "rag_question": (
+        "根据报告回答",
+        "参考知识库",
+        "这份pdf里说了什么",
+        "该报告的结论是什么",
+        "从文档中查找",
+        "according to the report",
+        "search the knowledge base",
+        "based on the document",
+        "what does this pdf say",
+    ),
+    "follow_up": (
+        "继续",
+        "上面说的是什么意思",
+        "其中哪一点最重要",
+        "该报告还有什么结论",
+        "这个领域还有哪些专家",
+        "continue",
+        "what about the above",
+        "what does it mean",
+        "which of those is most important",
+    ),
+    "long_generation": (
+        "写一篇长报告",
+        "生成一万字小说",
+        "输出完整研究报告",
+        "详细研究并形成markdown文档",
+        "write a long report",
+        "write a novel",
+        "generate a markdown document",
+        "deep research report",
+    ),
+    "memo_add": (
+        "加入备忘录",
+        "总结到记忆",
+        "保存这段对话",
+        "add to memo",
+        "save to memory",
+        "summarize this conversation to memory",
+    ),
+    "memo_search": (
+        "查一下备忘录",
+        "以前讨论过什么",
+        "从记忆里找",
+        "search my memory",
+        "find from memo",
+        "what did we discuss before",
+    ),
+    "agent_task": (
+        "运行智能体",
+        "启动深度研究智能体",
+        "执行流程",
+        "run the agent",
+        "start the workflow",
+        "execute this agent",
+    ),
+    "external_search_needed": (
+        "联网搜索最新",
+        "查一下最新消息",
+        "今天的新闻",
+        "最新股价",
+        "search the web",
+        "latest news",
+        "today's update",
+        "current stock price",
+    ),
+    "error_noise": (
+        "ERROR:",
+        "CONNECTION_ERROR",
+        "INVALID_REQUEST",
+        "Traceback",
+        "layer-slice token span exceeds context",
+        "kv payload staging failed",
+    ),
+}
+
 MAX_RETRIEVAL_QUERY_CHARS = 220
 MAX_RETRIEVAL_QUERY_TERMS = 36
 DEFAULT_MODEL_CONTEXT_TOKENS = 8192
@@ -1015,13 +1115,97 @@ def _normalize_route_text(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip().lower())
 
 
-def _should_route_to_pure_llm(latest_question: str, kwargs: dict) -> tuple[bool, str]:
+_SEMANTIC_ROUTE_VECTOR_CACHE: dict[str, list[Counter]] | None = None
+
+
+def _route_terms(text: str) -> list[str]:
+    normalized = _normalize_route_text(text)
+    terms = re.findall(r"[a-z0-9][a-z0-9_.-]{1,}", normalized)
+    chinese_chars = re.findall(r"[\u4e00-\u9fff]", normalized)
+    for size in (2, 3, 4):
+        for idx in range(0, max(0, len(chinese_chars) - size + 1)):
+            terms.append("".join(chinese_chars[idx : idx + size]))
+    return [term for term in terms if term not in HISTORY_STOP_TERMS]
+
+
+def _route_vector(text: str) -> Counter:
+    return Counter(_route_terms(text))
+
+
+def _semantic_route_vectors() -> dict[str, list[Counter]]:
+    global _SEMANTIC_ROUTE_VECTOR_CACHE
+    if _SEMANTIC_ROUTE_VECTOR_CACHE is None:
+        _SEMANTIC_ROUTE_VECTOR_CACHE = {
+            route: [_route_vector(example) for example in examples]
+            for route, examples in SEMANTIC_ROUTE_EXAMPLES.items()
+        }
+    return _SEMANTIC_ROUTE_VECTOR_CACHE
+
+
+def _sparse_cosine(left: Counter, right: Counter) -> float:
+    if not left or not right:
+        return 0.0
+    common = set(left) & set(right)
+    numerator = sum(left[key] * right[key] for key in common)
+    left_norm = sum(value * value for value in left.values()) ** 0.5
+    right_norm = sum(value * value for value in right.values()) ** 0.5
+    if left_norm <= 0 or right_norm <= 0:
+        return 0.0
+    return float(numerator / (left_norm * right_norm))
+
+
+def _semantic_route_layer(latest_question: str, kwargs: dict | None = None) -> dict:
+    start_ts = timer()
+    kwargs = kwargs or {}
+    normalized = _normalize_route_text(latest_question)
+    route = "rag_question"
+    score = 0.0
+    reason = "default"
+
+    if kwargs.get("doc_ids"):
+        return {"route": "rag_question", "score": 1.0, "reason": "explicit_doc_ids", "elapsed_ms": 0.0}
+    if not normalized:
+        return {"route": "unknown", "score": 0.0, "reason": "empty_question", "elapsed_ms": 0.0}
+    if any(pattern.lower() in normalized for pattern in ERROR_HISTORY_PATTERNS):
+        return {"route": "error_noise", "score": 1.0, "reason": "error_marker", "elapsed_ms": 0.0}
+
+    query_vector = _route_vector(normalized)
+    for candidate_route, vectors in _semantic_route_vectors().items():
+        candidate_score = max((_sparse_cosine(query_vector, vector) for vector in vectors), default=0.0)
+        if candidate_score > score:
+            route = candidate_route
+            score = candidate_score
+            reason = "example_similarity"
+
+    if any(pattern in normalized for pattern in EXPLICIT_KB_INTENT_PATTERNS):
+        route, score, reason = "rag_question", max(score, 0.95), "explicit_kb_intent"
+    elif any(pattern in normalized for pattern in MODEL_SELF_QUESTION_PATTERNS):
+        route, score, reason = "model_identity", max(score, 0.95), "model_self_pattern"
+    elif any(pattern in normalized for pattern in GENERAL_CHAT_PATTERNS) and len(normalized) <= 24:
+        route, score, reason = "pure_chat", max(score, 0.9), "general_chat_pattern"
+    elif any(pattern in normalized for pattern in CONTEXT_DEPENDENT_PATTERNS):
+        route, score, reason = "follow_up", max(score, 0.75), "context_dependent_pattern"
+
+    elapsed_ms = (timer() - start_ts) * 1000
+    return {"route": route, "score": score, "reason": reason, "elapsed_ms": elapsed_ms}
+
+
+def _should_route_to_pure_llm(latest_question: str, kwargs: dict, route_result: dict | None = None) -> tuple[bool, str]:
     if kwargs.get("doc_ids"):
         return False, "explicit_doc_ids"
 
     normalized = _normalize_route_text(latest_question)
     if not normalized:
         return False, "empty_question"
+
+    route_result = route_result or _semantic_route_layer(latest_question, kwargs)
+    route = route_result.get("route")
+    score = float(route_result.get("score") or 0)
+    if score >= SEMANTIC_ROUTE_SCORE_THRESHOLD:
+        if route in {"pure_chat", "model_identity", "error_noise"}:
+            return True, f"semantic_{route}_{score:.3f}_{route_result.get('reason')}"
+        if route in {"rag_question", "follow_up", "memo_search", "external_search_needed", "agent_task", "long_generation"}:
+            return False, f"semantic_{route}_{score:.3f}_{route_result.get('reason')}"
 
     if any(pattern in normalized for pattern in EXPLICIT_KB_INTENT_PATTERNS):
         return False, "explicit_kb_intent"
@@ -1035,8 +1219,10 @@ def _should_route_to_pure_llm(latest_question: str, kwargs: dict) -> tuple[bool,
     return False, "default_kb_route"
 
 
-def _question_depends_on_history(latest_question: str) -> bool:
+def _question_depends_on_history(latest_question: str, route_result: dict | None = None) -> bool:
     normalized = _normalize_route_text(latest_question)
+    if route_result and route_result.get("route") == "follow_up" and float(route_result.get("score") or 0) >= SEMANTIC_ROUTE_SCORE_THRESHOLD:
+        return True
     return any(pattern in normalized for pattern in CONTEXT_DEPENDENT_PATTERNS)
 
 
@@ -2196,7 +2382,16 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     use_web_search = _should_use_web_search(dialog.prompt_config, kwargs.get("internet"))
     logging.debug("web_search kb=%s tavily=%s internet=%r enabled=%s", bool(dialog.kb_ids), bool(dialog.prompt_config.get("tavily_api_key")), kwargs.get("internet"), use_web_search)
     latest_question = next((m.get("content", "") for m in reversed(messages) if m.get("role") == "user"), "")
-    pure_llm_route, route_reason = _should_route_to_pure_llm(latest_question, kwargs)
+    semantic_route = _semantic_route_layer(latest_question, kwargs)
+    logging.info(
+        "SemanticRoute route=%s score=%.3f reason=%s elapsed_ms=%.2f question=%s",
+        semantic_route.get("route"),
+        float(semantic_route.get("score") or 0),
+        semantic_route.get("reason"),
+        float(semantic_route.get("elapsed_ms") or 0),
+        latest_question[:120],
+    )
+    pure_llm_route, route_reason = _should_route_to_pure_llm(latest_question, kwargs, semantic_route)
     if dialog.kb_ids and pure_llm_route and not use_web_search:
         logging.info("QueryPlanner route=pure_llm reason=%s question=%s", route_reason, latest_question[:120])
         async for ans in async_chat_solo(dialog, messages, stream, _pure_llm_route=True, **kwargs):
@@ -2319,7 +2514,8 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
             prompt_config["system"] = prompt_config["system"].replace("{%s}" % p["key"], " ")
 
     latest_user_question = questions[-1] if questions else latest_question
-    depends_on_history = _question_depends_on_history(latest_user_question)
+    latest_semantic_route = semantic_route if latest_user_question == latest_question else _semantic_route_layer(latest_user_question, kwargs)
+    depends_on_history = _question_depends_on_history(latest_user_question, latest_semantic_route)
     cached_conversation_summary = kwargs.get(CONVERSATION_SUMMARY_KEY)
     if not isinstance(cached_conversation_summary, dict):
         cached_conversation_summary = None

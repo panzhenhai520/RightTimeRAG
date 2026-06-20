@@ -159,6 +159,34 @@ export const stripProcessBlocksForFinal = (text: string = '') => {
     .trimStart();
 };
 
+const countCitationMarkers = (text: string = '') => {
+  return (text.match(new RegExp(citationMarkerReg.source, 'g')) ?? []).length;
+};
+
+const shouldKeepStreamedVisibleAnswer = (
+  streamedVisibleAnswer: string,
+  finalVisibleAnswer: string,
+) => {
+  if (!streamedVisibleAnswer || !finalVisibleAnswer) {
+    return false;
+  }
+
+  const streamedCitationCount = countCitationMarkers(streamedVisibleAnswer);
+  const finalCitationCount = countCitationMarkers(finalVisibleAnswer);
+
+  if (finalCitationCount > streamedCitationCount) {
+    return false;
+  }
+
+  const streamedLength = streamedVisibleAnswer.trim().length;
+  const finalLength = finalVisibleAnswer.trim().length;
+  if (streamedLength === 0) {
+    return false;
+  }
+
+  return finalLength < streamedLength * 0.9;
+};
+
 export const mergeFinalAnswerWithProcess = (
   previousAnswer: string = '',
   finalAnswer: string = '',
@@ -177,6 +205,13 @@ export const mergeFinalAnswerWithProcess = (
   const finalVisibleAnswer = stripProcessBlocksForFinal(finalAnswer);
   if (!finalVisibleAnswer) {
     return previousAnswer;
+  }
+
+  const streamedVisibleAnswer = stripProcessBlocksForFinal(previousAnswer);
+  if (
+    shouldKeepStreamedVisibleAnswer(streamedVisibleAnswer, finalVisibleAnswer)
+  ) {
+    return processPrefix + streamedVisibleAnswer;
   }
 
   return processPrefix + finalVisibleAnswer;

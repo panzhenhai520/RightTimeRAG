@@ -60,6 +60,8 @@ def chunks_format(reference):
             "doc_type": get_value(chunk, "doc_type_kwd", "doc_type"),
             "document_metadata": chunk.get("document_metadata"),
             "extra": chunk.get("extra"),
+            "is_raptor_summary": chunk.get("is_raptor_summary"),
+            "source_chunks": chunk.get("source_chunks"),
         }
         for chunk in raw_chunks
         if isinstance(chunk, dict)

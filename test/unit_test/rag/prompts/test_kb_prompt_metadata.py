@@ -15,7 +15,7 @@
 #
 import pytest
 
-from rag.prompts.generator import kb_prompt
+from rag.prompts.generator import chunks_format, kb_prompt
 
 
 @pytest.mark.p1
@@ -85,3 +85,35 @@ class TestKbPromptDocumentMetadata:
         assert len(rendered) == 1
         assert "author: alice" in rendered[0]
         assert "year: 2026" in rendered[0]
+
+
+@pytest.mark.p1
+def test_chunks_format_preserves_raptor_summary_evidence_fields():
+    reference = {
+        "chunks": [
+            {
+                "id": "chunk-summary",
+                "content_with_weight": "Summary content",
+                "doc_id": "doc-1",
+                "docnm_kwd": "doc.pdf",
+                "is_raptor_summary": True,
+                "source_chunks": [
+                    {
+                        "content": "Original source excerpt",
+                        "document_name": "doc.pdf",
+                        "document_id": "doc-1",
+                        "image_id": "",
+                        "positions": [1, 2, 3, 4],
+                        "page_num": [3],
+                    }
+                ],
+                "extra": {"structured": {"evidence_type": "summary"}},
+            }
+        ]
+    }
+
+    formatted = chunks_format(reference)
+
+    assert formatted[0]["is_raptor_summary"] is True
+    assert formatted[0]["source_chunks"][0]["content"] == "Original source excerpt"
+    assert formatted[0]["extra"]["structured"]["evidence_type"] == "summary"

@@ -55,6 +55,20 @@ export interface MemoProfileMetrics {
   connectionDensity: number;
 }
 
+export type MemoTopicTrendType = 'emerging' | 'stable' | 'declining';
+
+export interface MemoTopicTrend {
+  topicId: string;
+  topicLabel: string;
+  trend: MemoTopicTrendType;
+  recentMemoCount: number;
+  previousMemoCount: number;
+  recentTurnCount: number;
+  previousTurnCount: number;
+  activityDelta: number;
+  evidenceMemoryIds: string[];
+}
+
 function parseCreateTime(memory: Partial<IMemory>) {
   if (memory.create_time) {
     const timestamp =
@@ -249,4 +263,86 @@ export function buildMemoProfileMetrics(
     edges,
     connectionDensity: possibleEdges > 0 ? edges.length / possibleEdges : 0,
   };
+}
+
+function calcActivity(items: MemoProfileInput[]) {
+  return {
+    memoCount: items.length,
+    turnCount: items.reduce((total, item) => total + item.turns, 0),
+    score:
+      items.length * 2 + items.reduce((total, item) => total + item.turns, 0),
+  };
+}
+
+function classifyTrend(
+  recentScore: number,
+  previousScore: number,
+): MemoTopicTrendType {
+  if (recentScore > 0 && previousScore === 0) return 'emerging';
+  if (recentScore === 0 && previousScore > 0) return 'declining';
+  if (previousScore === 0) return 'stable';
+  const ratio = recentScore / previousScore;
+  if (ratio >= 1.35) return 'emerging';
+  if (ratio <= 0.65) return 'declining';
+  return 'stable';
+}
+
+export function buildMemoTopicTrends(
+  inputs: MemoProfileInput[],
+  options?: { now?: number; recentDays?: number; previousDays?: number },
+): MemoTopicTrend[] {
+  const now = options?.now ?? Date.now();
+  const recentDays = options?.recentDays ?? 30;
+  const previousDays = options?.previousDays ?? recentDays;
+  const dayMs = 86_400_000;
+  const recentStart = now - recentDays * dayMs;
+  const previousStart = recentStart - previousDays * dayMs;
+  const grouped = new Map<string, MemoProfileInput[]>();
+
+  inputs.forEach((input) => {
+    grouped.set(input.topicId, [...(grouped.get(input.topicId) ?? []), input]);
+  });
+
+  return Array.from(grouped.entries())
+    .map(([topicId, items]) => {
+      const recentItems = items.filter(
+        (item) => item.createdAt >= recentStart && item.createdAt <= now,
+      );
+      const previousItems = items.filter(
+        (item) =>
+          item.createdAt >= previousStart && item.createdAt < recentStart,
+      );
+      const recentActivity = calcActivity(recentItems);
+      const previousActivity = calcActivity(previousItems);
+      const evidenceMemoryIds = unique(
+        [...recentItems, ...previousItems]
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .map((item) => item.memoryId),
+      );
+
+      return {
+        topicId,
+        topicLabel:
+          items.sort((a, b) => b.createdAt - a.createdAt)[0]?.topicLabel ||
+          topicId,
+        trend: classifyTrend(recentActivity.score, previousActivity.score),
+        recentMemoCount: recentActivity.memoCount,
+        previousMemoCount: previousActivity.memoCount,
+        recentTurnCount: recentActivity.turnCount,
+        previousTurnCount: previousActivity.turnCount,
+        activityDelta: recentActivity.score - previousActivity.score,
+        evidenceMemoryIds,
+      } satisfies MemoTopicTrend;
+    })
+    .sort((a, b) => {
+      const trendOrder: Record<MemoTopicTrendType, number> = {
+        emerging: 0,
+        stable: 1,
+        declining: 2,
+      };
+      if (trendOrder[a.trend] !== trendOrder[b.trend]) {
+        return trendOrder[a.trend] - trendOrder[b.trend];
+      }
+      return Math.abs(b.activityDelta) - Math.abs(a.activityDelta);
+    });
 }

@@ -62,7 +62,9 @@ from api.db.services.dialog_service import (  # noqa: E402
     _format_knowledge_chunk,
     _prioritize_evidence_chunks,
     build_compact_reference,
+    expand_raptor_chunks_for_generation,
     normalize_markdown_table_citations,
+    settings,
 )
 
 
@@ -180,3 +182,84 @@ def test_prioritize_evidence_chunks_uses_structured_classification():
 
     assert kbinfos["chunks"][0]["doc_id"] == "doc-clause"
     assert kbinfos["chunks"][1]["doc_id"] == "doc-title"
+
+
+class _RaptorSourceRetriever:
+    def chunk_list(self, doc_id, tenant_id, kb_ids, max_count=256, fields=None, sort_by_position=True):
+        assert doc_id == "doc-r"
+        assert tenant_id == "tenant-a"
+        assert kb_ids == ["kb-a"]
+        assert sort_by_position is True
+        return [
+            {
+                "doc_id": "doc-r",
+                "docnm_kwd": "Trustee Ordinance.pdf",
+                "content_with_weight": (
+                    "Original excerpt about rent and covenant liabilities. "
+                    "A personal representative may distribute the estate after setting apart a sufficient fund."
+                ),
+                "img_id": "image-1",
+                "position_int": [1, 2, 3, 4],
+                "page_num_int": [29],
+            },
+            {
+                "doc_id": "doc-r",
+                "docnm_kwd": "Trustee Ordinance.pdf",
+                "content_with_weight": "Unrelated source text.",
+                "img_id": "",
+                "position_int": [],
+                "page_num_int": [30],
+            },
+        ]
+
+
+@pytest.mark.p2
+def test_compact_reference_expands_raptor_summary_sources(monkeypatch):
+    monkeypatch.setattr(settings, "retriever", _RaptorSourceRetriever(), raising=False)
+    kbinfos = {
+        "tenant_ids": ["tenant-a"],
+        "kb_ids": ["kb-a"],
+        "chunks": [
+            {
+                "doc_id": "doc-r",
+                "docnm_kwd": "Trustee Ordinance.pdf",
+                "content_with_weight": "Summary about rent covenant liabilities and sufficient fund.",
+                "raptor_kwd": "raptor",
+                "vector": [1],
+            }
+        ],
+        "doc_aggs": [{"doc_id": "doc-r", "doc_name": "Trustee Ordinance.pdf", "count": 1}],
+    }
+
+    answer, refs, _ = build_compact_reference("The summary supports this [ID:0].", kbinfos, {0})
+
+    assert answer == "The summary supports this [ID:0]."
+    chunk = refs["chunks"][0]
+    assert chunk["is_raptor_summary"] is True
+    assert chunk["source_chunks"]
+    assert "Original excerpt about rent" in chunk["source_chunks"][0]["content"]
+    assert chunk["source_chunks"][0]["image_id"] == "image-1"
+
+
+@pytest.mark.p2
+def test_expand_raptor_chunks_for_generation_includes_linked_original_excerpts(monkeypatch):
+    monkeypatch.setattr(settings, "retriever", _RaptorSourceRetriever(), raising=False)
+    kbinfos = {
+        "tenant_ids": ["tenant-a"],
+        "kb_ids": ["kb-a"],
+        "chunks": [
+            {
+                "doc_id": "doc-r",
+                "docnm_kwd": "Trustee Ordinance.pdf",
+                "content_with_weight": "Summary about rent covenant liabilities and sufficient fund.",
+                "raptor_kwd": "raptor",
+            }
+        ],
+    }
+
+    expand_raptor_chunks_for_generation(kbinfos)
+
+    expanded = kbinfos["chunks"][0]["content_with_weight"]
+    assert "This is a RAPTOR summary chunk" in expanded
+    assert "Source excerpt 1:" in expanded
+    assert "Original excerpt about rent" in expanded

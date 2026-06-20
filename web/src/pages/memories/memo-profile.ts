@@ -24,6 +24,37 @@ export interface MemoProfileInput {
   relatedKbIds: string[];
 }
 
+export interface MemoTopicMetric {
+  topicId: string;
+  topicLabel: string;
+  memoryIds: string[];
+  aliases: string[];
+  keywords: string[];
+  relatedKbIds: string[];
+  sourceKinds: MemoProfileSourceKind[];
+  memoCount: number;
+  turnCount: number;
+  frequency: number;
+  activeDays: number;
+  firstSeen: number;
+  lastSeen: number;
+  centrality: number;
+  connectedTopicIds: string[];
+}
+
+export interface MemoTopicEdge {
+  sourceTopicId: string;
+  targetTopicId: string;
+  weight: number;
+  sharedSignals: string[];
+}
+
+export interface MemoProfileMetrics {
+  topics: MemoTopicMetric[];
+  edges: MemoTopicEdge[];
+  connectionDensity: number;
+}
+
 function parseCreateTime(memory: Partial<IMemory>) {
   if (memory.create_time) {
     const timestamp =
@@ -102,4 +133,120 @@ export function buildMemoProfileInput(memory: IMemory): MemoProfileInput {
 
 export function buildMemoProfileInputs(memories: IMemory[]) {
   return memories.map(buildMemoProfileInput);
+}
+
+function unique<T>(values: T[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function dayKey(timestamp: number) {
+  const date = new Date(timestamp);
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
+function overlap(a: string[], b: string[]) {
+  const bSet = new Set(b.map((item) => item.toLowerCase()));
+  return unique(
+    a.map((item) => item.toLowerCase()).filter((item) => bSet.has(item)),
+  );
+}
+
+function buildTopicSignalSet(topic: MemoTopicMetric) {
+  return unique([
+    ...topic.aliases,
+    ...topic.keywords,
+    ...topic.relatedKbIds.map((kbId) => `kb:${kbId}`),
+  ]);
+}
+
+function buildTopicEdges(topics: MemoTopicMetric[]) {
+  const edges: MemoTopicEdge[] = [];
+  for (let i = 0; i < topics.length; i += 1) {
+    for (let j = i + 1; j < topics.length; j += 1) {
+      const sharedSignals = overlap(
+        buildTopicSignalSet(topics[i]),
+        buildTopicSignalSet(topics[j]),
+      );
+      if (sharedSignals.length === 0) continue;
+      edges.push({
+        sourceTopicId: topics[i].topicId,
+        targetTopicId: topics[j].topicId,
+        weight: sharedSignals.length,
+        sharedSignals,
+      });
+    }
+  }
+  return edges;
+}
+
+export function buildMemoProfileMetrics(
+  inputs: MemoProfileInput[],
+): MemoProfileMetrics {
+  const totalMemos = Math.max(1, inputs.length);
+  const grouped = new Map<string, MemoProfileInput[]>();
+  inputs.forEach((input) => {
+    grouped.set(input.topicId, [...(grouped.get(input.topicId) ?? []), input]);
+  });
+
+  const topics = Array.from(grouped.entries()).map(([topicId, items]) => {
+    const sorted = [...items].sort((a, b) => a.createdAt - b.createdAt);
+    const activeDays = unique(sorted.map((item) => dayKey(item.createdAt)));
+    return {
+      topicId,
+      topicLabel: sorted.at(-1)?.topicLabel || topicId,
+      memoryIds: unique(sorted.map((item) => item.memoryId)),
+      aliases: unique(sorted.flatMap((item) => item.aliases)),
+      keywords: unique(sorted.flatMap((item) => item.keywords)),
+      relatedKbIds: unique(sorted.flatMap((item) => item.relatedKbIds)),
+      sourceKinds: unique(sorted.map((item) => item.sourceKind)),
+      memoCount: sorted.length,
+      turnCount: sorted.reduce((total, item) => total + item.turns, 0),
+      frequency: sorted.length / totalMemos,
+      activeDays: activeDays.length,
+      firstSeen: sorted[0]?.createdAt ?? 0,
+      lastSeen: sorted.at(-1)?.createdAt ?? 0,
+      centrality: 0,
+      connectedTopicIds: [],
+    } satisfies MemoTopicMetric;
+  });
+
+  const edges = buildTopicEdges(topics);
+  const connectionMap = new Map<string, Set<string>>();
+  edges.forEach((edge) => {
+    connectionMap.set(
+      edge.sourceTopicId,
+      connectionMap.get(edge.sourceTopicId) ?? new Set(),
+    );
+    connectionMap.set(
+      edge.targetTopicId,
+      connectionMap.get(edge.targetTopicId) ?? new Set(),
+    );
+    connectionMap.get(edge.sourceTopicId)?.add(edge.targetTopicId);
+    connectionMap.get(edge.targetTopicId)?.add(edge.sourceTopicId);
+  });
+
+  const maxConnections = Math.max(1, topics.length - 1);
+  const enrichedTopics = topics
+    .map((topic) => {
+      const connectedTopicIds = Array.from(
+        connectionMap.get(topic.topicId) ?? [],
+      );
+      return {
+        ...topic,
+        connectedTopicIds,
+        centrality: connectedTopicIds.length / maxConnections,
+      };
+    })
+    .sort((a, b) => {
+      if (b.memoCount !== a.memoCount) return b.memoCount - a.memoCount;
+      if (b.turnCount !== a.turnCount) return b.turnCount - a.turnCount;
+      return b.lastSeen - a.lastSeen;
+    });
+
+  const possibleEdges = (topics.length * (topics.length - 1)) / 2;
+  return {
+    topics: enrichedTopics,
+    edges,
+    connectionDensity: possibleEdges > 0 ? edges.length / possibleEdges : 0,
+  };
 }

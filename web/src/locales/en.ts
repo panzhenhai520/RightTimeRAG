@@ -579,6 +579,20 @@ Procedural Memory: Learned skills, habits, and automated procedures.`,
         emptyTitle: 'No memos to visualize',
         emptyDescription: 'Create a memo or add a chat session to memo first.',
       },
+      profile: {
+        title: 'Thinking profile',
+        description: 'Evidence-based topic activity from saved memos.',
+        topTopics: 'Top topics',
+        topicStats: '{{memos}} memos · {{turns}} turns',
+        learningPath: 'Learning path',
+        recentChanges: 'Recent changes',
+        traceableMemos: 'Traceable memos',
+        trends: {
+          emerging: 'Emerging topic',
+          stable: 'Stable topic',
+          declining: 'Declining topic',
+        },
+      },
     },
     memory: {
       taskLogDialog: {

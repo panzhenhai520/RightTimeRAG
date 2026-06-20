@@ -26,6 +26,12 @@ import {
   inferCanonicalTopic,
 } from './canonical-topic';
 import { IMemory } from './interface';
+import {
+  buildMemoProfileInputs,
+  buildMemoProfileMetrics,
+  buildMemoTopicTrends,
+} from './memo-profile';
+import { MemoProfilePanel } from './memo-profile-panel';
 import { getMemoryDisplayName } from './utils';
 
 type MemoCategory = 'raw' | 'semantic' | 'episodic' | 'procedural' | 'memo';
@@ -365,6 +371,18 @@ export function MemoSpacetimeNetwork({
     [memories, t],
   );
   const nodes = useMemo(() => groupCanonicalNodes(rawNodes), [rawNodes]);
+  const profileInputs = useMemo(
+    () => buildMemoProfileInputs(memories),
+    [memories],
+  );
+  const profileMetrics = useMemo(
+    () => buildMemoProfileMetrics(profileInputs),
+    [profileInputs],
+  );
+  const profileTrends = useMemo(
+    () => buildMemoTopicTrends(profileInputs),
+    [profileInputs],
+  );
 
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedId),
@@ -651,7 +669,7 @@ export function MemoSpacetimeNetwork({
 
   return (
     <section className="flex min-h-0 flex-1 gap-4 px-5 pb-5">
-      <aside className="flex w-[300px] shrink-0 flex-col gap-3 rounded-xl border border-border-default/50 bg-bg-base/70 p-4 shadow-sm dark:bg-bg-component/45">
+      <aside className="flex w-[300px] shrink-0 flex-col gap-3 overflow-y-auto rounded-xl border border-border-default/50 bg-bg-base/70 p-4 shadow-sm dark:bg-bg-component/45">
         <div>
           <div className="flex items-center gap-2 text-lg font-semibold text-text-primary">
             <Network className="size-5 text-accent-primary" />
@@ -707,6 +725,13 @@ export function MemoSpacetimeNetwork({
             </div>
           </div>
         </div>
+
+        <MemoProfilePanel
+          inputs={profileInputs}
+          metrics={profileMetrics}
+          trends={profileTrends}
+          onOpenMemory={openMemory}
+        />
 
         <div className="rounded-lg bg-bg-card/50 p-3">
           <label className="mb-2 flex items-center gap-2 text-sm font-medium text-text-primary">

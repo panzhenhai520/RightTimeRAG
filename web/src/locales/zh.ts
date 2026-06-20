@@ -533,6 +533,20 @@ export default {
         emptyTitle: '暂无可视化备忘录',
         emptyDescription: '请先创建备忘录，或从聊天会话加入备忘录。',
       },
+      profile: {
+        title: '思维画像',
+        description: '基于已保存备忘录的证据化主题活跃度摘要。',
+        topTopics: '最关注主题',
+        topicStats: '{{memos}} 个备忘录 · {{turns}} 轮对话',
+        learningPath: '学习路径',
+        recentChanges: '最近变化',
+        traceableMemos: '可追溯备忘录',
+        trends: {
+          emerging: '新兴主题',
+          stable: '稳定主题',
+          declining: '衰减主题',
+        },
+      },
     },
     memory: {
       messages: {

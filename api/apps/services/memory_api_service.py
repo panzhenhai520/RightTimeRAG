@@ -306,6 +306,8 @@ async def list_memory(filter_params: dict, keywords: str, page: int=1, page_size
         message_count = 0
         latest_content_preview = ""
         latest_forget_at = None
+        latest_agent_id = ""
+        latest_session_id = ""
         structured_summary = {}
         try:
             message_page = MessageService.list_message(memory["tenant_id"], memory["id"], page=1, page_size=1)
@@ -315,6 +317,8 @@ async def list_memory(filter_params: dict, keywords: str, page: int=1, page_size
                 latest_message = latest_messages[0]
                 latest_content_preview = _compact_memory_preview(latest_message.get("content"))
                 latest_forget_at = latest_message.get("forget_at")
+                latest_agent_id = latest_message.get("agent_id") or ""
+                latest_session_id = latest_message.get("session_id") or ""
                 structured_summary = _extract_structured_summary_from_message(latest_message)
         except Exception:
             pass
@@ -325,6 +329,8 @@ async def list_memory(filter_params: dict, keywords: str, page: int=1, page_size
             "message_count": message_count,
             "latest_content_preview": latest_content_preview,
             "latest_forget_at": latest_forget_at,
+            "latest_agent_id": latest_agent_id,
+            "latest_session_id": latest_session_id,
             "structured_summary": structured_summary,
         })
     return {

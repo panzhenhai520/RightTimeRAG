@@ -42,6 +42,8 @@ export interface IMemory extends ICreateMemoryProps {
   is_chat_memo?: boolean;
   latest_content_preview?: string;
   latest_forget_at?: string | null;
+  latest_agent_id?: string;
+  latest_session_id?: string;
   structured_summary?: IMemoryStructuredSummary;
   message_count?: number;
   avatar: string;

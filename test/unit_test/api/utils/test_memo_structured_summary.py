@@ -20,6 +20,7 @@ from pydantic import ValidationError
 from api.utils.memo_structured_summary import (
     MemoStructuredSummary,
     build_memo_structured_summary,
+    format_memo_structured_summary_content,
     memo_structured_summary_to_search_text,
     sanitize_memo_text,
     sanitize_memo_title,
@@ -108,3 +109,19 @@ def test_memo_structured_summary_to_search_text_is_topic_first():
     assert search_text.splitlines()[0] == "宗庆后相关案件进展"
     assert "Zong Qinghou" in search_text
     assert "娃哈哈" in search_text
+
+
+def test_format_memo_structured_summary_content_keeps_stable_labels():
+    summary = build_memo_structured_summary(
+        "User: 租金及契诺责任保障\nAssistant: 第28条说明受托人履责并预留基金后可免除个人责任。",
+        source_message_ids=[88],
+        related_kb_ids=["kb-trust-law"],
+    )
+
+    content = format_memo_structured_summary_content(summary)
+
+    assert "Memo structured summary version: v1" in content
+    assert "Title: 租金及契诺责任保障" in content
+    assert "Canonical topic: 租金及契诺责任保障" in content
+    assert "Source message IDs: 88" in content
+    assert "Related KB IDs: kb-trust-law" in content

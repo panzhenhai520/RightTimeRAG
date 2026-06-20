@@ -1778,8 +1778,10 @@ async def memorize_chat_session():
     requested_topic = req.get("topic")
 
     try:
-        if not await _ensure_owned_chat(chat_id):
+        owned_chats = await _ensure_owned_chat(chat_id)
+        if not owned_chats:
             return get_json_result(data=False, message="No authorization.", code=RetCode.AUTHENTICATION_ERROR)
+        chat = owned_chats[0]
 
         ok, conv = await thread_pool_exec(ConversationService.get_by_id, session_id)
         if not ok or conv.dialog_id != chat_id:
@@ -1827,6 +1829,8 @@ async def memorize_chat_session():
                 "session_id": session_id,
                 "user_input": memo_content,
                 "agent_response": "",
+                "memo_topic": topic,
+                "related_kb_ids": getattr(chat, "kb_ids", []) or [],
             },
         )
         if not success:

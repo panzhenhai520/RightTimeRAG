@@ -30,6 +30,7 @@ from api.db.services.memory_service import MemoryService
 from api.db.services.llm_service import LLMBundle
 from api.db.joint_services.tenant_model_service import get_model_config_by_id, get_model_config_by_type_and_name
 from api.utils.memory_utils import get_memory_type_human
+from api.utils.memo_structured_summary import build_memo_structured_summary, format_memo_structured_summary_content
 from memory.services.messages import MessageService
 from memory.services.query import MsgTextQuery, get_vector
 from memory.utils.prompt_util import PromptAssembler
@@ -88,6 +89,37 @@ def _build_raw_memory_content(message_dict: dict) -> str:
     if agent_response:
         parts.append(f"Agent Response: {agent_response}")
     return "\n".join(parts).strip()
+
+
+def _memory_supports_structured_summary(memory) -> bool:
+    try:
+        return bool(int(memory.memory_type) & MemoryType.SEMANTIC.value)
+    except (TypeError, ValueError):
+        return False
+
+
+def _build_structured_summary_message(memory_id: str, message_dict: dict, source_message_id: int, message_id: int) -> dict:
+    summary = build_memo_structured_summary(
+        _build_raw_memory_content(message_dict),
+        display_title=message_dict.get("memo_topic") or message_dict.get("topic"),
+        source_message_ids=[source_message_id],
+        related_kb_ids=message_dict.get("related_kb_ids") or message_dict.get("kb_ids") or [],
+        aliases=message_dict.get("aliases") or [],
+    )
+    return {
+        "message_id": message_id,
+        "message_type": MemoryType.SEMANTIC.name.lower(),
+        "source_id": source_message_id,
+        "memory_id": memory_id,
+        "user_id": message_dict.get("user_id", ""),
+        "agent_id": message_dict["agent_id"],
+        "session_id": message_dict["session_id"],
+        "content": format_memo_structured_summary_content(summary),
+        "valid_at": timestamp_to_date(current_timestamp()),
+        "invalid_at": None,
+        "forget_at": None,
+        "status": True,
+    }
 
 
 async def save_to_memory(memory_id: str, message_dict: dict):
@@ -205,6 +237,32 @@ async def save_extracted_to_memory_only(memory_id: str, message_dict, source_mes
     if task_id:
         TaskService.update_progress(task_id, {"progress": 0.5, "progress_msg": timestamp_to_date(current_timestamp())+ " " + f"Extracted {len(message_list)} messages from raw dialogue."})
     return await embed_and_save(memory, message_list, task_id)
+
+
+async def save_structured_summary_to_memory_only(memory_id: str, message_dict, source_message_id: int, task_id: str=None):
+    message_dict = _sanitize_memory_message_dict(message_dict)
+    if not message_dict.get("user_input") and not message_dict.get("agent_response"):
+        return True, "No clean memory content to structure."
+
+    memory = MemoryService.get_by_memory_id(memory_id)
+    if not memory:
+        return False, f"Memory '{memory_id}' not found."
+    if not _memory_supports_structured_summary(memory):
+        return True, f"Memory '{memory_id}' does not enable semantic messages."
+
+    try:
+        structured_message = _build_structured_summary_message(
+            memory_id,
+            message_dict,
+            source_message_id,
+            REDIS_CONN.generate_auto_increment_id(namespace="memory"),
+        )
+        if task_id:
+            TaskService.update_progress(task_id, {"progress": 0.45, "progress_msg": timestamp_to_date(current_timestamp())+ " Prepared structured memo summary."})
+        return await embed_and_save(memory, [structured_message], task_id)
+    except Exception as exc:  # noqa: BLE001 - structured summaries must not block raw memo persistence
+        logging.warning("Failed to save structured memo summary for memory %s: %s", memory_id, exc)
+        return False, str(exc)
 
 
 async def extract_by_llm(tenant_id: str, tenant_llm_id: int, extract_conf: dict, memory_type: List[str], user_input: str,
@@ -527,9 +585,15 @@ async def handle_save_to_memory_task(task_param: dict):
     memory_id = task_param["memory_id"]
     source_id = task_param["source_id"]
     message_dict = task_param["message_dict"]
+    structured_success, structured_msg = await save_structured_summary_to_memory_only(memory_id, message_dict, source_id, task.id)
+    if not structured_success:
+        logging.warning("Structured memo summary skipped for memory %s: %s", memory_id, structured_msg)
     success, msg = await save_extracted_to_memory_only(memory_id, message_dict, source_id, task.id)
     if success:
-        TaskService.update_progress(task.id, {"progress": 1.0,  "progress_msg": timestamp_to_date(current_timestamp())+ " " + msg})
+        progress_msg = msg
+        if structured_success and structured_msg:
+            progress_msg = f"{msg} Structured summary: {structured_msg}"
+        TaskService.update_progress(task.id, {"progress": 1.0,  "progress_msg": timestamp_to_date(current_timestamp())+ " " + progress_msg})
         return True, msg
 
     logging.error(msg)

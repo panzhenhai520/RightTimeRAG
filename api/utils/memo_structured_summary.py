@@ -303,3 +303,33 @@ def memo_structured_summary_to_search_text(summary: MemoStructuredSummary) -> st
         " ".join(summary.open_questions),
     ]
     return "\n".join(part for part in parts if part).strip()
+
+
+def format_memo_structured_summary_content(summary: MemoStructuredSummary) -> str:
+    """Stable text representation stored as a searchable derived memory message."""
+    lines = [
+        f"Memo structured summary version: {summary.version}",
+        f"Title: {summary.display_title}",
+        f"Canonical topic: {summary.canonical_topic_candidate}",
+        f"Language: {summary.language}",
+    ]
+    if summary.aliases:
+        lines.append("Aliases: " + ", ".join(summary.aliases))
+    if summary.entities:
+        lines.append("Entities:")
+        lines.extend(f"- {entity.text} ({entity.label})" for entity in summary.entities[:20])
+    if summary.dates:
+        lines.append("Dates: " + ", ".join(summary.dates))
+    if summary.amounts:
+        lines.append("Amounts: " + ", ".join(amount.text for amount in summary.amounts))
+    if summary.facts:
+        lines.append("Facts:")
+        lines.extend(f"- {fact.text}" for fact in summary.facts[:8])
+    if summary.open_questions:
+        lines.append("Open questions:")
+        lines.extend(f"- {question}" for question in summary.open_questions[:8])
+    if summary.source_message_ids:
+        lines.append("Source message IDs: " + ", ".join(summary.source_message_ids))
+    if summary.related_kb_ids:
+        lines.append("Related KB IDs: " + ", ".join(summary.related_kb_ids))
+    return "\n".join(line for line in lines if line).strip()

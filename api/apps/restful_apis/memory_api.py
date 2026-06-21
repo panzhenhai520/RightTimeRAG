@@ -60,6 +60,7 @@ async def create_memory():
                 request.path,
             )
         if success:
+            memory_profile_service.invalidate_profile_cache(current_user.id)
             return get_json_result(message=True, data=res)
         else:
             return get_json_result(message=res, code=RetCode.SERVER_ERROR)
@@ -100,6 +101,7 @@ async def update_memory(memory_id):
     try:
         success, res = await memory_api_service.update_memory(memory_id, new_settings)
         if success:
+            memory_profile_service.invalidate_profile_cache(current_user.id)
             return get_json_result(message=True, data=res)
         else:
             return get_json_result(message=res, code=RetCode.SERVER_ERROR)
@@ -119,6 +121,7 @@ async def update_memory(memory_id):
 async def delete_memory(memory_id):
     try:
         await memory_api_service.delete_memory(memory_id)
+        memory_profile_service.invalidate_profile_cache(current_user.id)
         return get_json_result(message=True)
     except NotFoundException as not_found_exception:
         logging.error(not_found_exception)

@@ -30,6 +30,7 @@ FEATURE_DEFAULTS: dict[str, bool] = {
     "evidence_audit": True,
     "structured_extraction": True,
     "semantic_router": True,
+    "topic_embedding_cache": True,
 }
 
 FEATURE_ALIASES: dict[str, str] = {
@@ -39,6 +40,7 @@ FEATURE_ALIASES: dict[str, str] = {
     "evidenceAudit": "evidence_audit",
     "structuredExtraction": "structured_extraction",
     "semanticRouter": "semantic_router",
+    "topicEmbeddingCache": "topic_embedding_cache",
 }
 
 

@@ -86,6 +86,8 @@ class MemoryService(CommonService):
             cls.model.storage_type,
             cls.model.permissions,
             cls.model.description,
+            cls.model.embd_id,
+            cls.model.tenant_embd_id,
             cls.model.create_time,
             cls.model.create_date
         ]

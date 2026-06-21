@@ -2,6 +2,7 @@ import importlib.util
 import json
 import sys
 import types
+import time
 from pathlib import Path
 
 
@@ -172,6 +173,7 @@ def test_profile_analysis_builds_explainable_path():
     assert "semantic_vector" not in public_event
     assert "terms" not in public_event
     assert public_event["semantic_model"] == svc.TOPIC_VECTOR_MODEL
+    assert public_event["semantic_backend"] in {"embedding", "fallback"}
 
 
 def test_profile_analysis_handles_empty_and_noise_text():
@@ -205,6 +207,84 @@ def test_profile_semantic_vector_is_cached():
     assert first_vector == second_vector
     assert first_hit is False
     assert second_hit is True
+
+
+def test_profile_topic_embedding_payload_uses_cached_embedding_vector():
+    svc = load_memory_profile_service()
+    calls = []
+
+    def fake_encode(text, tenant_id="", embd_id="", tenant_embd_id=None):
+        calls.append((text, tenant_id, embd_id, tenant_embd_id))
+        return [1.0, 0.0, 0.0], "BAAI/bge-m3"
+
+    svc._encode_topic_embedding = fake_encode
+
+    first = svc._semantic_vector_payload(
+        "Family office governance and investment",
+        tenant_id="tenant-admin",
+        embd_id="BAAI/bge-m3",
+    )
+    second = svc._semantic_vector_payload(
+        "Family office governance and investment",
+        tenant_id="tenant-admin",
+        embd_id="BAAI/bge-m3",
+    )
+
+    assert first["backend"] == "embedding"
+    assert first["vector_model"] == "BAAI/bge-m3"
+    assert first["cache_hit"] is False
+    assert second["backend"] == "embedding"
+    assert second["cache_hit"] is True
+    assert second["vector"] == [1.0, 0.0, 0.0]
+    assert len(calls) == 1
+
+
+def test_profile_topic_embedding_accepts_numpy_like_vectors():
+    svc = load_memory_profile_service()
+
+    class FakeVector:
+        def tolist(self):
+            return [0.25, 0.75]
+
+    class FakeMatrix:
+        def __len__(self):
+            return 1
+
+        def __getitem__(self, index):
+            assert index == 0
+            return FakeVector()
+
+        def __bool__(self):
+            raise AssertionError("numpy-like arrays must not be truth-tested")
+
+    vector = svc._coerce_first_embedding_vector(FakeMatrix())
+    assert vector == [0.25, 0.75]
+
+
+def test_profile_topic_embedding_feature_flag_falls_back_without_embedding():
+    svc = load_memory_profile_service()
+    svc.feature_enabled = lambda name: False
+
+    payload = svc._semantic_vector_payload(
+        "Family office governance and investment",
+        tenant_id="tenant-admin",
+        embd_id="BAAI/bge-m3",
+    )
+
+    assert payload["backend"] == "fallback"
+    assert payload["vector_model"] == svc.TOPIC_VECTOR_FALLBACK_MODEL
+    assert len(payload["vector"]) == svc.TOPIC_VECTOR_DIMENSIONS
+
+
+def test_profile_cache_invalidation_removes_snapshot_and_marks_stale():
+    svc = load_memory_profile_service()
+    user_id = "user-admin"
+    svc._json_set(svc._snapshot_key(user_id), {"status": "ready"})
+
+    svc.invalidate_profile_cache(user_id)
+
+    assert not svc.REDIS_CONN.exist(svc._snapshot_key(user_id))
+    assert svc.REDIS_CONN.get(svc._status_key(user_id)) == "stale"
 
 
 def test_profile_topic_merge_rules_apply_and_invalidate_snapshot():
@@ -320,3 +400,37 @@ def test_profile_topic_cache_stabilizes_cluster_identity():
 
     assert second_clusters[0].id == first_cluster.id
     assert second_clusters[0].label == first_cluster.label
+
+
+def test_profile_100_event_embedding_cache_rebuild_is_fast():
+    svc = load_memory_profile_service()
+
+    def fake_encode(text, tenant_id="", embd_id="", tenant_embd_id=None):
+        bucket = sum(ord(ch) for ch in text) % 8
+        vector = [0.0] * 8
+        vector[bucket] = 1.0
+        return vector, "BAAI/bge-m3"
+
+    svc._encode_topic_embedding = fake_encode
+    memories = [
+        make_memory(
+            f"m{idx}",
+            f"Family office topic {idx % 10}",
+            f"Family enterprise succession and wealth governance memo {idx}",
+            1_720_000_000 + idx * 3600,
+            ["kb-family"],
+        )
+        for idx in range(100)
+    ]
+
+    first_events = svc._build_events(memories)
+    assert len(first_events) == 100
+    assert sum(1 for event in first_events if event["semantic_backend"] == "embedding") == 100
+
+    started = time.perf_counter()
+    second_events = svc._build_events(memories)
+    elapsed = time.perf_counter() - started
+
+    assert len(second_events) == 100
+    assert sum(1 for event in second_events if event["semantic_cache_hit"]) == 100
+    assert elapsed < 2.0

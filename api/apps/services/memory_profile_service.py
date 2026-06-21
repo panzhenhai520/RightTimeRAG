@@ -36,6 +36,7 @@ from api.apps.services.memory_api_service import (
 from api.db.services.memory_service import MemoryService
 from api.utils.canonical_topic import extract_topic_keywords, infer_canonical_topic, normalize_topic_text
 from api.utils.memory_utils import get_memory_display_name, get_memory_type_human, is_chat_memo_name
+from common.feature_flags import feature_enabled
 from common.misc_utils import thread_pool_exec
 from memory.services.messages import MessageService
 from rag.utils.redis_conn import REDIS_CONN
@@ -47,7 +48,8 @@ PROFILE_BUILD_LOCK_TTL_SECONDS = 20 * 60
 PROFILE_MAX_MEMORIES = 500
 PROFILE_MAX_EVENTS = 120
 PROFILE_STALE_SECONDS = 6 * 3600
-TOPIC_VECTOR_MODEL = "semantic-hashing-v1"
+TOPIC_VECTOR_MODEL = "topic-embedding-adapter-v1"
+TOPIC_VECTOR_FALLBACK_MODEL = "semantic-hashing-v1"
 TOPIC_VECTOR_DIMENSIONS = 96
 TOPIC_VECTOR_CACHE_TTL_SECONDS = PROFILE_CACHE_TTL_SECONDS
 TOPIC_CACHE_VERSION = "memo-profile-topic-cache-v1"
@@ -122,8 +124,14 @@ def _status_key(user_id: str) -> str:
     return f"memo:thought_profile:status:{user_id}"
 
 
-def _topic_vector_key(text_hash: str) -> str:
-    return f"memo:thought_profile:topic_vector:{TOPIC_VECTOR_MODEL}:{text_hash}"
+def _cache_safe_token(value: Any) -> str:
+    token = normalize_topic_text(str(value or ""))
+    token = re.sub(r"[^a-z0-9._:-]+", "-", token).strip("-")
+    return token[:120] or "default"
+
+
+def _topic_vector_key(model_token: str, text_hash: str) -> str:
+    return f"memo:thought_profile:topic_vector:{_cache_safe_token(model_token)}:{text_hash}"
 
 
 def _topic_cache_key(user_id: str) -> str:
@@ -145,6 +153,15 @@ def _delete_key(key: str) -> None:
             store.pop(key, None)
     except Exception as exc:
         logging.warning("Memo profile cache delete failed key=%s err=%s", key, exc)
+
+
+def invalidate_profile_cache(user_id: str, include_topic_cache: bool = False) -> None:
+    if not user_id:
+        return
+    _delete_key(_snapshot_key(user_id))
+    REDIS_CONN.set(_status_key(user_id), "stale", exp=PROFILE_CACHE_TTL_SECONDS)
+    if include_topic_cache:
+        _delete_key(_topic_cache_key(user_id))
 
 
 def _json_get(key: str) -> dict | None:
@@ -410,26 +427,160 @@ def _build_semantic_vector_uncached(text: str) -> list[float]:
     return [round(value / norm, 6) for value in vector]
 
 
-def _semantic_vector(text: str) -> tuple[list[float], bool]:
-    text_hash = _semantic_text_hash(text)
-    if not text_hash:
-        return [0.0] * TOPIC_VECTOR_DIMENSIONS, False
-    key = _topic_vector_key(text_hash)
+def _embedding_model_identity(tenant_id: str = "", embd_id: str = "", tenant_embd_id: Any = None) -> str:
+    if tenant_embd_id:
+        return f"tenant-embedding:{tenant_embd_id}"
+    model_name = str(embd_id or "").strip()
+    if not model_name:
+        try:
+            from common import settings
+
+            model_name = settings.EMBEDDING_MDL or (settings.EMBEDDING_CFG or {}).get("model") or ""
+        except Exception:
+            model_name = ""
+    tenant_part = tenant_id or "default-tenant"
+    return f"{tenant_part}:{model_name or 'default-embedding'}"
+
+
+def _coerce_first_embedding_vector(vector_list: Any) -> list[float]:
+    if vector_list is None or len(vector_list) <= 0:
+        raise ValueError("topic embedding returned no vector")
+    raw_vector = vector_list[0]
+    if hasattr(raw_vector, "tolist"):
+        raw_vector = raw_vector.tolist()
+    vector = [float(value) for value in raw_vector]
+    if len(vector) <= 0:
+        raise ValueError("topic embedding returned empty vector")
+    return vector
+
+
+def _encode_topic_embedding(text: str, tenant_id: str = "", embd_id: str = "", tenant_embd_id: Any = None) -> tuple[list[float], str]:
+    if not tenant_id:
+        raise ValueError("tenant_id is required for topic embedding")
+    from api.db.joint_services.tenant_model_service import get_model_config_by_id, get_model_config_by_type_and_name
+    from api.db.services.llm_service import LLMBundle
+    from common.constants import LLMType
+    from common import settings
+
+    if tenant_embd_id:
+        embd_model_config = get_model_config_by_id(
+            int(tenant_embd_id),
+            allowed_tenant_ids=tenant_id,
+            requester_tenant_id=tenant_id,
+        )
+    else:
+        model_name = embd_id or settings.EMBEDDING_MDL
+        embd_model_config = get_model_config_by_type_and_name(tenant_id, LLMType.EMBEDDING, model_name)
+
+    vector_list, _ = LLMBundle(tenant_id, embd_model_config).encode([text])
+    vector = _coerce_first_embedding_vector(vector_list)
+    model_name = embd_model_config.get("llm_name") or embd_id or "embedding"
+    return vector, str(model_name)
+
+
+def _fallback_semantic_vector_payload(text: str, text_hash: str) -> dict:
+    key = _topic_vector_key(TOPIC_VECTOR_FALLBACK_MODEL, text_hash)
     cached = _json_get(key)
-    if cached and cached.get("model") == TOPIC_VECTOR_MODEL and isinstance(cached.get("vector"), list):
+    if cached and cached.get("vector_model") == TOPIC_VECTOR_FALLBACK_MODEL and isinstance(cached.get("vector"), list):
         try:
             vector = [float(value) for value in cached["vector"]]
             if len(vector) == TOPIC_VECTOR_DIMENSIONS:
-                return vector, True
+                return {
+                    "vector": vector,
+                    "cache_hit": True,
+                    "model": TOPIC_VECTOR_MODEL,
+                    "backend": "fallback",
+                    "vector_model": TOPIC_VECTOR_FALLBACK_MODEL,
+                }
         except Exception:
             pass
     vector = _build_semantic_vector_uncached(text)
     _json_set(
         key,
-        {"model": TOPIC_VECTOR_MODEL, "text_hash": text_hash, "vector": vector},
+        {
+            "model": TOPIC_VECTOR_MODEL,
+            "backend": "fallback",
+            "vector_model": TOPIC_VECTOR_FALLBACK_MODEL,
+            "text_hash": text_hash,
+            "vector": vector,
+        },
         ttl=TOPIC_VECTOR_CACHE_TTL_SECONDS,
     )
-    return vector, False
+    return {
+        "vector": vector,
+        "cache_hit": False,
+        "model": TOPIC_VECTOR_MODEL,
+        "backend": "fallback",
+        "vector_model": TOPIC_VECTOR_FALLBACK_MODEL,
+    }
+
+
+def _semantic_vector_payload(text: str, tenant_id: str = "", embd_id: str = "", tenant_embd_id: Any = None) -> dict:
+    text_hash = _semantic_text_hash(text)
+    if not text_hash:
+        return {
+            "vector": [0.0] * TOPIC_VECTOR_DIMENSIONS,
+            "cache_hit": False,
+            "model": TOPIC_VECTOR_MODEL,
+            "backend": "fallback",
+            "vector_model": TOPIC_VECTOR_FALLBACK_MODEL,
+        }
+
+    if not feature_enabled("topic_embedding_cache"):
+        return _fallback_semantic_vector_payload(text, text_hash)
+
+    model_identity = _embedding_model_identity(tenant_id, embd_id, tenant_embd_id)
+    key = _topic_vector_key(model_identity, text_hash)
+    cached = _json_get(key)
+    if cached and cached.get("backend") == "embedding" and isinstance(cached.get("vector"), list):
+        try:
+            vector = [float(value) for value in cached["vector"]]
+            if vector:
+                return {
+                    "vector": vector,
+                    "cache_hit": True,
+                    "model": TOPIC_VECTOR_MODEL,
+                    "backend": "embedding",
+                    "vector_model": cached.get("vector_model") or model_identity,
+                }
+        except Exception:
+            pass
+
+    try:
+        vector, vector_model = _encode_topic_embedding(text, tenant_id, embd_id, tenant_embd_id)
+        _json_set(
+            key,
+            {
+                "model": TOPIC_VECTOR_MODEL,
+                "backend": "embedding",
+                "vector_model": vector_model,
+                "model_identity": model_identity,
+                "text_hash": text_hash,
+                "vector": vector,
+            },
+            ttl=TOPIC_VECTOR_CACHE_TTL_SECONDS,
+        )
+        return {
+            "vector": vector,
+            "cache_hit": False,
+            "model": TOPIC_VECTOR_MODEL,
+            "backend": "embedding",
+            "vector_model": vector_model,
+        }
+    except Exception as exc:
+        logging.warning(
+            "Memo profile topic embedding fallback tenant=%s embd_id=%s tenant_embd_id=%s err=%s",
+            tenant_id,
+            embd_id,
+            tenant_embd_id,
+            exc,
+        )
+        return _fallback_semantic_vector_payload(text, text_hash)
+
+
+def _semantic_vector(text: str) -> tuple[list[float], bool]:
+    payload = _semantic_vector_payload(text)
+    return payload["vector"], bool(payload["cache_hit"])
 
 
 def _cosine_vectors(left: list[float] | None, right: list[float] | None) -> float:
@@ -446,10 +597,15 @@ def _average_vectors(vectors: list[list[float]]) -> list[float]:
     valid = [vector for vector in vectors if vector]
     if not valid:
         return [0.0] * TOPIC_VECTOR_DIMENSIONS
-    size = min(TOPIC_VECTOR_DIMENSIONS, min(len(vector) for vector in valid))
-    averaged = [sum(vector[idx] for vector in valid) / len(valid) for idx in range(size)]
-    if size < TOPIC_VECTOR_DIMENSIONS:
-        averaged.extend([0.0] * (TOPIC_VECTOR_DIMENSIONS - size))
+    dimension_counts = Counter(len(vector) for vector in valid if len(vector) > 0)
+    if not dimension_counts:
+        return [0.0] * TOPIC_VECTOR_DIMENSIONS
+    target_size = dimension_counts.most_common(1)[0][0]
+    same_dimension = [vector for vector in valid if len(vector) == target_size]
+    averaged = [
+        sum(float(vector[idx]) for vector in same_dimension) / len(same_dimension)
+        for idx in range(target_size)
+    ]
     norm = math.sqrt(sum(value * value for value in averaged))
     if norm <= 0:
         return averaged
@@ -721,7 +877,12 @@ def _build_events(memories: list[dict]) -> list[dict]:
             ]
             if part
         )
-        semantic_vector, semantic_cache_hit = _semantic_vector(semantic_text)
+        semantic_payload = _semantic_vector_payload(
+            semantic_text,
+            tenant_id=memory.get("tenant_id") or "",
+            embd_id=memory.get("embd_id") or "",
+            tenant_embd_id=memory.get("tenant_embd_id"),
+        )
         event_id = f"event:{memory['id']}"
         events.append(
             {
@@ -738,9 +899,11 @@ def _build_events(memories: list[dict]) -> list[dict]:
                 "intent_label": INTENT_LABELS.get(intent, intent),
                 "keywords": keywords,
                 "terms": _terms(evidence_text),
-                "semantic_model": TOPIC_VECTOR_MODEL,
-                "semantic_cache_hit": semantic_cache_hit,
-                "semantic_vector": semantic_vector,
+                "semantic_model": semantic_payload["model"],
+                "semantic_backend": semantic_payload["backend"],
+                "semantic_vector_model": semantic_payload["vector_model"],
+                "semantic_cache_hit": semantic_payload["cache_hit"],
+                "semantic_vector": semantic_payload["vector"],
                 "turns": max(1, int(memory.get("message_count") or 1)),
                 "source_kind": _infer_source_kind(memory),
                 "assistant_id": memory.get("latest_agent_id") or "",
@@ -1010,6 +1173,11 @@ def _cluster_to_dict(cluster: TopicCluster, events_by_id: dict[str, dict]) -> di
     }
 
 
+def _semantic_backend_counts(events: list[dict]) -> dict[str, int]:
+    counts = Counter(str(event.get("semantic_backend") or "unknown") for event in events)
+    return dict(counts)
+
+
 def _cluster_vector(cluster: TopicCluster, events_by_id: dict[str, dict]) -> list[float]:
     return _average_vectors(
         [
@@ -1075,6 +1243,7 @@ def build_profile_snapshot(user_id: str) -> dict:
         "topic_cache": {
             "version": TOPIC_CACHE_VERSION,
             "semantic_model": TOPIC_VECTOR_MODEL,
+            "backend_counts": _semantic_backend_counts(events),
             "topic_count": len(clusters),
         },
         "topic_merges": topic_merges,
@@ -1092,7 +1261,7 @@ def build_profile_snapshot(user_id: str) -> dict:
             {
                 "title": "BERTopic: Neural topic modeling with a class-based TF-IDF procedure",
                 "authors": "Maarten Grootendorst",
-                "borrowed": "借鉴 embedding 聚类后再用 c-TF-IDF 生成可读主题词的思想；当前实现使用可缓存语义签名向量参与主题合并，保留后续接入 BGE-M3 embedding 的适配层。",
+                "borrowed": "借鉴 embedding 聚类后再用 c-TF-IDF 生成可读主题词的思想；当前实现优先使用可缓存的租户 embedding 向量参与主题合并，embedding 不可用时回退本地语义签名向量。",
             },
             {
                 "title": "The Dynamic Embedded Topic Model",

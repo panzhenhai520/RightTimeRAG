@@ -26,6 +26,8 @@ def test_feature_flags_default_to_enabled(monkeypatch):
     assert flags["memo_profile"] is True
     assert flags["memoProfile"] is True
     assert flags["memory_context"] is True
+    assert flags["topic_embedding_cache"] is True
+    assert flags["topicEmbeddingCache"] is True
     assert feature_enabled("memoProfile") is True
 
 
@@ -40,3 +42,13 @@ def test_feature_flags_support_environment_overrides(monkeypatch):
     assert flags["memory_context"] is False
     assert flags["memoryContext"] is False
     assert feature_enabled("memory_context") is False
+
+
+def test_feature_flags_support_topic_embedding_alias(monkeypatch):
+    monkeypatch.setenv("RAGFLOW_FEATURE_TOPIC_EMBEDDING_CACHE", "off")
+
+    flags = get_feature_flags()
+
+    assert flags["topic_embedding_cache"] is False
+    assert flags["topicEmbeddingCache"] is False
+    assert feature_enabled("topicEmbeddingCache") is False

@@ -53,6 +53,7 @@ from api.utils.api_utils import (
     server_error_response,
     validate_request,
 )
+from api.apps.services import memory_profile_service
 from api.utils.tenant_utils import ensure_tenant_model_id_for_params
 from common.constants import LLMType, RetCode, StatusEnum
 from common import settings
@@ -1838,6 +1839,7 @@ async def memorize_chat_session():
                 await _cleanup_created_chat_memo(memory)
             return get_json_result(code=RetCode.SERVER_ERROR, message=msg)
 
+        memory_profile_service.invalidate_profile_cache(current_user.id)
         return get_json_result(data={"memory_id": memory.id, "created": created, "topic": topic}, message=msg)
     except Exception as ex:
         return server_error_response(ex)

@@ -1045,15 +1045,12 @@ export function MemoThoughtPath({
                   </div>
                   {paperUrl && (
                     <a
-                      className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-accent-primary transition hover:border-accent-primary hover:bg-accent-primary/5"
+                      className="mt-2 block break-all text-xs font-medium text-accent-primary transition hover:underline"
                       href={paperUrl}
                       rel="noreferrer"
                       target="_blank"
                     >
-                      <ExternalLink className="size-3.5" />
-                      {t('memories.profile.openPaper', {
-                        defaultValue: 'Open paper',
-                      })}
+                      {paperUrl}
                     </a>
                   )}
                   <p className="mt-2 text-sm leading-6 text-text-secondary">

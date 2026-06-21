@@ -25,6 +25,7 @@ from api.utils.api_utils import validate_request, get_request_json, get_error_ar
 from api.apps.services import memory_api_service
 from api.apps.services import memory_profile_service
 from api.utils.tenant_utils import ensure_tenant_model_id_for_params
+from common.feature_flags import feature_enabled
 
 
 @manager.route("/memories", methods=["POST"])  # noqa: F821
@@ -149,6 +150,8 @@ async def list_memory():
 async def get_memory_profile():
     refresh = request.args.get("refresh", "false").lower() in {"1", "true", "yes"}
     try:
+        if not feature_enabled("memo_profile"):
+            return get_json_result(message=True, data=memory_profile_service.disabled_profile_snapshot())
         res = await memory_profile_service.get_profile_snapshot(current_user.id, refresh=refresh)
         return get_json_result(message=True, data=res)
     except Exception as e:
@@ -160,6 +163,8 @@ async def get_memory_profile():
 @login_required
 async def refresh_memory_profile():
     try:
+        if not feature_enabled("memo_profile"):
+            return get_json_result(message=True, data=memory_profile_service.disabled_profile_snapshot())
         res = await memory_profile_service.get_profile_snapshot(current_user.id, refresh=True)
         return get_json_result(message=True, data=res)
     except Exception as e:
@@ -171,6 +176,8 @@ async def refresh_memory_profile():
 @login_required
 async def get_memory_profile_topic_merges():
     try:
+        if not feature_enabled("memo_profile"):
+            return get_json_result(message=True, data=memory_profile_service.disabled_topic_merges())
         res = memory_profile_service.get_topic_merges(current_user.id)
         return get_json_result(message=True, data=res)
     except Exception as e:
@@ -183,6 +190,8 @@ async def get_memory_profile_topic_merges():
 async def merge_memory_profile_topics():
     req = await get_request_json()
     try:
+        if not feature_enabled("memo_profile"):
+            return get_json_result(message=True, data=memory_profile_service.disabled_topic_merges())
         source_topic_ids = req.get("source_topic_ids") or []
         target_topic_id = req.get("target_topic_id") or ""
         target_label = req.get("target_label") or ""
@@ -207,6 +216,8 @@ async def merge_memory_profile_topics():
 async def delete_memory_profile_topic_merges():
     req = await get_request_json()
     try:
+        if not feature_enabled("memo_profile"):
+            return get_json_result(message=True, data=memory_profile_service.disabled_topic_merges())
         res = memory_profile_service.delete_topic_merge(
             current_user.id,
             source_topic_ids=req.get("source_topic_ids"),

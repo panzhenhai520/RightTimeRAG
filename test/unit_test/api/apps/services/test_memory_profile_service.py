@@ -181,6 +181,20 @@ def test_profile_analysis_handles_empty_and_noise_text():
     assert svc._classify_from_rules("AI 算法 模型", svc.DOMAIN_RULES, "general") == "math"
 
 
+def test_profile_disabled_payload_is_stable():
+    svc = load_memory_profile_service()
+
+    snapshot = svc.disabled_profile_snapshot()
+    merges = svc.disabled_topic_merges()
+
+    assert snapshot["status"] == "disabled"
+    assert snapshot["feature_enabled"] is False
+    assert snapshot["events"] == []
+    assert snapshot["topics"] == []
+    assert snapshot["topic_merges"]["feature_enabled"] is False
+    assert merges["feature_enabled"] is False
+
+
 def test_profile_semantic_vector_is_cached():
     svc = load_memory_profile_service()
     text = "家族办公室 family office governance investment"

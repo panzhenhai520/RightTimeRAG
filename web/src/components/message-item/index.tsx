@@ -17,6 +17,7 @@ import {
 } from 'react';
 
 import { IRegenerateMessage, IRemoveMessageById } from '@/hooks/logic-hooks';
+import { useFeatureFlags } from '@/hooks/use-feature-flags';
 import { cn } from '@/lib/utils';
 import {
   getThinkingPreview,
@@ -111,6 +112,8 @@ const MessageItem = ({
 }: IProps) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
+  const { enabled } = useFeatureFlags();
+  const evidenceAuditEnabled = enabled('evidenceAudit');
   const isAssistant = item.role === MessageType.Assistant;
   const isUser = item.role === MessageType.User;
   const [showThinking, setShowThinking] = useState(true);
@@ -402,15 +405,17 @@ const MessageItem = ({
                 </InlineRenderBoundary>
               </div>
             )}
-            {isAssistant && reference?.evidence_audit && (
-              <InlineRenderBoundary
-                boundaryKey={`${item.id}-evidence-audit-${answerContent.length}`}
-              >
-                <EvidenceAuditPanel
-                  audit={reference.evidence_audit}
-                ></EvidenceAuditPanel>
-              </InlineRenderBoundary>
-            )}
+            {isAssistant &&
+              evidenceAuditEnabled &&
+              reference?.evidence_audit && (
+                <InlineRenderBoundary
+                  boundaryKey={`${item.id}-evidence-audit-${answerContent.length}`}
+                >
+                  <EvidenceAuditPanel
+                    audit={reference.evidence_audit}
+                  ></EvidenceAuditPanel>
+                </InlineRenderBoundary>
+              )}
             {isAssistant && hasReferenceChunks && (
               <InlineRenderBoundary
                 boundaryKey={`${item.id}-reference-images-${answerContent.length}`}

@@ -79,6 +79,22 @@ def test_task_executor_leaves_chunks_unchanged_when_structured_extraction_disabl
 
 
 @pytest.mark.p2
+def test_task_executor_global_feature_flag_disables_structured_extraction(monkeypatch):
+    task_executor = _task_executor_module()
+    chunks = [{"id": "chunk-28", "content_with_weight": "28. 在租金及契诺方面的法律责任的保障"}]
+    task = {
+        "doc_id": "doc-1",
+        "parser_config": {"structured_extraction": {"enabled": True}},
+    }
+    monkeypatch.setenv("RAGFLOW_FEATURE_STRUCTURED_EXTRACTION", "false")
+
+    result = task_executor.maybe_apply_structured_extraction(task, chunks, lambda *args, **kwargs: None)
+
+    assert result is chunks
+    assert "extra" not in chunks[0]
+
+
+@pytest.mark.p2
 def test_task_executor_enriches_chunks_when_structured_extraction_enabled():
     task_executor = _task_executor_module()
     chunks = [{"id": "chunk-28", "content_with_weight": "28. 在租金及契诺方面的法律责任的保障"}]

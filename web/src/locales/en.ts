@@ -626,6 +626,9 @@ Procedural Memory: Learned skills, habits, and automated procedures.`,
           'Open a full page to inspect top topics, learning path, recent changes, and traceable memo evidence.',
         openProfile: 'Open thinking profile',
         backToSpacetime: 'Back to spacetime',
+        disabledTitle: 'Thinking profile is disabled',
+        disabledDescription:
+          'The memo profile feature has been turned off by system configuration. Existing memos are still available in the memory list.',
         emptyTitle: 'No profile data yet',
         emptyDescription:
           'The thinking profile is generated from saved memo messages. Save chat sessions to memo first, then the profile will show topic evidence, learning path, recent changes, and traceable memos.',

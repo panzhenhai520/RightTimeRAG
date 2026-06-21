@@ -32,6 +32,7 @@ from api.db.services.knowledgebase_service import KnowledgebaseService
 from api.db.services.user_service import UserTenantService
 from common.log_utils import get_log_levels, set_log_level
 from common import settings
+from common.feature_flags import get_feature_flags
 from rag.utils.redis_conn import REDIS_CONN
 
 @manager.route("/system/ping", methods=["GET"])  # noqa: F821
@@ -225,6 +226,7 @@ def get_config():
     return get_json_result(data={
         "registerEnabled": settings.REGISTER_ENABLED,
         "disablePasswordLogin": settings.DISABLE_PASSWORD_LOGIN,
+        "featureFlags": get_feature_flags(),
     })
 
 @manager.route("/system/healthz", methods=["GET"])  # noqa: F821

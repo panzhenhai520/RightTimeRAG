@@ -10,7 +10,12 @@ export const useSystemConfig = () => {
     queryKey: ['systemConfig'],
     queryFn: async () => {
       const { data = {} } = await userService.getSystemConfig();
-      return data.data || { registerEnabled: 1 }; // Default to enabling registration
+      return (
+        data.data || {
+          registerEnabled: 1,
+          featureFlags: {},
+        }
+      ); // Default to enabling registration and enhanced features
     },
   });
 

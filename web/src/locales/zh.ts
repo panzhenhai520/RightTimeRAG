@@ -580,6 +580,9 @@ export default {
           '打开完整页面查看最关注主题、学习路径、最近变化和可追溯备忘录证据。',
         openProfile: '打开思维画像',
         backToSpacetime: '返回记忆时空',
+        disabledTitle: '思维画像已关闭',
+        disabledDescription:
+          '系统配置已关闭思维画像功能。已有备忘录仍可在记忆列表中查看。',
         emptyTitle: '暂无画像数据',
         emptyDescription:
           '思维画像从已保存的备忘录消息生成。请先把聊天会话加入备忘录，之后这里会显示主题证据、学习路径、最近变化和可追溯备忘录。',

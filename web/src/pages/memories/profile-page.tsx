@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { useFeatureFlags } from '@/hooks/use-feature-flags';
 import { Routes } from '@/routes';
 import { ArrowLeft, BrainCircuit } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +15,7 @@ import { MemoThoughtPath } from './memo-thought-path';
 export default function MemoryProfilePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { enabled } = useFeatureFlags();
   const { data, isLoading } = useFetchMemoryProfile();
   const { mutate: refreshProfile, isPending: isRefreshing } =
     useRefreshMemoryProfile();
@@ -22,6 +24,8 @@ export default function MemoryProfilePage() {
   const { mutate: deleteTopicMerge, isPending: isDeletingTopicMerge } =
     useDeleteMemoryProfileTopicMerge();
   const profile = data?.data;
+  const profileEnabled =
+    enabled('memoProfile') && profile?.feature_enabled !== false;
 
   return (
     <section className="flex h-full min-h-0 flex-col overflow-auto bg-bg-base px-6 py-5">
@@ -56,7 +60,22 @@ export default function MemoryProfilePage() {
       </header>
 
       <main className="min-h-0 flex-1">
-        {profile ? (
+        {!profileEnabled ? (
+          <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-border bg-bg-card/60 px-6 text-center">
+            <BrainCircuit className="mb-4 size-10 text-text-secondary" />
+            <h2 className="text-lg font-semibold text-text-primary">
+              {t('memories.profile.disabledTitle', {
+                defaultValue: 'Thinking profile is disabled',
+              })}
+            </h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-text-secondary">
+              {t('memories.profile.disabledDescription', {
+                defaultValue:
+                  'The memo profile feature has been turned off by system configuration. Existing memos are still available in the memory list.',
+              })}
+            </p>
+          </div>
+        ) : profile ? (
           <MemoThoughtPath
             profile={profile}
             loading={isLoading}

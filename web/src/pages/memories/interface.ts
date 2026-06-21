@@ -178,7 +178,8 @@ export interface IMemoTopicMergeSuggestion {
 
 export interface IMemoThoughtProfile {
   version: string;
-  status: 'ready' | 'empty' | 'pending' | 'building' | 'error';
+  status: 'ready' | 'empty' | 'pending' | 'building' | 'error' | 'disabled';
+  feature_enabled?: boolean;
   semantic_model?: string;
   generated_at: number;
   duration_ms?: number;

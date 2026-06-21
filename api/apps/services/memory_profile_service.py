@@ -165,6 +165,37 @@ def _empty_topic_merges() -> dict:
     return {"version": TOPIC_MERGE_VERSION, "rules": {}, "updated_at": 0}
 
 
+def disabled_topic_merges() -> dict:
+    payload = _empty_topic_merges()
+    payload["feature_enabled"] = False
+    return payload
+
+
+def disabled_profile_snapshot() -> dict:
+    return {
+        "version": PROFILE_VERSION,
+        "status": "disabled",
+        "feature_enabled": False,
+        "generated_at": 0,
+        "stale": False,
+        "memory_count": 0,
+        "event_count": 0,
+        "summary": {
+            "headline": "Memo profile is disabled.",
+            "trajectory": "",
+            "next_direction": "",
+            "focus_domains": [],
+        },
+        "events": [],
+        "topics": [],
+        "topic_merges": disabled_topic_merges(),
+        "topic_merge_suggestions": [],
+        "edges": [],
+        "predictions": [],
+        "algorithm_notes": [],
+    }
+
+
 def _load_topic_merges(user_id: str) -> dict:
     payload = _json_get(_topic_merge_key(user_id)) or {}
     rules = payload.get("rules") if isinstance(payload, dict) else {}

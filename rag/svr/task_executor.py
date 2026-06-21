@@ -91,6 +91,7 @@ from common.signal_utils import start_tracemalloc_and_snapshot, stop_tracemalloc
 from common.exceptions import TaskCanceledException
 from common.asyncio_utils import LoopLocalSemaphore
 from common import settings
+from common.feature_flags import feature_enabled
 from common.constants import PAGERANK_FLD, TAG_FLD, SVR_CONSUMER_GROUP_NAME
 from rag.utils.table_es_metadata import (
     aggregate_table_manual_doc_metadata,
@@ -1279,6 +1280,8 @@ async def insert_chunks(task_id, task_tenant_id, task_dataset_id, chunks, progre
 
 
 def _structured_extraction_config(task: dict) -> dict:
+    if not feature_enabled("structured_extraction"):
+        return {}
     parser_config = task.get("parser_config") or {}
     kb_parser_config = task.get("kb_parser_config") or {}
     for config in (parser_config, kb_parser_config):

@@ -16,6 +16,8 @@
 
 from types import SimpleNamespace
 
+import pytest
+
 from api.db.services import dialog_service
 
 
@@ -126,6 +128,35 @@ def test_query_planner_model_identity_requires_self_signal():
     pure, reason = dialog_service._should_route_to_pure_llm("family office business model", {}, route)
     assert pure is False
     assert reason != "model_self_question"
+
+
+def test_semantic_router_feature_flag_falls_back_to_default_rag(monkeypatch):
+    monkeypatch.setenv("RAGFLOW_FEATURE_SEMANTIC_ROUTER", "false")
+
+    route = dialog_service._semantic_route_layer("你是谁", {})
+    pure, reason = dialog_service._should_route_to_pure_llm("你是谁", {}, route)
+
+    assert route["route"] == "rag_question"
+    assert route["reason"] == "feature_disabled"
+    assert pure is True
+    assert reason == "model_self_question"
+
+
+@pytest.mark.asyncio
+async def test_memory_context_feature_flag_disables_memory_retrieval(monkeypatch):
+    monkeypatch.setenv("RAGFLOW_FEATURE_MEMORY_CONTEXT", "false")
+
+    async def should_not_run(*args, **kwargs):
+        raise AssertionError("memory context should not access thread pool when disabled")
+
+    monkeypatch.setattr(dialog_service, "thread_pool_exec", should_not_run)
+
+    result = await dialog_service._retrieve_memory_context(
+        "tenant-admin",
+        "在租金及契诺方面的法律责任的保障有哪些？",
+    )
+
+    assert result == []
 
 
 def test_pure_llm_identity_prompt_keeps_identity_answers_short_and_safe():

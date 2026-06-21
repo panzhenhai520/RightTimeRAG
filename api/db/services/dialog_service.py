@@ -63,6 +63,7 @@ from common.token_utils import DynamicTokenCounter, num_tokens_from_string
 from rag.utils.tavily_conn import Tavily
 from rag.utils.tts_cache import synthesize_with_cache
 from rag.utils.redis_conn import REDIS_CONN
+from common.feature_flags import feature_enabled
 from common.string_utils import remove_redundant_spaces
 from common import settings
 
@@ -1220,6 +1221,8 @@ def _sparse_cosine(left: Counter, right: Counter) -> float:
 def _semantic_route_layer(latest_question: str, kwargs: dict | None = None) -> dict:
     start_ts = timer()
     kwargs = kwargs or {}
+    if not feature_enabled("semantic_router"):
+        return {"route": "rag_question", "score": 0.0, "reason": "feature_disabled", "elapsed_ms": 0.0}
     normalized = _normalize_route_text(latest_question)
     route = "rag_question"
     score = 0.0
@@ -2674,6 +2677,8 @@ def _group_accessible_memories_for_query(tenant_id: str, query: str) -> list[lis
 
 
 async def _retrieve_memory_context(tenant_id: str, query: str, token_budget: int = MEMORY_CONTEXT_TOKENS) -> list[str]:
+    if not feature_enabled("memory_context"):
+        return []
     if not query:
         return []
     try:
@@ -3164,12 +3169,13 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 answer, idx = append_fallback_citations(answer, kbinfos)
             answer = normalize_markdown_table_citations(answer)
             answer, refs, citation_id_map = build_compact_reference(answer, kbinfos, idx)
-            refs["evidence_audit"] = build_compact_evidence_audit(
-                refs,
-                " ".join(questions),
-                retrieval_query,
-                answer,
-            )
+            if feature_enabled("evidence_audit"):
+                refs["evidence_audit"] = build_compact_evidence_audit(
+                    refs,
+                    " ".join(questions),
+                    retrieval_query,
+                    answer,
+                )
 
         if answer.lower().find("invalid key") >= 0 or answer.lower().find("invalid api") >= 0:
             answer += " Please set LLM API-Key in 'User Setting -> Model providers -> API-Key'"

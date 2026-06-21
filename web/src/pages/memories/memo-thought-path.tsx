@@ -21,11 +21,12 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { MouseEvent, useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import type {
   DeleteMemoryProfileTopicMergesPayload,
+  IMemoThoughtEdge,
   IMemoThoughtEvent,
   IMemoThoughtProfile,
   MergeMemoryProfileTopicsPayload,
@@ -72,6 +73,16 @@ const EDGE_LABELS: Record<string, string> = {
   association: 'Association',
 };
 
+const ALGORITHM_NOTE_URLS: Record<string, string> = {
+  'BERTopic: Neural topic modeling with a class-based TF-IDF procedure':
+    'https://arxiv.org/abs/2203.05794',
+  'The Dynamic Embedded Topic Model': 'https://arxiv.org/abs/1907.05545',
+  'Explainable Reasoning over Knowledge Graphs for Recommendation':
+    'https://arxiv.org/abs/1811.04540',
+  'GraphRAG-Induced Dual Knowledge Structure Graphs for Personalized Learning Path Recommendation':
+    'https://arxiv.org/abs/2506.22303',
+};
+
 function formatDate(timestamp: number) {
   if (!timestamp) return '-';
   return new Intl.DateTimeFormat(undefined, {
@@ -86,6 +97,60 @@ function eventRadius(event: IMemoThoughtEvent) {
   return Math.max(9, Math.min(22, 8 + Math.sqrt(event.turns || 1) * 4));
 }
 
+type Point = { x: number; y: number };
+
+function buildEdgePath(source: Point, target: Point) {
+  const control = Math.max(50, Math.abs(target.x - source.x) / 2);
+  return `M ${source.x} ${source.y} C ${source.x + control} ${source.y}, ${target.x - control} ${target.y}, ${target.x} ${target.y}`;
+}
+
+function cubicPoint(source: Point, target: Point, t: number) {
+  const control = Math.max(50, Math.abs(target.x - source.x) / 2);
+  const p1 = { x: source.x + control, y: source.y };
+  const p2 = { x: target.x - control, y: target.y };
+  const mt = 1 - t;
+  return {
+    x:
+      mt ** 3 * source.x +
+      3 * mt ** 2 * t * p1.x +
+      3 * mt * t ** 2 * p2.x +
+      t ** 3 * target.x,
+    y:
+      mt ** 3 * source.y +
+      3 * mt ** 2 * t * p1.y +
+      3 * mt * t ** 2 * p2.y +
+      t ** 3 * target.y,
+  };
+}
+
+function distanceToSegment(point: Point, a: Point, b: Point) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared === 0) {
+    return Math.hypot(point.x - a.x, point.y - a.y);
+  }
+  const t = Math.max(
+    0,
+    Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared),
+  );
+  return Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy));
+}
+
+function distanceToEdge(point: Point, source: Point, target: Point) {
+  let previous = source;
+  let minDistance = Number.POSITIVE_INFINITY;
+  for (let index = 1; index <= 28; index += 1) {
+    const current = cubicPoint(source, target, index / 28);
+    minDistance = Math.min(
+      minDistance,
+      distanceToSegment(point, previous, current),
+    );
+    previous = current;
+  }
+  return minDistance;
+}
+
 export function MemoThoughtPath({
   profile,
   loading,
@@ -98,10 +163,15 @@ export function MemoThoughtPath({
 }: MemoThoughtPathProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [focusedLane, setFocusedLane] = useState<string | null>(null);
+  const [highlightedDomain, setHighlightedDomain] = useState<string | null>(
+    null,
+  );
   const [algorithmOpen, setAlgorithmOpen] = useState(false);
 
   const events = useMemo(() => profile.events ?? [], [profile.events]);
@@ -109,6 +179,10 @@ export function MemoThoughtPath({
   const selectedEvent =
     events.find((event) => event.id === selectedEventId) || events.at(-1);
   const selectedEdge = edges.find((edge) => edge.id === selectedEdgeId);
+  const activeEdgeId = hoveredEdgeId || selectedEdgeId;
+  const eventById = useMemo(() => {
+    return new Map(events.map((event) => [event.id, event]));
+  }, [events]);
   const mergeSuggestions = useMemo(
     () => profile.topic_merge_suggestions ?? [],
     [profile.topic_merge_suggestions],
@@ -230,6 +304,83 @@ export function MemoThoughtPath({
     return { width, height, laneBands, top, points };
   }, [events, lanes, focusedLane, zoom]);
 
+  const setActiveDomain = useCallback(
+    (domain: string | null) => {
+      const next = highlightedDomain === domain ? null : domain;
+      setHighlightedDomain(next);
+      setFocusedLane(next);
+      if (next) {
+        const firstEvent = events.find(
+          (event) => (event.domain || 'general') === next,
+        );
+        if (firstEvent) {
+          setSelectedEventId(firstEvent.id);
+          setSelectedEdgeId(null);
+        }
+      }
+    },
+    [events, highlightedDomain],
+  );
+
+  const getPointerPoint = useCallback(
+    (event: MouseEvent<SVGSVGElement>): Point | undefined => {
+      const svg = svgRef.current;
+      if (!svg) return undefined;
+      const rect = svg.getBoundingClientRect();
+      if (!rect.width || !rect.height) return undefined;
+      return {
+        x: ((event.clientX - rect.left) / rect.width) * layout.width,
+        y: ((event.clientY - rect.top) / rect.height) * layout.height,
+      };
+    },
+    [layout.height, layout.width],
+  );
+
+  const findNearestEdge = useCallback(
+    (point: Point) => {
+      let nearest:
+        | {
+            edge: IMemoThoughtEdge;
+            distance: number;
+          }
+        | undefined;
+
+      edges.forEach((edge) => {
+        const source = layout.points.get(edge.source_event_id);
+        const target = layout.points.get(edge.target_event_id);
+        if (!source || !target) return;
+        const distance = distanceToEdge(point, source, target);
+        if (!nearest || distance < nearest.distance) {
+          nearest = { edge, distance };
+        }
+      });
+
+      return nearest && nearest.distance <= 22 ? nearest.edge : undefined;
+    },
+    [edges, layout.points],
+  );
+
+  const handleSvgMouseMove = useCallback(
+    (event: MouseEvent<SVGSVGElement>) => {
+      const point = getPointerPoint(event);
+      if (!point) return;
+      setHoveredEdgeId(findNearestEdge(point)?.id ?? null);
+    },
+    [findNearestEdge, getPointerPoint],
+  );
+
+  const handleSvgClick = useCallback(
+    (event: MouseEvent<SVGSVGElement>) => {
+      const point = getPointerPoint(event);
+      if (!point) return;
+      const edge = findNearestEdge(point);
+      if (!edge) return;
+      setSelectedEdgeId(edge.id);
+      setSelectedEventId(edge.target_event_id);
+    },
+    [findNearestEdge, getPointerPoint],
+  );
+
   const openMemory = (memoryId?: string) => {
     if (!memoryId) return;
     navigate(`${Routes.Memory}${Routes.MemoryMessage}/${memoryId}`);
@@ -313,9 +464,16 @@ export function MemoThoughtPath({
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3">
             {(profile.summary?.focus_domains ?? []).map((domain) => (
-              <div
+              <button
+                type="button"
                 key={domain.id}
-                className="flex min-h-9 items-center justify-between gap-2 rounded-lg bg-bg-base px-3 py-2 text-sm"
+                aria-pressed={highlightedDomain === domain.id}
+                className={`flex min-h-9 items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition ${
+                  highlightedDomain === domain.id
+                    ? 'border-accent-primary bg-accent-primary/10 shadow-sm'
+                    : 'border-transparent bg-bg-base hover:border-accent-primary/40 hover:bg-accent-primary/5'
+                }`}
+                onClick={() => setActiveDomain(domain.id)}
               >
                 <span className="flex min-w-0 items-center gap-2">
                   <span
@@ -332,7 +490,7 @@ export function MemoThoughtPath({
                 <span className="shrink-0 font-mono text-xs text-text-secondary">
                   {domain.count}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -445,6 +603,7 @@ export function MemoThoughtPath({
           </div>
           <div className="overflow-x-auto overflow-y-hidden rounded-lg bg-bg-base p-3 pb-7">
             <svg
+              ref={svgRef}
               viewBox={`0 0 ${layout.width} ${layout.height}`}
               className="block max-w-none"
               style={{
@@ -453,6 +612,9 @@ export function MemoThoughtPath({
                 height: layout.height,
               }}
               role="img"
+              onClick={handleSvgClick}
+              onMouseLeave={() => setHoveredEdgeId(null)}
+              onMouseMove={handleSvgMouseMove}
             >
               {layout.laneBands.map((lane, index) => {
                 const domain = lane.domain;
@@ -496,20 +658,71 @@ export function MemoThoughtPath({
                 const source = layout.points.get(edge.source_event_id);
                 const target = layout.points.get(edge.target_event_id);
                 if (!source || !target) return null;
+                const sourceEvent = eventById.get(edge.source_event_id);
+                const targetEvent = eventById.get(edge.target_event_id);
+                const sourceDomain = sourceEvent?.domain || 'general';
+                const targetDomain = targetEvent?.domain || 'general';
                 const selected = edge.id === selectedEdgeId;
-                const control = Math.max(50, Math.abs(target.x - source.x) / 2);
+                const hovered = edge.id === hoveredEdgeId;
+                const active = edge.id === activeEdgeId;
+                const inHighlightedDomain =
+                  !!highlightedDomain &&
+                  (sourceDomain === highlightedDomain ||
+                    targetDomain === highlightedDomain);
+                const dimmed = !!highlightedDomain && !inHighlightedDomain;
+                const edgeColor = highlightedDomain
+                  ? DOMAIN_COLORS[highlightedDomain] || DOMAIN_COLORS.general
+                  : '#b15773';
+                const strokeColor = active
+                  ? edgeColor
+                  : inHighlightedDomain
+                    ? edgeColor
+                    : 'rgba(100,116,139,0.35)';
+                const strokeWidth = active
+                  ? 4
+                  : inHighlightedDomain
+                    ? Math.max(2.2, edge.weight * 2.2)
+                    : Math.max(1, edge.weight * 2.2);
+                const path = buildEdgePath(source, target);
                 return (
                   <path
                     key={edge.id}
-                    d={`M ${source.x} ${source.y} C ${source.x + control} ${source.y}, ${target.x - control} ${target.y}, ${target.x} ${target.y}`}
+                    d={path}
                     fill="none"
-                    stroke={selected ? '#b15773' : 'rgba(100,116,139,0.35)'}
-                    strokeWidth={selected ? 3 : Math.max(1, edge.weight * 2.2)}
-                    className="cursor-pointer transition"
+                    opacity={dimmed ? 0.16 : selected || hovered ? 1 : 0.78}
+                    stroke={strokeColor}
+                    strokeLinecap="round"
+                    strokeWidth={strokeWidth}
+                    className="pointer-events-none transition"
+                    filter={
+                      active
+                        ? 'drop-shadow(0 2px 5px rgba(177,87,115,0.28))'
+                        : undefined
+                    }
+                  />
+                );
+              })}
+
+              {edges.map((edge) => {
+                const source = layout.points.get(edge.source_event_id);
+                const target = layout.points.get(edge.target_event_id);
+                if (!source || !target) return null;
+                return (
+                  <path
+                    key={`${edge.id}-hit`}
+                    d={buildEdgePath(source, target)}
+                    fill="none"
+                    stroke="transparent"
+                    strokeLinecap="round"
+                    strokeWidth="22"
+                    className="cursor-pointer"
                     onClick={() => {
                       setSelectedEdgeId(edge.id);
                       setSelectedEventId(edge.target_event_id);
                     }}
+                    onMouseEnter={() => setHoveredEdgeId(edge.id)}
+                    onMouseLeave={() => setHoveredEdgeId(null)}
+                    pointerEvents="stroke"
                   >
                     <title>{edge.reason}</title>
                   </path>
@@ -520,12 +733,17 @@ export function MemoThoughtPath({
                 const point = layout.points.get(event.id);
                 if (!point) return null;
                 const selected = event.id === selectedEvent?.id;
+                const inHighlightedDomain =
+                  !highlightedDomain ||
+                  (event.domain || 'general') === highlightedDomain;
                 const radius = eventRadius(event);
                 return (
                   <g
                     key={event.id}
                     className="cursor-pointer"
-                    onClick={() => {
+                    opacity={inHighlightedDomain ? 1 : 0.28}
+                    onClick={(mouseEvent) => {
+                      mouseEvent.stopPropagation();
                       setSelectedEventId(event.id);
                       setSelectedEdgeId(null);
                     }}
@@ -548,7 +766,17 @@ export function MemoThoughtPath({
                         DOMAIN_COLORS[event.domain] || DOMAIN_COLORS.general
                       }
                       stroke={selected ? '#fff' : 'rgba(255,255,255,0.75)'}
-                      strokeWidth={selected ? 3 : 1.5}
+                      strokeWidth={
+                        selected ||
+                        highlightedDomain === (event.domain || 'general')
+                          ? 3
+                          : 1.5
+                      }
+                      filter={
+                        highlightedDomain === (event.domain || 'general')
+                          ? 'drop-shadow(0 3px 7px rgba(79,127,180,0.28))'
+                          : undefined
+                      }
                     />
                     <text
                       x={point.x}
@@ -805,19 +1033,35 @@ export function MemoThoughtPath({
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            {profile.algorithm_notes.map((note) => (
-              <div key={note.title} className="rounded-lg bg-bg-card p-4">
-                <div className="font-medium leading-6 text-text-primary">
-                  {note.title}
+            {profile.algorithm_notes.map((note) => {
+              const paperUrl = note.url || ALGORITHM_NOTE_URLS[note.title];
+              return (
+                <div key={note.title} className="rounded-lg bg-bg-card p-4">
+                  <div className="font-medium leading-6 text-text-primary">
+                    {note.title}
+                  </div>
+                  <div className="mt-1 text-xs text-text-secondary">
+                    {note.authors}
+                  </div>
+                  {paperUrl && (
+                    <a
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-accent-primary transition hover:border-accent-primary hover:bg-accent-primary/5"
+                      href={paperUrl}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      <ExternalLink className="size-3.5" />
+                      {t('memories.profile.openPaper', {
+                        defaultValue: 'Open paper',
+                      })}
+                    </a>
+                  )}
+                  <p className="mt-2 text-sm leading-6 text-text-secondary">
+                    {note.borrowed}
+                  </p>
                 </div>
-                <div className="mt-1 text-xs text-text-secondary">
-                  {note.authors}
-                </div>
-                <p className="mt-2 text-sm leading-6 text-text-secondary">
-                  {note.borrowed}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </DialogContent>
       </Dialog>

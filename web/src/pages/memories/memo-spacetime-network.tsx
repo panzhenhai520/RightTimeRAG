@@ -1290,6 +1290,17 @@ export function MemoSpacetimeNetwork({
             <RotateCcw className="size-4" />
             {t('memories.spacetime.reset', { defaultValue: 'Reset viewport' })}
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-[#d8b9c4] bg-[#f8f1ef] text-[#6d334a] hover:bg-[#ead8d2] dark:border-indigo-800/60 dark:bg-indigo-950/70 dark:text-indigo-200 dark:hover:bg-indigo-900"
+            onClick={openProfile}
+          >
+            <BrainCircuit className="size-4" />
+            {t('memories.profile.openProfile', {
+              defaultValue: 'Open thinking profile',
+            })}
+          </Button>
           <div className="rounded-md border border-[#e6dcd8] bg-white px-3 py-1.5 text-xs text-[#7b818b] dark:border-slate-800 dark:bg-slate-950 dark:text-slate-500">
             {t('memories.spacetime.loaded', {
               defaultValue: 'Memory center loaded',

@@ -147,6 +147,7 @@ export interface IMemoThoughtPrediction {
 export interface IMemoThoughtAlgorithmNote {
   title: string;
   authors: string;
+  url?: string;
   borrowed: string;
 }
 

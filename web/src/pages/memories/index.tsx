@@ -53,6 +53,9 @@ export default function MemoryList() {
   const [searchUrl, setMemoryUrl] = useSearchParams();
   const { filters } = useSelectFilters();
   const isCreate = searchUrl.get('isCreate') === 'true';
+  const memoryList = list?.data?.memory_list ?? [];
+  const hasMemories = memoryList.length > 0;
+  const isInitialLoading = isLoading && !list;
   useEffect(() => {
     if (isCreate) {
       openCreateModalFun();
@@ -79,20 +82,27 @@ export default function MemoryList() {
 
   return (
     <>
-      {list?.data?.memory_list?.length || searchString ? (
+      {isInitialLoading ? (
+        <article
+          className="size-full flex items-center justify-center"
+          data-testid="memory-list"
+        >
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-primary border-t-transparent" />
+        </article>
+      ) : hasMemories || searchString ? (
         <article className="size-full flex flex-col" data-testid="memory-list">
-          {list?.data?.memory_list?.length && memoSpacetimeEnabled ? (
+          {hasMemories && memoSpacetimeEnabled ? (
             <MemoSpacetimeNetwork
-              memories={list.data.memory_list}
+              memories={memoryList}
               loading={isLoading}
               onCreate={openCreateModalFun}
               toolbar={toolbar}
             />
-          ) : list?.data?.memory_list?.length ? (
+          ) : hasMemories ? (
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto px-6 py-5">
               {toolbar}
               <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-                {list.data.memory_list.map((memory) => (
+                {memoryList.map((memory) => (
                   <MemoryCard
                     key={memory.id}
                     data={memory}

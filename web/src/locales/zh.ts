@@ -624,6 +624,7 @@ export default {
         activeTopicMerges: '已合并主题',
         undoMerge: '撤销合并',
         algorithmSources: '算法来源与借鉴思想',
+        openPaper: '打开论文',
         zoomIn: '放大',
         zoomOut: '缩小',
         focusLane: '放大泳道',

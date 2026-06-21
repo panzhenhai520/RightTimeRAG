@@ -1261,21 +1261,25 @@ def build_profile_snapshot(user_id: str) -> dict:
             {
                 "title": "BERTopic: Neural topic modeling with a class-based TF-IDF procedure",
                 "authors": "Maarten Grootendorst",
+                "url": "https://arxiv.org/abs/2203.05794",
                 "borrowed": "借鉴 embedding 聚类后再用 c-TF-IDF 生成可读主题词的思想；当前实现优先使用可缓存的租户 embedding 向量参与主题合并，embedding 不可用时回退本地语义签名向量。",
             },
             {
                 "title": "The Dynamic Embedded Topic Model",
                 "authors": "Adji B. Dieng, Francisco J. R. Ruiz, David M. Blei",
+                "url": "https://arxiv.org/abs/1907.05545",
                 "borrowed": "借鉴主题随时间形成轨迹的思想，用时间顺序和主题泳道表达学习路径。",
             },
             {
                 "title": "Explainable Reasoning over Knowledge Graphs for Recommendation",
                 "authors": "Xiang Wang, Dingxian Wang, Canran Xu, Xiangnan He, Yixin Cao, Tat-Seng Chua",
+                "url": "https://arxiv.org/abs/1811.04540",
                 "borrowed": "借鉴路径可解释推荐思想，每条连线和推荐问题都带证据事件。",
             },
             {
                 "title": "GraphRAG-Induced Dual Knowledge Structure Graphs for Personalized Learning Path Recommendation",
                 "authors": "Xinghe Cheng, Zihan Zhang, Jiapu Wang, Liangda Fang, Chaobo He, Quanlong Guan, Shirui Pan, Weiqi Luo",
+                "url": "https://arxiv.org/abs/2506.22303",
                 "borrowed": "借鉴先后路径和相似关系双结构图思想，同时保留时间顺序和主题相似关系。",
             },
         ],

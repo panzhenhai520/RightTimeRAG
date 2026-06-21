@@ -29,6 +29,11 @@ from typing import Any, Union, Tuple
 from agent.component import component_class
 from agent.component.base import ComponentBase
 from agent.dsl_migration import normalize_chunker_dsl
+from agent.semantic_router import (
+    AGENT_HISTORY_MAX_CHARS,
+    route_agent_intent,
+    sanitize_agent_history_text,
+)
 from api.db.services.file_service import FileService
 from api.db.services.llm_service import LLMBundle
 from api.db.services.panython_tts_settings_service import (
@@ -38,22 +43,12 @@ from api.db.services.panython_tts_settings_service import (
 from api.db.services.task_service import has_canceled
 from api.db.joint_services.tenant_model_service import get_tenant_default_model_by_type
 from common.constants import LLMType
+from common.feature_flags import feature_enabled
 from common.misc_utils import get_uuid, hash_str2int
 from common.exceptions import TaskCanceledException
 from rag.prompts.generator import chunks_format
 from rag.utils.redis_conn import REDIS_CONN
 from rag.utils.tts_cache import synthesize_with_cache
-
-AGENT_HISTORY_MAX_CHARS = 12000
-AGENT_HISTORY_ERROR_MARKERS = (
-    "ERROR:",
-    "CONNECTION_ERROR",
-    "INVALID_REQUEST",
-    "Traceback",
-    "layer-slice token span exceeds context",
-    "kv payload staging failed",
-)
-
 
 class Graph:
     """
@@ -346,37 +341,7 @@ class Canvas(Graph):
 
     @staticmethod
     def _clean_history_text(text: Any, max_chars: int = AGENT_HISTORY_MAX_CHARS) -> str:
-        if text is None:
-            return ""
-        if isinstance(text, dict):
-            for key in ("content", "answer", "text", "output"):
-                if text.get(key):
-                    text = text.get(key)
-                    break
-            else:
-                try:
-                    text = json.dumps(text, ensure_ascii=False)
-                except Exception:
-                    text = str(text)
-        elif not isinstance(text, str):
-            text = str(text)
-
-        if not text:
-            return ""
-
-        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
-        text = re.sub(r"<retrieving>.*?</retrieving>", "", text, flags=re.DOTALL | re.IGNORECASE)
-        text = re.sub(r"data:image/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+", "[image omitted]", text)
-        lines = []
-        for line in text.splitlines():
-            if any(marker in line for marker in AGENT_HISTORY_ERROR_MARKERS):
-                continue
-            lines.append(line)
-        text = "\n".join(lines)
-        text = re.sub(r"\n{3,}", "\n\n", text).strip()
-        if len(text) > max_chars:
-            text = text[:max_chars].rstrip() + "\n[history truncated]"
-        return text
+        return sanitize_agent_history_text(text, max_chars=max_chars)
 
     def reset(self, mem=False):
         super().reset()
@@ -428,6 +393,24 @@ class Canvas(Graph):
         self.message_id = get_uuid()
         created_at = int(time.time())
         self.add_user_input(kwargs.get("query"))
+        semantic_route = None
+        if feature_enabled("semantic_router"):
+            semantic_route = route_agent_intent(
+                kwargs.get("query") or kwargs.get("question") or "",
+                components=self.components,
+                files=kwargs.get("files"),
+                inputs=kwargs.get("inputs"),
+            )
+            self.globals["sys.agent_semantic_route"] = semantic_route
+            logging.info(
+                "Agent semantic route: canvas_id=%s task_id=%s route=%s score=%s reason=%s blocked=%s",
+                self._id,
+                self.task_id,
+                semantic_route.get("route"),
+                semantic_route.get("score"),
+                semantic_route.get("reason"),
+                semantic_route.get("blocked_capabilities"),
+            )
         path_set = set(self.path)
         for k, cpn in self.components.items():
             if k in path_set:
@@ -480,7 +463,10 @@ class Canvas(Graph):
             logging.info(msg)
             raise TaskCanceledException(msg)
 
-        yield decorate("workflow_started", {"inputs": kwargs.get("inputs")})
+        workflow_started = {"inputs": kwargs.get("inputs")}
+        if semantic_route is not None:
+            workflow_started["semantic_route"] = semantic_route
+        yield decorate("workflow_started", workflow_started)
         self.retrieval.append({"chunks": {}, "doc_aggs": {}})
 
         async def _run_batch(f, t):
@@ -785,8 +771,8 @@ class Canvas(Graph):
 
     def add_user_input(self, question):
         content = self._clean_history_text(question, max_chars=AGENT_HISTORY_MAX_CHARS // 2)
-        self.history.append(("user", content))
         if content:
+            self.history.append(("user", content))
             self.globals["sys.history"].append(f"user: {content}")
 
     def get_prologue(self):
@@ -896,7 +882,11 @@ class Canvas(Graph):
         return message_end
 
     def add_memory(self, user:str, assist:str, summ: str):
-        self.memory.append((user, assist, summ))
+        user = self._clean_history_text(user, max_chars=AGENT_HISTORY_MAX_CHARS // 2)
+        assist = self._clean_history_text(assist)
+        summ = self._clean_history_text(summ)
+        if user or assist or summ:
+            self.memory.append((user, assist, summ))
 
     def get_memory(self) -> list[Tuple]:
         return self.memory

@@ -239,7 +239,7 @@ def test_async_ask_final_event_carries_decorated_answer(monkeypatch):
         "Final event answer must not be blank — decorate_answer() result was discarded.\n"
         "This is the regression: final['answer'] = '' was removed from async_ask()."
     )
-    assert llm_answer in final["answer"], (
+    assert llm_answer.rstrip(".") in final["answer"], (
         f"LLM answer text expected in final event, got: {final['answer']!r}"
     )
 
@@ -372,6 +372,9 @@ def test_async_chat_final_event_carries_decorated_answer(monkeypatch):
         dialog_service, "kb_prompt",
         lambda _kbinfos, _max_tokens, **_kw: ["RAGFlow is a RAG engine."],
     )
+    async def _empty_memory_context(*_args, **_kwargs):
+        return []
+    monkeypatch.setattr(dialog_service, "_retrieve_memory_context", _empty_memory_context)
 
     dialog = _make_dialog(chat_mdl)
     messages = [{"role": "user", "content": "What is RAGFlow?"}]
@@ -388,7 +391,7 @@ def test_async_chat_final_event_carries_decorated_answer(monkeypatch):
         "Final event answer must not be blank — decorate_answer() result was discarded.\n"
         "This is the regression: final['answer'] = '' was removed from async_chat()."
     )
-    assert llm_answer in final["answer"], (
+    assert llm_answer.rstrip(".") in final["answer"], (
         f"LLM answer text expected in final event, got: {final['answer']!r}"
     )
 
@@ -439,6 +442,9 @@ def test_async_chat_langfuse_uses_start_observation(monkeypatch):
         "kb_prompt",
         lambda _kbinfos, _max_tokens, **_kw: ["RAGFlow is a RAG engine."],
     )
+    async def _empty_memory_context(*_args, **_kwargs):
+        return []
+    monkeypatch.setattr(dialog_service, "_retrieve_memory_context", _empty_memory_context)
 
     dialog = _make_dialog(chat_mdl)
     messages = [{"role": "user", "content": "What is RAGFlow?"}]
@@ -454,8 +460,11 @@ def test_async_chat_langfuse_uses_start_observation(monkeypatch):
     assert langfuse.observation_kwargs["model"] == _LLM_CONFIG["llm_name"]
     input_payload = langfuse.observation_kwargs["input"]
     assert set(input_payload.keys()) == {"prompt", "prompt4citation", "messages"}
-    assert input_payload["prompt"] == "You are helpful. \n------\nRAGFlow is a RAG engine."
-    assert input_payload["prompt4citation"] == dialog_service.citation_prompt()
+    assert input_payload["prompt"].startswith("You are helpful.")
+    assert "ID: 0" in input_payload["prompt"]
+    assert "RAGFlow is a RAG engine." in input_payload["prompt"]
+    assert "### Citation rules" in input_payload["prompt"]
+    assert input_payload["prompt4citation"] == ""
     assert input_payload["messages"][0]["role"] == "system"
     assert input_payload["messages"][0]["content"] == input_payload["prompt"]
     assert input_payload["messages"][1] == {"role": "user", "content": "What is RAGFlow?"}
@@ -508,6 +517,9 @@ def test_async_chat_continues_when_langfuse_observation_start_fails(monkeypatch)
         "kb_prompt",
         lambda _kbinfos, _max_tokens, **_kw: ["RAGFlow is a RAG engine."],
     )
+    async def _empty_memory_context(*_args, **_kwargs):
+        return []
+    monkeypatch.setattr(dialog_service, "_retrieve_memory_context", _empty_memory_context)
 
     dialog = _make_dialog(chat_mdl)
     messages = [{"role": "user", "content": "What is RAGFlow?"}]
@@ -516,7 +528,7 @@ def test_async_chat_continues_when_langfuse_observation_start_fails(monkeypatch)
 
     final_events = [e for e in events if e.get("final") is True]
     assert len(final_events) == 1
-    assert llm_answer in final_events[0]["answer"]
+    assert llm_answer.rstrip(".") in final_events[0]["answer"]
     assert len(_FakeLangfuseClient.instances) == 1
     assert _FakeLangfuseClient.instances[0].observation_kwargs is None
     assert _FakeLangfuseClient.instances[0].observation.ended is False

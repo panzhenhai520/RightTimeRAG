@@ -131,24 +131,14 @@ export const extractProcessBlocksForFinal = (
   text: string = '',
   tagName: string,
 ) => {
-  const completed = extractTaggedBlocks(text, tagName);
-  const openTag = `<${tagName}>`;
-  const closeTag = `</${tagName}>`;
-  const lowerText = text.toLowerCase();
-  const lastOpenIndex = lowerText.lastIndexOf(openTag);
-  const lastCloseIndex = lowerText.lastIndexOf(closeTag);
+  const parsed = parseTaggedContent(text, tagName as 'think' | 'retrieving');
+  const thinking = parsed.thinking.trim();
 
-  if (lastOpenIndex === -1 || lastCloseIndex > lastOpenIndex) {
-    return completed;
+  if (!parsed.hasThinking || !thinking) {
+    return extractTaggedBlocks(text, tagName);
   }
 
-  const openBlock = text.slice(lastOpenIndex);
-  return (
-    completed +
-    (openBlock.toLowerCase().endsWith(closeTag)
-      ? openBlock
-      : `${openBlock}${closeTag}`)
-  );
+  return `<${tagName}>${thinking}</${tagName}>`;
 };
 
 export const stripProcessBlocksForFinal = (text: string = '') => {
@@ -215,6 +205,47 @@ export const mergeFinalAnswerWithProcess = (
   }
 
   return processPrefix + finalVisibleAnswer;
+};
+
+const hasUnclosedProcessTag = (
+  text: string = '',
+  tagName: 'think' | 'retrieving',
+) => {
+  const openTag = `<${tagName}>`;
+  const closeTag = `</${tagName}>`;
+  const lowerText = text.toLowerCase();
+  const lastOpenIndex = lowerText.lastIndexOf(openTag);
+  const lastCloseIndex = lowerText.lastIndexOf(closeTag);
+
+  return lastOpenIndex !== -1 && lastOpenIndex > lastCloseIndex;
+};
+
+export const mergeStreamingAnswerChunk = (
+  previousAnswer: string = '',
+  incomingAnswer: string = '',
+) => {
+  if (!previousAnswer) return incomingAnswer;
+  if (!incomingAnswer) return previousAnswer;
+
+  const processOpenTag = incomingAnswer
+    .trim()
+    .toLowerCase()
+    .match(/^<(retrieving|think)>$/);
+  if (
+    processOpenTag &&
+    hasUnclosedProcessTag(
+      previousAnswer,
+      processOpenTag[1] as 'think' | 'retrieving',
+    )
+  ) {
+    return previousAnswer;
+  }
+
+  if (incomingAnswer.startsWith(previousAnswer)) {
+    return incomingAnswer;
+  }
+
+  return previousAnswer + incomingAnswer;
 };
 
 function parseTaggedContent(

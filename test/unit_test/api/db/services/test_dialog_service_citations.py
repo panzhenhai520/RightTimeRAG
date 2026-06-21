@@ -62,9 +62,12 @@ from api.db.services.dialog_service import (  # noqa: E402
     _classify_evidence_chunk,
     _format_knowledge_chunk,
     _prioritize_evidence_chunks,
+    _query_focused_content_excerpt,
+    build_compact_evidence_audit,
     build_compact_reference,
     expand_raptor_chunks_for_generation,
     normalize_markdown_table_citations,
+    repair_bad_citation_formats,
     settings,
 )
 
@@ -83,6 +86,18 @@ def test_normalize_markdown_table_citations_keeps_separator_row_valid():
     assert "|------|------|----------|\n" in normalized
     assert "|------|------|----------| [ID:4]" not in normalized
     assert "总结：三种保障的比较 [ID:4]" in normalized
+
+
+@pytest.mark.p2
+def test_repair_bad_citation_formats_expands_multi_id_parentheses():
+    answer = "受托人可预留资金并免责（ID:1, ID:3）。"
+    kbinfos = {"chunks": [{}, {}, {}, {}]}
+    idx = set()
+
+    repaired, idx = repair_bad_citation_formats(answer, kbinfos, idx)
+
+    assert "[ID:1] [ID:3]" in repaired
+    assert idx == {1, 3}
 
 
 @pytest.mark.p2
@@ -110,6 +125,55 @@ def test_build_compact_reference_remaps_sparse_citations_to_contiguous_ids():
     assert [chunk["document_name"] for chunk in refs["chunks"]] == ["D.pdf", "F.pdf"]
     assert all("vector" not in chunk for chunk in refs["chunks"])
     assert [doc["doc_id"] for doc in refs["doc_aggs"]] == ["doc-d", "doc-f"]
+
+
+@pytest.mark.p2
+def test_compact_evidence_audit_uses_compact_reference_id_space():
+    kbinfos = {
+        "chunks": [
+            {"doc_id": "doc-a", "docnm_kwd": "A.pdf", "content_with_weight": "title"},
+            {"doc_id": "doc-b", "docnm_kwd": "B.pdf", "content_with_weight": "unused"},
+            {
+                "id": "chunk-c",
+                "doc_id": "doc-c",
+                "docnm_kwd": "C.pdf",
+                "content_with_weight": (
+                    "Where a personal representative or trustee liable as such for any rent, "
+                    "covenant, or agreement reserved by or contained in any lease shall satisfy all liabilities."
+                ),
+            },
+            {"doc_id": "doc-d", "docnm_kwd": "D.pdf", "content_with_weight": "unused"},
+            {
+                "id": "chunk-e",
+                "doc_id": "doc-e",
+                "docnm_kwd": "E.pdf",
+                "content_with_weight": (
+                    "The trustee may distribute the residuary estate without appropriating a further part "
+                    "to meet future liability under the lease or grant."
+                ),
+            },
+        ],
+        "doc_aggs": [
+            {"doc_id": "doc-c", "doc_name": "C.pdf", "count": 1},
+            {"doc_id": "doc-e", "doc_name": "E.pdf", "count": 1},
+        ],
+    }
+
+    answer, refs, _ = build_compact_reference("Answer cites sparse chunks [ID:2] [ID:4].", kbinfos, {2, 4})
+    audit = build_compact_evidence_audit(
+        refs,
+        "在租金及契诺方面的法律责任的保障有哪些",
+        "rent covenant liability protections",
+        answer,
+    )
+
+    assert answer == "Answer cites sparse chunks [ID:0] [ID:1]."
+    assert audit["id_space"] == "compact_reference"
+    assert audit["retrieval"]["selected_chunks"] == 2
+    assert [item["id"] for item in audit["evidence"]] == [0, 1]
+    assert [item["fig_id"] for item in audit["evidence"]] == [0, 1]
+    assert audit["answer_basis"][0]["source_ids"] == [0, 1]
+    assert audit["answer_basis"][0]["fig_ids"] == [0, 1]
 
 
 @pytest.mark.p2
@@ -183,6 +247,71 @@ def test_prioritize_evidence_chunks_uses_structured_classification():
 
     assert kbinfos["chunks"][0]["doc_id"] == "doc-clause"
     assert kbinfos["chunks"][1]["doc_id"] == "doc-title"
+
+
+@pytest.mark.p2
+def test_query_focused_excerpt_removes_unrelated_neighboring_clause_text():
+    mixed_chunk = (
+        "(1)凡任何遗产代理人以遗产代理人身分或受托人以受托人身分而须对以下各项承担法律责任—"
+        "(a)任何租约所保留或所载的租金、契诺或协议；"
+        "或(b)根据任何以租费为代价的批地而须缴付的租金、契诺或协议；"
+        "或(c)就以上两段所提述的租金、契诺或协议而给予的弥偿。"
+        "Section 28 (a)shall not be invalid on the ground that an unsubstantial, "
+        "illusory or nominal share only is appointed."
+    )
+
+    excerpt = _query_focused_content_excerpt(
+        mixed_chunk,
+        "在租金及契诺方面的法律责任的保障有哪些？",
+    )
+
+    assert "Query-focused excerpt" in excerpt
+    assert "租金、契诺" in excerpt
+    assert "弥偿" in excerpt
+    assert "nominal share" not in excerpt
+    assert "shall not be invalid" not in excerpt
+
+
+@pytest.mark.p2
+def test_query_focused_excerpt_requires_combined_rent_and_covenant_context():
+    unrelated_chunk = (
+        "被评定暂缴薪俸税的人已就该课税年度缴付住宅租金，可容许扣除该等租金。"
+        "凡受托人在取得任何财产抵押后贷出款项，按揭人不得违反按揭文书中关于财产保养的契诺。"
+    )
+
+    excerpt = _query_focused_content_excerpt(
+        unrelated_chunk,
+        "在租金及契诺方面的法律责任的保障有哪些？",
+    )
+
+    assert excerpt == ""
+
+
+@pytest.mark.p2
+def test_query_focused_excerpt_keeps_section_28_liability_protection_body():
+    section_chunk = (
+        "28. 在租金及契诺方面的法律责任的保障 "
+        "(1)凡任何遗产代理人以遗产代理人身分或受托人以受托人身分而须对以下各项承担法律责任—"
+        "(a)任何租约所保留或所载的租金、契诺或协议；"
+        "(b)根据任何以租费为代价的批地而须缴付的租金、契诺或协议；"
+        "(c)就以上两段中任何一段所提述的租金、契诺或协议而给予的弥偿，"
+        "且已履行截至下述转易日期为止的期间内可能已产生及已被申索的所有法律责任，"
+        "并已在有需要的情况下，预留一笔足够的基金，以应付日后申索，"
+        "则遗产代理人或受托人可将批租或批出财产转易予任何买家，"
+        "之后他可分配剩余遗产或信托产业，而无须拨出更多部分以应付日后责任；"
+        "即使作出该项分配，他亦无须对其后根据该租约或该项批地而作出的任何申索承担个人法律责任。"
+    )
+
+    excerpt = _query_focused_content_excerpt(
+        section_chunk,
+        "在租金及契诺方面的法律责任的保障有哪些？",
+    )
+
+    assert "租金、契诺" in excerpt
+    assert "预留一笔足够的基金" in excerpt
+    assert "转易予任何买家" in excerpt
+    assert "无须对其后" in excerpt
+    assert "个人法律责任" in excerpt
 
 
 class _RaptorSourceRetriever:

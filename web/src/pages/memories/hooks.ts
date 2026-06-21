@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams } from 'react-router';
 import {
   CreateMemoryResponse,
+  DeleteMemoryProfileTopicMergesPayload,
   DeleteMemoryProps,
   DeleteMemoryResponse,
   ICreateMemoryProps,
@@ -27,6 +28,9 @@ import {
   IMemoryAppDetailProps,
   MemoryDetailResponse,
   MemoryListResponse,
+  MemoryProfileResponse,
+  MemoryTopicMergesResponse,
+  MergeMemoryProfileTopicsPayload,
 } from './interface';
 
 export const useCreateMemory = () => {
@@ -132,6 +136,96 @@ export const useFetchMemoryList = (options?: FixedPaginationOptions) => {
     filterValue,
     handleFilterSubmit,
   };
+};
+
+export const useFetchMemoryProfile = () => {
+  return useQuery<MemoryProfileResponse, Error>({
+    queryKey: ['memoryThoughtProfile'],
+    refetchInterval: (query) => {
+      const status = query.state.data?.data?.status;
+      return status === 'pending' || status === 'building' ? 5000 : false;
+    },
+    queryFn: async () => {
+      const { data: response } = await memoryService.getMemoryProfile();
+      if (response.code !== 0) {
+        throw new Error(response.message || 'Failed to fetch memory profile');
+      }
+      return response;
+    },
+  });
+};
+
+export const useRefreshMemoryProfile = () => {
+  const queryClient = useQueryClient();
+  return useMutation<MemoryProfileResponse, Error>({
+    mutationKey: ['refreshMemoryThoughtProfile'],
+    mutationFn: async () => {
+      const { data: response } = await memoryService.refreshMemoryProfile();
+      if (response.code !== 0) {
+        throw new Error(response.message || 'Failed to refresh memory profile');
+      }
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['memoryThoughtProfile'] });
+    },
+  });
+};
+
+export const useMergeMemoryProfileTopics = () => {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    MemoryTopicMergesResponse,
+    Error,
+    MergeMemoryProfileTopicsPayload
+  >({
+    mutationKey: ['mergeMemoryProfileTopics'],
+    mutationFn: async (payload) => {
+      const { data: response } =
+        await memoryService.mergeMemoryProfileTopics(payload);
+      if (response.code !== 0) {
+        throw new Error(response.message || 'Failed to merge topics');
+      }
+      return response;
+    },
+    onSuccess: () => {
+      message.success(t('message.modified'));
+      queryClient.invalidateQueries({ queryKey: ['memoryThoughtProfile'] });
+    },
+    onError: (error) => {
+      message.error(t('message.error', { error: error.message }));
+    },
+  });
+};
+
+export const useDeleteMemoryProfileTopicMerge = () => {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    MemoryTopicMergesResponse,
+    Error,
+    DeleteMemoryProfileTopicMergesPayload
+  >({
+    mutationKey: ['deleteMemoryProfileTopicMerge'],
+    mutationFn: async (payload) => {
+      const { data: response } =
+        await memoryService.deleteMemoryProfileTopicMerges(payload);
+      if (response.code !== 0) {
+        throw new Error(response.message || 'Failed to undo topic merge');
+      }
+      return response;
+    },
+    onSuccess: () => {
+      message.success(t('message.modified'));
+      queryClient.invalidateQueries({ queryKey: ['memoryThoughtProfile'] });
+    },
+    onError: (error) => {
+      message.error(t('message.error', { error: error.message }));
+    },
+  });
 };
 
 export const useFetchMemoryDetail = (tenantId?: string) => {

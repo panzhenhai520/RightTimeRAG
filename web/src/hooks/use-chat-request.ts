@@ -58,6 +58,8 @@ export const useGetChatSearchParams = () => {
     conversationId:
       currentQueryParameters.get(ChatSearchParams.ConversationId) || '',
     isNew: currentQueryParameters.get(ChatSearchParams.isNew) || '',
+    suggestedQuestion:
+      currentQueryParameters.get(ChatSearchParams.SuggestedQuestion) || '',
   };
 };
 

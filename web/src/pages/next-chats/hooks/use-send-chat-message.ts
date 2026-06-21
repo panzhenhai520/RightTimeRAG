@@ -15,8 +15,8 @@ import {
   classify_generation_task,
 } from '@/utils/generation-task';
 import { trim } from 'lodash';
-import { useCallback, useEffect } from 'react';
-import { useParams } from 'react-router';
+import { useCallback, useEffect, useRef } from 'react';
+import { useParams, useSearchParams } from 'react-router';
 import { v4 as uuid } from 'uuid';
 import { useCreateConversationBeforeSendMessage } from './use-chat-url';
 import { useFindPrologueFromDialogList } from './use-select-conversation-list';
@@ -69,8 +69,10 @@ export const useSelectNextMessages = () => {
 };
 
 export const useSendMessage = (controller: AbortController) => {
-  const { conversationId, isNew } = useGetChatSearchParams();
+  const { conversationId, isNew, suggestedQuestion } = useGetChatSearchParams();
   const { handleInputChange, value, setValue } = useHandleMessageInputChange();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const suggestedQuestionSentRef = useRef('');
 
   const { handleUploadFile, isUploading, removeFile, files, clearFiles } =
     useUploadFile();
@@ -130,7 +132,6 @@ export const useSendMessage = (controller: AbortController) => {
       if (res && (res?.response.status !== 200 || res?.data?.code !== 0)) {
         // cancel loading
         setValue(message.content);
-        console.info('removeLatestMessage111');
         removeLatestMessage();
       }
     },
@@ -287,6 +288,61 @@ export const useSendMessage = (controller: AbortController) => {
     done,
     messageContainerRef,
     sendMessage,
+  ]);
+
+  useEffect(() => {
+    const question = suggestedQuestion.trim();
+    if (
+      !question ||
+      !done ||
+      !chatId ||
+      suggestedQuestionSentRef.current === question
+    ) {
+      return;
+    }
+
+    suggestedQuestionSentRef.current = question;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('suggestedQuestion');
+    setSearchParams(nextParams, { replace: true });
+
+    const sendSuggestedQuestion = async () => {
+      const data = await createConversationBeforeSendMessage(question);
+      if (data === undefined) return;
+
+      const { targetConversationId, currentMessages } = data;
+      const id = uuid();
+      addNewestQuestion({
+        content: question,
+        id,
+        role: MessageType.User,
+        conversationId: targetConversationId,
+      });
+
+      sendMessage({
+        currentConversationId: targetConversationId,
+        messages: currentMessages,
+        message: {
+          id,
+          content: question,
+          role: MessageType.User,
+          conversationId: targetConversationId,
+        },
+        enableThinking: false,
+        enableInternet: false,
+      });
+    };
+
+    sendSuggestedQuestion();
+  }, [
+    addNewestQuestion,
+    chatId,
+    createConversationBeforeSendMessage,
+    done,
+    searchParams,
+    sendMessage,
+    setSearchParams,
+    suggestedQuestion,
   ]);
 
   useEffect(() => {

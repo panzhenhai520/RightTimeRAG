@@ -57,32 +57,32 @@ export default function MemoryList() {
     }
   }, [isCreate, openCreateModalFun, searchUrl, setMemoryUrl]);
 
+  const toolbar = (
+    <ListFilterBar
+      className="justify-end gap-0 [&>h1]:hidden [&_[role=toolbar]]:gap-2"
+      onSearchChange={handleInputChange}
+      searchString={searchString}
+      filters={filters}
+      onChange={handleFilterSubmit}
+      value={filterValue}
+    >
+      <Button size="sm" onClick={() => openCreateModalFun()}>
+        <Plus className="size-[1em]" />
+        {t('createMemory')}
+      </Button>
+    </ListFilterBar>
+  );
+
   return (
     <>
       {list?.data?.memory_list?.length || searchString ? (
         <article className="size-full flex flex-col" data-testid="memory-list">
-          <header className="px-5 pt-8 mb-4">
-            <ListFilterBar
-              icon="memory"
-              title={t('memory')}
-              onSearchChange={handleInputChange}
-              searchString={searchString}
-              filters={filters}
-              onChange={handleFilterSubmit}
-              value={filterValue}
-            >
-              <Button onClick={() => openCreateModalFun()}>
-                <Plus className="size-[1em]" />
-                {t('createMemory')}
-              </Button>
-            </ListFilterBar>
-          </header>
-
           {list?.data?.memory_list?.length ? (
             <MemoSpacetimeNetwork
               memories={list.data.memory_list}
               loading={isLoading}
               onCreate={openCreateModalFun}
+              toolbar={toolbar}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center">

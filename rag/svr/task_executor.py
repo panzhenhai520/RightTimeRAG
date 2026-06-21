@@ -97,6 +97,12 @@ from rag.utils.table_es_metadata import (
     merge_table_parser_config_from_kb,
     table_parser_strip_doc_metadata_keys,
 )
+from rag.structured_extraction import (
+    apply_structure_to_chunks,
+    infer_document_structure_from_chunks,
+    structured_extraction_enabled,
+    try_extract_document_structure_with_instructor,
+)
 
 BATCH_SIZE = 64
 
@@ -1272,6 +1278,55 @@ async def insert_chunks(task_id, task_tenant_id, task_dataset_id, chunks, progre
     return True
 
 
+def _structured_extraction_config(task: dict) -> dict:
+    parser_config = task.get("parser_config") or {}
+    kb_parser_config = task.get("kb_parser_config") or {}
+    for config in (parser_config, kb_parser_config):
+        if structured_extraction_enabled(config):
+            return config.get("structured_extraction") or {}
+    return {}
+
+
+def maybe_apply_structured_extraction(task: dict, chunks: list[dict], progress_callback):
+    """Optionally enrich parsed chunks with structured evidence metadata.
+
+    This runs after normal chunking and before embedding/indexing. It never
+    replaces OCR or slicing output; failures fall back to the original chunks.
+    """
+    config = _structured_extraction_config(task)
+    if not config:
+        return chunks
+
+    try:
+        progress_callback(msg="Structured evidence extraction...")
+        mode = str(config.get("mode") or "deterministic").strip().lower()
+        title = task.get("name") or ""
+        if mode == "instructor":
+            structure = try_extract_document_structure_with_instructor(
+                chunks,
+                title=title,
+                base_url=str(config.get("base_url") or ""),
+                api_key=str(config.get("api_key") or ""),
+                model=str(config.get("model") or ""),
+                max_tokens=int(config.get("max_tokens") or 1024),
+                max_retries=int(config.get("max_retries") or 0),
+            )
+        else:
+            structure = infer_document_structure_from_chunks(chunks, title=title)
+        enriched = apply_structure_to_chunks(chunks, structure)
+        logging.info(
+            "Structured extraction enriched doc=%s chunks=%s mode=%s confidence=%.2f",
+            task.get("doc_id"),
+            len(enriched),
+            mode,
+            structure.confidence,
+        )
+        return enriched
+    except Exception as exc:  # noqa: BLE001 - structure extraction must never block parsing
+        logging.warning("Structured extraction skipped after failure for doc=%s: %s", task.get("doc_id"), exc)
+        return chunks
+
+
 @timeout(60 * 60 * 3, 1)
 async def do_handle_task(task):
     task_type = task.get("task_type", "")
@@ -1450,6 +1505,7 @@ async def do_handle_task(task):
             progress_callback(1., msg=f"No chunk built from {task_document_name}")
             return
         progress_callback(msg="Generate {} chunks".format(len(chunks)))
+        chunks = maybe_apply_structured_extraction(task, chunks, progress_callback)
         start_ts = timer()
         try:
             token_count, vector_size = await embedding(chunks, embedding_model, task_parser_config, progress_callback)

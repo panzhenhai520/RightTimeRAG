@@ -532,6 +532,12 @@ BAD_CITATION_PATTERNS = [
     re.compile(r"【\s*ID\s*[: ]*\s*(\d+)\s*】"),  # 【ID: 12】
     re.compile(r"ref\s*(\d+)", flags=re.IGNORECASE),  # ref12、REF 12
 ]
+MULTI_ID_CITATION_PATTERN = re.compile(
+    r"[（(]\s*ID\s*[:：]\s*"
+    r"([0-9\u0660-\u0669\u06F0-\u06F9]+(?:\s*[,，、]\s*(?:ID\s*[:：]\s*)?[0-9\u0660-\u0669\u06F0-\u06F9]+)+)"
+    r"\s*[)）]",
+    flags=re.IGNORECASE,
+)
 CITATION_MARKER_PATTERN = re.compile(
     r"(?:\[(?:ID:)?([0-9\u0660-\u0669\u06F0-\u06F9]+)\]|"
     r"【(?:ID:)?([0-9\u0660-\u0669\u06F0-\u06F9]+)】|"
@@ -645,6 +651,38 @@ def build_compact_reference(answer: str, kbinfos: dict, idx: set):
         "doc_aggs": [d for d in kbinfos.get("doc_aggs", []) if d.get("doc_id") in cited_doc_ids],
     }
     return answer, refs, old_to_new
+
+
+def build_compact_evidence_audit(
+    refs: dict,
+    question: str,
+    retrieval_query: str,
+    answer: str,
+) -> dict:
+    """Build evidence audit against the same compact IDs returned to the UI.
+
+    The answer is rewritten to compact citation IDs before references are sent
+    to the frontend. The audit panel must use the same ID space, otherwise the
+    UI can display Fig.4/Fig.6-style source IDs while the reference list only
+    contains compact Fig.1/Fig.2 entries.
+    """
+    compact_chunks = [chunk for chunk in (refs or {}).get("chunks", []) if isinstance(chunk, dict)]
+    compact_indexes = set(range(len(compact_chunks)))
+    compact_kbinfos = {
+        "chunks": compact_chunks,
+        "doc_aggs": (refs or {}).get("doc_aggs", []),
+    }
+    compact_id_map = {index: index for index in compact_indexes}
+    audit = _build_evidence_audit(
+        compact_kbinfos,
+        compact_indexes,
+        question,
+        retrieval_query,
+        answer,
+        compact_id_map,
+    )
+    audit["id_space"] = "compact_reference"
+    return audit
 
 
 def is_raptor_summary_chunk(chunk: dict):
@@ -784,6 +822,24 @@ def repair_bad_citation_formats(answer: str, kbinfos: dict, idx: set):
 
         parts.append(answer[last_idx:])
         answer = "".join(parts)
+        normalized_answer = normalize_arabic_digits(answer) or ""
+
+    def replace_multi_id(match: re.Match):
+        marker_text = match.group(0)
+        digits = re.findall(r"[0-9\u0660-\u0669\u06F0-\u06F9]+", marker_text)
+        markers = []
+        for raw_digit in digits:
+            try:
+                normalized_digit = normalize_arabic_digits(raw_digit) or raw_digit
+                i = int(normalized_digit)
+            except Exception:
+                continue
+            if safe_add(i):
+                markers.append(f"[ID:{normalized_digit}]")
+        return " ".join(markers) if markers else marker_text
+
+    if MULTI_ID_CITATION_PATTERN.search(answer):
+        answer = MULTI_ID_CITATION_PATTERN.sub(replace_multi_id, answer)
         normalized_answer = normalize_arabic_digits(answer) or ""
 
     for pattern in BAD_CITATION_PATTERNS:
@@ -1075,9 +1131,11 @@ PURE_LLM_SYSTEM_PROMPT = """你是 Panython / RightTime 本地部署的 DeepSeek
 
 当前请求已被判定为普通聊天或模型自身相关问题，不要检索知识库，不要引用 PDF、文档、Fig. 或来源片段。
 请直接、简洁地回答用户当前问题。回答身份、模型、能力、上下文等问题时，应说明你是本地部署的 DeepSeek V4 Flash 服务；不要声称自己是 Kimi、OpenAI、ChatGPT 或其他模型。
+如果用户只是问“你是谁 / who are you”，只用 1-2 句话回答身份和部署方；不要主动提及免费、上下文长度、知识截止、文件上传、联网、多模态或具体能力限制，除非用户明确询问这些细节。
 
 You are the locally deployed DeepSeek V4 Flash assistant served by Panython / RightTime.
-For general chat or model-self questions, answer directly without knowledge-base citations or document references."""
+For general chat or model-self questions, answer directly without knowledge-base citations or document references.
+For a simple identity question, answer in 1-2 sentences and do not volunteer pricing, context length, knowledge cutoff, upload, web, multimodal, or capability-limit details unless explicitly asked."""
 
 COMPACT_CITATION_PROMPT = """
 
@@ -1195,6 +1253,18 @@ def _semantic_route_layer(latest_question: str, kwargs: dict | None = None) -> d
     return {"route": route, "score": score, "reason": reason, "elapsed_ms": elapsed_ms}
 
 
+def _has_model_self_signal(normalized_question: str) -> bool:
+    if any(pattern in normalized_question for pattern in MODEL_SELF_QUESTION_PATTERNS):
+        return True
+    return bool(
+        re.search(
+            r"\b(you|your|yourself)\b|\bparameters?\b|\bcontext\s+length\b|\bwho\s+are\s+you\b|\bwhat\s+model\b",
+            normalized_question,
+            flags=re.IGNORECASE,
+        )
+    )
+
+
 def _should_route_to_pure_llm(latest_question: str, kwargs: dict, route_result: dict | None = None) -> tuple[bool, str]:
     if kwargs.get("doc_ids"):
         return False, "explicit_doc_ids"
@@ -1208,6 +1278,8 @@ def _should_route_to_pure_llm(latest_question: str, kwargs: dict, route_result: 
     score = float(route_result.get("score") or 0)
     if score >= SEMANTIC_ROUTE_SCORE_THRESHOLD:
         if route in {"pure_chat", "model_identity", "error_noise"}:
+            if route == "model_identity" and not _has_model_self_signal(normalized):
+                return False, f"semantic_model_identity_without_self_signal_{score:.3f}_{route_result.get('reason')}"
             return True, f"semantic_{route}_{score:.3f}_{route_result.get('reason')}"
         if route in {"rag_question", "follow_up", "memo_search", "external_search_needed", "agent_task", "long_generation"}:
             return False, f"semantic_{route}_{score:.3f}_{route_result.get('reason')}"
@@ -1215,7 +1287,7 @@ def _should_route_to_pure_llm(latest_question: str, kwargs: dict, route_result: 
     if any(pattern in normalized for pattern in EXPLICIT_KB_INTENT_PATTERNS):
         return False, "explicit_kb_intent"
 
-    if any(pattern in normalized for pattern in MODEL_SELF_QUESTION_PATTERNS):
+    if _has_model_self_signal(normalized):
         return True, "model_self_question"
 
     if any(pattern in normalized for pattern in GENERAL_CHAT_PATTERNS) and len(normalized) <= 24:
@@ -1781,6 +1853,27 @@ def _build_retrieval_query(question: str, fallback_question: str | None = None) 
     elif any(pattern in lower for pattern in ANSWER_LIKE_QUERY_PATTERNS) and fallback:
         normalized = fallback
 
+    normalized_lower = normalized.lower()
+    if (
+        ("租金" in normalized or "rent" in normalized_lower or "rents" in normalized_lower)
+        and ("契诺" in normalized or "covenant" in normalized_lower or "covenants" in normalized_lower)
+        and ("责任" in normalized or "liability" in normalized_lower or "liabilities" in normalized_lower or "保障" in normalized)
+    ):
+        legal_expansion_terms = [
+            "预留基金",
+            "个人法律责任",
+            "后续申索",
+            "转让财产",
+            "分配遗产",
+            "future claim",
+            "sufficient fund",
+            "personally liable",
+        ]
+        existing = normalized_lower
+        additions = [term for term in legal_expansion_terms if term.lower() not in existing]
+        if additions:
+            normalized = f"{normalized} {' '.join(additions)}"
+
     terms = normalized.split()
     if len(terms) > MAX_RETRIEVAL_QUERY_TERMS:
         normalized = " ".join(terms[:MAX_RETRIEVAL_QUERY_TERMS])
@@ -1877,7 +1970,147 @@ def _chunk_structured_metadata(chunk: dict) -> dict:
     return structured if isinstance(structured, dict) else {}
 
 
-def _format_knowledge_chunk(chunk: dict, chunk_id: int) -> str:
+_EVIDENCE_EXCERPT_MAX_CHARS = 1800
+
+
+def _query_terms_for_excerpt(query: str) -> set[str]:
+    terms = set()
+    for term in re.findall(r"[\u4e00-\u9fff]{2,}|[A-Za-z][A-Za-z0-9_-]{2,}", str(query or "").lower()):
+        if len(term) >= 2:
+            terms.add(term)
+    expansions = {
+        "租金": {"rent", "rents"},
+        "契诺": {"covenant", "covenants"},
+        "法律责任": {"liability", "liabilities"},
+        "保障": {"protection", "protections"},
+        "受托人": {"trustee"},
+        "遗产代理人": {"personal", "representative"},
+    }
+    for source, expanded in expansions.items():
+        if source in str(query or ""):
+            terms.update(expanded)
+    if "rent" in terms or "rents" in terms:
+        terms.add("租金")
+    if "covenant" in terms or "covenants" in terms:
+        terms.add("契诺")
+    if "liability" in terms or "liabilities" in terms:
+        terms.add("法律责任")
+    return terms
+
+
+def _split_evidence_units(content: str) -> list[str]:
+    normalized = re.sub(r"\s+", " ", str(content or "")).strip()
+    if not normalized:
+        return []
+    normalized = re.sub(r"(?=(?:\(\d+\)|\([a-z]\)|第\s*\d+\s*条|Section\s+\d+|Part\s+\d+|Division\s+\d+))", "\n", normalized, flags=re.I)
+    normalized = re.sub(r"([。！？；;])", r"\1\n", normalized)
+    normalized = re.sub(r"(\s(?:or|and)\s+\([a-z]\))", r"\n\1", normalized, flags=re.I)
+    return [unit.strip(" \n\r\t") for unit in normalized.splitlines() if unit.strip()]
+
+
+def _query_focused_content_excerpt(content: str, query: str = "") -> str:
+    raw = str(content or "")
+    terms = _query_terms_for_excerpt(query)
+    if not raw or not terms:
+        return raw
+
+    units = _split_evidence_units(raw)
+    if not units:
+        return raw
+
+    query_text = str(query or "").lower()
+    rent_terms = {"租金", "租约", "租費", "租费", "批地", "rent", "rents", "lease", "leases", "grant", "rentcharge"}
+    covenant_terms = {"契诺", "协议", "弥偿", "covenant", "covenants", "agreement", "agreements", "indemnity"}
+    liability_terms = {"法律责任", "责任", "liability", "liabilities", "protection", "protections", "保障"}
+    query_requires_rent_and_covenant = any(term in query_text for term in rent_terms) and any(term in query_text for term in covenant_terms)
+    unrelated_neighbor_patterns = (
+        "shall not be invalid",
+        "nominal share",
+        "unsubstantial",
+        "illusory",
+        "object of the power",
+        "share in the property",
+    )
+    continuation_terms = {
+        "已履行",
+        "预留",
+        "基金",
+        "申索",
+        "索赔",
+        "转易",
+        "转让",
+        "分配",
+        "无须",
+        "个人法律责任",
+        "出租人",
+        "批地人",
+        "satisfies all liabilities",
+        "sets apart",
+        "sufficient fund",
+        "future claim",
+        "convey",
+        "distribute",
+        "personally liable",
+        "subsequent claim",
+        "lessor",
+        "grantor",
+    }
+
+    selected_indexes: set[int] = set()
+    anchor_indexes: set[int] = set()
+    for index, unit in enumerate(units):
+        unit_lower = unit.lower()
+        if any(pattern in unit_lower for pattern in unrelated_neighbor_patterns):
+            continue
+        if query_requires_rent_and_covenant:
+            has_rent = any(term in unit_lower for term in rent_terms)
+            has_covenant = any(term in unit_lower for term in covenant_terms)
+            has_liability = any(term in unit_lower for term in liability_terms)
+            has_exact_topic = "租金及契诺" in unit or "rents and covenants" in unit_lower or "rent and covenant" in unit_lower
+            if not (has_exact_topic or (has_rent and has_covenant) or (has_rent and has_liability)):
+                continue
+        hit_count = sum(1 for term in terms if term and term.lower() in unit_lower)
+        if not hit_count:
+            continue
+        selected_indexes.add(index)
+        anchor_indexes.add(index)
+
+    if query_requires_rent_and_covenant and anchor_indexes:
+        for anchor in sorted(anchor_indexes):
+            for offset in range(1, 8):
+                follow_index = anchor + offset
+                if follow_index >= len(units):
+                    break
+                follow = units[follow_index]
+                follow_lower = follow.lower()
+                if any(pattern in follow_lower for pattern in unrelated_neighbor_patterns):
+                    break
+                if re.search(r"^(?:29\.|30\.|31-32\.|第\s*29\s*条|第\s*30\s*条|Section\s+29|Section\s+30)\b", follow, flags=re.I):
+                    break
+                has_continuation = any(term in follow_lower for term in continuation_terms)
+                has_same_clause_context = any(term in follow_lower for term in rent_terms | covenant_terms | liability_terms)
+                if not has_continuation and not has_same_clause_context:
+                    continue
+                selected_indexes.add(follow_index)
+
+    if not selected_indexes:
+        return "" if query_requires_rent_and_covenant else raw
+
+    selected = [units[index] for index in sorted(selected_indexes)]
+    excerpt = " ".join(selected)
+    if len(excerpt) > _EVIDENCE_EXCERPT_MAX_CHARS:
+        excerpt = excerpt[:_EVIDENCE_EXCERPT_MAX_CHARS].rstrip() + "..."
+
+    if len(excerpt) >= len(raw) * 0.92:
+        return raw
+    return (
+        "[Query-focused excerpt. Use only this focused excerpt for answer generation; "
+        "the full source chunk is still available in references.]\n"
+        + excerpt
+    )
+
+
+def _format_knowledge_chunk(chunk: dict, chunk_id: int, query: str = "") -> str:
     def draw_node(label, value):
         if value is not None and not isinstance(value, str):
             value = str(value)
@@ -1885,7 +2118,9 @@ def _format_knowledge_chunk(chunk: dict, chunk_id: int) -> str:
             return ""
         return f"\n├── {label}: " + re.sub(r"\n+", " ", value, flags=re.DOTALL)
 
-    content = _chunk_value(chunk, "content", "content_with_weight")
+    content = _query_focused_content_excerpt(_chunk_value(chunk, "content", "content_with_weight"), query)
+    if not str(content or "").strip():
+        return ""
     formatted = f"\nID: {chunk_id}"
     formatted += draw_node("Title", _chunk_value(chunk, "docnm_kwd", "document_name"))
     formatted += draw_node("URL", chunk.get("url", ""))
@@ -2121,7 +2356,7 @@ def _prioritize_evidence_chunks(kbinfos: dict) -> None:
         )
 
 
-def _kb_prompt_dynamic(kbinfos: dict, max_tokens: int) -> list[str]:
+def _kb_prompt_dynamic(kbinfos: dict, max_tokens: int, query: str = "") -> list[str]:
     chunks = kbinfos.get("chunks") or []
     knowledges = []
     used_token_count = 0
@@ -2129,7 +2364,9 @@ def _kb_prompt_dynamic(kbinfos: dict, max_tokens: int) -> list[str]:
     for index, chunk in enumerate(chunks):
         if not isinstance(chunk, dict):
             continue
-        formatted = _format_knowledge_chunk(chunk, index)
+        formatted = _format_knowledge_chunk(chunk, index, query)
+        if not formatted:
+            continue
         chunk_tokens = _safe_token_count(formatted)
         if knowledges and used_token_count + chunk_tokens > limit:
             logging.warning(
@@ -2402,21 +2639,26 @@ def _memory_topic_text(memory: dict) -> str:
 
 def _select_topic_relevant_memories(memories: list[dict], query: str) -> list[dict]:
     if not memories or not query:
-        return memories
+        return []
     query_lower = str(query).lower()
     scored = []
     for memory in memories:
         topic_text = _memory_topic_text(memory)
         if not topic_text:
             continue
-        score = _history_relevance_score(query, topic_text)
+        query_terms = _significant_terms(query)
+        topic_terms = _significant_terms(topic_text)
+        overlap = query_terms & topic_terms
+        if not overlap:
+            continue
+        score = len(overlap)
         topic_lower = topic_text.lower()
         if query_lower and query_lower in topic_lower:
             score += 3
         if score > 0:
             scored.append((score, memory))
     if not scored:
-        return memories
+        return []
     scored.sort(key=lambda item: item[0], reverse=True)
     return [memory for _, memory in scored[: max(MAX_MEMORY_GROUPS * MAX_MEMORY_RESULTS, MAX_MEMORY_RESULTS)]]
 
@@ -2798,7 +3040,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
 
     expand_raptor_chunks_for_generation(kbinfos)
     _prioritize_evidence_chunks(kbinfos)
-    knowledges = _kb_prompt_dynamic(kbinfos, context_budget["knowledge"])
+    knowledges = _kb_prompt_dynamic(kbinfos, context_budget["knowledge"], retrieval_query)
     logging.debug("{}->{}".format(" ".join(questions), "\n->".join(knowledges)))
     evidence_guidance_text = _format_evidence_guidance_for_prompt(kbinfos) if knowledges else ""
     memory_context = await _retrieve_memory_context(
@@ -2875,7 +3117,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         attachments_,
     )
 
-    async def decorate_answer(answer):
+    async def decorate_answer(answer, include_think=True):
         nonlocal embd_mdl, prompt_config, knowledges, kwargs, kbinfos, prompt, retrieval_ts, questions, langfuse_generation
 
         refs = []
@@ -2922,13 +3164,11 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 answer, idx = append_fallback_citations(answer, kbinfos)
             answer = normalize_markdown_table_citations(answer)
             answer, refs, citation_id_map = build_compact_reference(answer, kbinfos, idx)
-            refs["evidence_audit"] = _build_evidence_audit(
-                kbinfos,
-                idx,
+            refs["evidence_audit"] = build_compact_evidence_audit(
+                refs,
                 " ".join(questions),
                 retrieval_query,
                 answer,
-                citation_id_map,
             )
 
         if answer.lower().find("invalid key") >= 0 or answer.lower().find("invalid api") >= 0:
@@ -2985,7 +3225,8 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 True,
             )
 
-        result = {"answer": think + answer, "reference": refs, "prompt": re.sub(r"\n", "  \n", prompt), "created_at": time.time()}
+        result_answer = (think if include_think else "") + answer
+        result = {"answer": result_answer, "reference": refs, "prompt": re.sub(r"\n", "  \n", prompt), "created_at": time.time()}
         if isinstance(final_conversation_summary_update, dict) and (final_conversation_summary_update.get("content") or final_conversation_summary_update.get("reset")):
             result[CONVERSATION_SUMMARY_KEY] = final_conversation_summary_update
             if final_conversation_summary_update.get("content") and final_conversation_summary_update.get("changed"):
@@ -3023,7 +3264,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
 
     def build_context_retry_payload():
         retry_budget = _resolve_retry_context_budgets(context_budget)
-        retry_knowledges = _kb_prompt_dynamic(kbinfos, retry_budget["knowledge"])
+        retry_knowledges = _kb_prompt_dynamic(kbinfos, retry_budget["knowledge"], retrieval_query)
         retry_kwargs = deepcopy(kwargs)
         retry_kwargs["knowledge"] = "\n------\n" + "\n\n------\n\n".join(retry_knowledges)
         retry_prompt4citation = ""
@@ -3105,7 +3346,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 yield {"answer": value, "reference": {}, "audio_binary": visible_tts(tts_mdl, value, state.in_think, tts_config), "final": False}
         full_answer = last_state.full_text if last_state else ""
         if full_answer:
-            final = await decorate_answer(_extract_visible_answer(thought + full_answer))
+            final = await decorate_answer(_extract_visible_answer(thought + full_answer), include_think=False)
             final["final"] = True
             final["audio_binary"] = None
             yield final
@@ -3879,7 +4120,7 @@ async def async_ask(question, kb_ids, tenant_id, chat_llm_name=None, search_conf
     gen_conf = {}
 
     def build_generation_payload(current_budget: dict[str, int], stage: str):
-        current_knowledges = _kb_prompt_dynamic(kbinfos, current_budget["knowledge"])
+        current_knowledges = _kb_prompt_dynamic(kbinfos, current_budget["knowledge"], question)
         evidence_guidance_text = _format_evidence_guidance_for_prompt(kbinfos) if current_knowledges else ""
         current_sys_prompt = PROMPT_JINJA_ENV.from_string(ASK_SUMMARY).render(knowledge="\n".join(current_knowledges)) + evidence_guidance_text
         current_gen_conf = deepcopy(search_llm_setting)

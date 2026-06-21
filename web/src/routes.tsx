@@ -24,6 +24,7 @@ export enum Routes {
   Explore = '/explore',
   AgentExplore = `${Routes.Agent}/:id/explore`,
   Memories = '/memories',
+  MemoriesProfile = '/memories/profile',
   Memory = '/memory',
   MemoryMessage = '/memory-message',
   MemorySetting = '/memory-setting',
@@ -252,6 +253,11 @@ const routeConfigOptions = [
         Component: () => import('@/pages/agents/agent-templates'),
       },
       {
+        path: Routes.MemoriesProfile,
+        loader: requireDevFeatureAccess,
+        Component: () => import('@/pages/memories/profile-page'),
+      },
+      {
         path: Routes.Memories,
         loader: requireDevFeatureAccess,
         Component: () => import('@/pages/memories'),
@@ -261,11 +267,11 @@ const routeConfigOptions = [
         Component: () => import('@/pages/memory'),
         children: [
           {
-            path: `${Routes.Memory}/${Routes.MemoryMessage}/:id`,
+            path: `${Routes.Memory}${Routes.MemoryMessage}/:id`,
             Component: () => import('@/pages/memory/memory-message'),
           },
           {
-            path: `${Routes.Memory}/${Routes.MemorySetting}/:id`,
+            path: `${Routes.Memory}${Routes.MemorySetting}/:id`,
             loader: requireDevFeatureAccess,
             Component: () => import('@/pages/memory/memory-setting'),
           },

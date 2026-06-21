@@ -30,6 +30,13 @@ export interface IMemoryStructuredSummary {
   source_message_ids?: string[];
   related_kb_ids?: string[];
 }
+export interface ICanonicalTopic {
+  id: string;
+  label: string;
+  aliases: string[];
+  language: string;
+  confidence: number;
+}
 export interface ICreateMemoryProps {
   name: string;
   memory_type: MemoryType[];
@@ -45,6 +52,7 @@ export interface IMemory extends ICreateMemoryProps {
   latest_agent_id?: string;
   latest_session_id?: string;
   structured_summary?: IMemoryStructuredSummary;
+  canonical_topic?: ICanonicalTopic;
   message_count?: number;
   avatar: string;
   tenant_id: string;
@@ -66,6 +74,153 @@ export interface MemoryListResponse {
     memory_list: Array<IMemory>;
     total_count: number;
   };
+  message: string;
+}
+
+export interface IMemoThoughtEvidence {
+  type: string;
+  memory_id: string;
+  title: string;
+  snippet: string;
+}
+
+export interface IMemoThoughtEvent {
+  id: string;
+  memory_id: string;
+  title: string;
+  summary: string;
+  created_at: number;
+  topic_id: string;
+  topic_label: string;
+  original_topic_id?: string;
+  original_topic_label?: string;
+  domain: string;
+  domain_label: string;
+  intent: string;
+  intent_label: string;
+  keywords: string[];
+  turns: number;
+  source_kind: string;
+  assistant_id?: string;
+  session_id?: string;
+  related_kb_ids: string[];
+  evidence: IMemoThoughtEvidence[];
+  confidence: number;
+}
+
+export interface IMemoThoughtTopic {
+  id: string;
+  label: string;
+  domain: string;
+  domain_label: string;
+  event_ids: string[];
+  source_topic_ids?: string[];
+  keywords: string[];
+  memo_count: number;
+  turn_count: number;
+  first_seen: number;
+  last_seen: number;
+  activity_score: number;
+}
+
+export interface IMemoThoughtEdge {
+  id: string;
+  source_event_id: string;
+  target_event_id: string;
+  source_topic_id: string;
+  target_topic_id: string;
+  type: string;
+  weight: number;
+  shared_signals: string[];
+  evidence_event_ids: string[];
+  reason: string;
+  score_parts: Record<string, number>;
+}
+
+export interface IMemoThoughtPrediction {
+  question: string;
+  reason: string;
+  evidence_event_ids: string[];
+  topics: string[];
+}
+
+export interface IMemoThoughtAlgorithmNote {
+  title: string;
+  authors: string;
+  borrowed: string;
+}
+
+export interface IMemoTopicMergeRule {
+  target_topic_id: string;
+  target_label: string;
+  reason: string;
+  created_at?: number;
+}
+
+export interface IMemoTopicMerges {
+  version: string;
+  rules: Record<string, IMemoTopicMergeRule>;
+  updated_at: number;
+}
+
+export interface IMemoTopicMergeSuggestion {
+  source_topic_ids: string[];
+  target_topic_id: string;
+  target_label: string;
+  source_label: string;
+  semantic_score: number;
+  keyword_score: number;
+  confidence: number;
+  shared_signals: string[];
+  evidence_event_ids: string[];
+  reason: string;
+}
+
+export interface IMemoThoughtProfile {
+  version: string;
+  status: 'ready' | 'empty' | 'pending' | 'building' | 'error';
+  semantic_model?: string;
+  generated_at: number;
+  duration_ms?: number;
+  stale?: boolean;
+  memory_count: number;
+  event_count: number;
+  summary: {
+    headline: string;
+    trajectory: string;
+    next_direction: string;
+    focus_domains: Array<{ id: string; label: string; count: number }>;
+  };
+  events: IMemoThoughtEvent[];
+  topics: IMemoThoughtTopic[];
+  topic_merges?: IMemoTopicMerges;
+  topic_merge_suggestions?: IMemoTopicMergeSuggestion[];
+  edges: IMemoThoughtEdge[];
+  predictions: IMemoThoughtPrediction[];
+  algorithm_notes: IMemoThoughtAlgorithmNote[];
+}
+
+export interface MemoryProfileResponse {
+  code: number;
+  data: IMemoThoughtProfile;
+  message: string;
+}
+
+export interface MergeMemoryProfileTopicsPayload {
+  source_topic_ids: string[];
+  target_topic_id: string;
+  target_label?: string;
+  reason?: string;
+}
+
+export interface DeleteMemoryProfileTopicMergesPayload {
+  source_topic_ids?: string[];
+  target_topic_id?: string;
+}
+
+export interface MemoryTopicMergesResponse {
+  code: number;
+  data: IMemoTopicMerges;
   message: string;
 }
 

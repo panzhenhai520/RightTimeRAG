@@ -27,6 +27,7 @@ from api.db.joint_services.memory_message_service import (
     _sanitize_memory_text,
 )
 from api.utils.memory_utils import format_ret_data_from_memory, get_memory_display_name, get_memory_type_human, is_chat_memo_name
+from api.utils.canonical_topic import infer_canonical_topic
 from api.utils.memo_structured_summary import parse_memo_structured_summary_content
 from api.utils.tenant_utils import ensure_tenant_model_id_for_params
 from api.constants import MEMORY_NAME_LIMIT, MEMORY_SIZE_LIMIT
@@ -69,6 +70,27 @@ def _extract_structured_summary_from_message(message: dict | None) -> dict:
             "related_kb_ids": structured.related_kb_ids,
         }
     return {}
+
+
+def _memory_topic_text(memory: dict, structured_summary: dict, display_name: str, latest_content_preview: str) -> str:
+    entities = structured_summary.get("entities") or []
+    facts = structured_summary.get("facts") or []
+    return "\n".join(
+        str(part or "")
+        for part in [
+            structured_summary.get("canonical_topic_candidate"),
+            structured_summary.get("display_title"),
+            " ".join(structured_summary.get("aliases") or []),
+            " ".join(entity.get("text", "") for entity in entities if isinstance(entity, dict)),
+            " ".join(fact.get("text", "") for fact in facts if isinstance(fact, dict)),
+            display_name,
+            memory.get("display_name"),
+            memory.get("description"),
+            latest_content_preview,
+            memory.get("name"),
+        ]
+        if part
+    )
 
 
 def _split_filter_values(values):
@@ -333,6 +355,9 @@ async def list_memory(filter_params: dict, keywords: str, page: int=1, page_size
             "latest_session_id": latest_session_id,
             "structured_summary": structured_summary,
         })
+        memory["canonical_topic"] = infer_canonical_topic(
+            _memory_topic_text(memory, structured_summary, memory["display_name"], latest_content_preview)
+        ).to_dict()
     return {
         "memory_list": memory_list, "total_count": count
     }

@@ -14,7 +14,11 @@ import { IKnowledgeFile } from '@/interfaces/database/dataset';
 import { changeLanguageAsync } from '@/locales/config';
 import api from '@/utils/api';
 import { getAuthorization } from '@/utils/authorization-util';
-import { buildMessageUuid, mergeFinalAnswerWithProcess } from '@/utils/chat';
+import {
+  buildMessageUuid,
+  mergeFinalAnswerWithProcess,
+  mergeStreamingAnswerChunk,
+} from '@/utils/chat';
 import axios from 'axios';
 import { EventSourceParserStream } from 'eventsource-parser/stream';
 import { has, isEmpty, omit } from 'lodash';
@@ -283,13 +287,11 @@ export const useSendMessageWithSse = () => {
                         prevAnswer,
                         currentAnswer,
                       );
-                    } else if (
-                      prevAnswer &&
-                      currentAnswer.startsWith(prevAnswer)
-                    ) {
-                      newAnswer = currentAnswer;
                     } else {
-                      newAnswer = prevAnswer + currentAnswer;
+                      newAnswer = mergeStreamingAnswerChunk(
+                        prevAnswer,
+                        currentAnswer,
+                      );
                     }
 
                     if (d.start_to_think === true) {

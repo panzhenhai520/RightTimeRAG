@@ -1,4 +1,8 @@
-import { mergeFinalAnswerWithProcess, preprocessLaTeX } from '../chat';
+import {
+  mergeFinalAnswerWithProcess,
+  mergeStreamingAnswerChunk,
+  preprocessLaTeX,
+} from '../chat';
 
 test('handles double-escaped inline LaTeX', () => {
   const result = preprocessLaTeX('\\\\(\\\\Delta = b^2\\\\)');
@@ -35,6 +39,34 @@ test('preserves retrieval and thinking blocks when merging final answer', () => 
   expect(result).toContain('<retrieving>Searching datasets\n</retrieving>');
   expect(result).toContain('<think>Reviewing evidence\n</think>');
   expect(result).toContain('**Answer** body [ID:0]');
+});
+
+test('deduplicates repeated process open tags before final merge', () => {
+  const previous =
+    '<retrieving><retrieving>Searching datasets\n</retrieving><think>Reviewing evidence\n</think>Streamed answer';
+  const final = 'Final answer [ID:0]';
+
+  const result = mergeFinalAnswerWithProcess(previous, final);
+
+  expect(result).toBe(
+    '<retrieving>Searching datasets</retrieving><think>Reviewing evidence</think>Final answer [ID:0]',
+  );
+  expect(result.match(/<retrieving>/g)).toHaveLength(1);
+});
+
+test('ignores duplicate process open tags while streaming', () => {
+  const result = mergeStreamingAnswerChunk('<retrieving>', '<retrieving>');
+
+  expect(result).toBe('<retrieving>');
+});
+
+test('continues streaming content after a process block is open', () => {
+  const result = mergeStreamingAnswerChunk(
+    '<retrieving>',
+    'Searching datasets\n',
+  );
+
+  expect(result).toBe('<retrieving>Searching datasets\n');
 });
 
 test('keeps final answer when it adds citation markers', () => {

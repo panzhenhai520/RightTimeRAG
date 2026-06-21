@@ -41,6 +41,19 @@ def test_error_history_patterns_cover_ds4_context_and_connection_errors():
     assert dialog_service._is_context_span_error("kv payload staging failed")
 
 
+def test_rent_covenant_legal_query_adds_body_retrieval_terms():
+    query = dialog_service._build_retrieval_query(
+        "在租金及契诺方面的法律责任的保障有哪些？"
+    )
+
+    assert "租金" in query
+    assert "契诺" in query
+    assert "预留基金" in query
+    assert "个人法律责任" in query
+    assert "future claim" in query
+    assert "personally liable" in query
+
+
 def test_process_blocks_are_removed_before_rag_history_and_summary():
     messages = [
         {"id": "u1", "role": "user", "content": "香港PWM行业长期竞争力是什么？"},
@@ -96,6 +109,63 @@ def test_independent_question_drops_history_and_topic_reset_triggers():
     assert rag_messages == [{"role": "user", "content": "你的模型参数是多少？"}]
     assert reset is True
     assert reason == "model_self_question"
+
+
+def test_query_planner_model_identity_requires_self_signal():
+    route = dialog_service._semantic_route_layer("你是谁", {})
+    pure, reason = dialog_service._should_route_to_pure_llm("你是谁", {}, route)
+    assert pure is True
+    assert "model_identity" in reason
+
+    route = dialog_service._semantic_route_layer("What is RAGFlow?", {})
+    pure, reason = dialog_service._should_route_to_pure_llm("What is RAGFlow?", {}, route)
+    assert pure is False
+    assert "without_self_signal" in reason or reason == "default_kb_route"
+
+    route = dialog_service._semantic_route_layer("family office business model", {})
+    pure, reason = dialog_service._should_route_to_pure_llm("family office business model", {}, route)
+    assert pure is False
+    assert reason != "model_self_question"
+
+
+def test_pure_llm_identity_prompt_keeps_identity_answers_short_and_safe():
+    prompt = dialog_service.PURE_LLM_SYSTEM_PROMPT
+
+    assert "本地部署的 DeepSeek V4 Flash" in prompt
+    assert "不要声称自己是 Kimi" in prompt
+    assert "只用 1-2 句话回答身份" in prompt
+    assert "不要主动提及免费、上下文长度、知识截止、文件上传、联网、多模态" in prompt
+
+
+def test_memory_topic_filter_does_not_fallback_to_all_memories():
+    memories = [
+        {
+            "id": "memo-rent",
+            "name": "chat-memo-rent",
+            "description": "租金及契诺责任保障测试",
+            "tenant_embd_id": "embd-1",
+            "embd_id": "bge-m3",
+        },
+        {
+            "id": "memo-family",
+            "name": "chat-memo-family",
+            "description": "家族办公室经营模式",
+            "tenant_embd_id": "embd-1",
+            "embd_id": "bge-m3",
+        },
+    ]
+
+    unrelated = dialog_service._select_topic_relevant_memories(
+        memories,
+        "宗庆后相关案件进展",
+    )
+    related = dialog_service._select_topic_relevant_memories(
+        memories,
+        "在租金及契诺方面的法律责任的保障有哪些？",
+    )
+
+    assert unrelated == []
+    assert [memory["id"] for memory in related] == ["memo-rent"]
 
 
 def test_deepseek_v4_context_budget_keeps_safe_prompt_headroom():

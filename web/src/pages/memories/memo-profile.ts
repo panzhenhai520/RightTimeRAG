@@ -1,7 +1,7 @@
 import {
   extractTopicKeywords,
+  getCanonicalTopicFromMemory,
   getMemoryTopicText,
-  inferCanonicalTopic,
 } from './canonical-topic';
 import type { IMemory } from './interface';
 
@@ -124,7 +124,10 @@ function buildSourceBreakdown(inputs: MemoProfileInput[]) {
 export function buildMemoProfileInput(memory: IMemory): MemoProfileInput {
   const displayTitle = getDisplayTitle(memory);
   const textForTopic = getMemoryTopicText(memory, displayTitle);
-  const canonicalTopic = inferCanonicalTopic(textForTopic || displayTitle);
+  const canonicalTopic = getCanonicalTopicFromMemory(
+    memory,
+    textForTopic || displayTitle,
+  );
   const structuredAliases = memory.structured_summary?.aliases ?? [];
   const keywords = Array.from(
     new Set([

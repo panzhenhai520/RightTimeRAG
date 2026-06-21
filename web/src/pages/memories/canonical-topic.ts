@@ -163,6 +163,29 @@ export function inferCanonicalTopic(text: string): CanonicalTopic {
   return fallbackTopic(normalized || text);
 }
 
+export function getCanonicalTopicFromMemory(
+  memory: Partial<IMemory>,
+  fallbackText: string,
+): CanonicalTopic {
+  const topic = memory.canonical_topic;
+  if (
+    topic?.id &&
+    topic?.label &&
+    Array.isArray(topic.aliases) &&
+    typeof topic.confidence === 'number'
+  ) {
+    return {
+      id: topic.id,
+      label: topic.label,
+      aliases: topic.aliases,
+      language: topic.language || 'unknown',
+      confidence: topic.confidence,
+    };
+  }
+
+  return inferCanonicalTopic(fallbackText);
+}
+
 export function getMemoryTopicText(
   memory: Partial<IMemory>,
   displayName: string,

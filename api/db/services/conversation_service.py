@@ -137,7 +137,6 @@ def structure_answer(conv, ans, message_id, session_id):
         if is_final:
             if ans.get("answer"):
                 persisted_answer = preserve_process_blocks(conv.message[-1].get("content", ""), ans["answer"])
-                ans["answer"] = persisted_answer
                 conv.message[-1] = {"role": "assistant", "content": persisted_answer, "created_at": time.time(), "id": message_id}
             else:
                 conv.message[-1]["created_at"] = time.time()

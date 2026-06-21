@@ -54,15 +54,19 @@ export default function ChatList() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const isCreate = searchParams.get('isCreate') === 'true';
+  const suggestedQuestion = searchParams.get(
+    ChatSearchParams.SuggestedQuestion,
+  );
   useEffect(() => {
     if (isCreate) {
       handleShowCreateModal();
-      searchParams.delete('isCreate');
-      setSearchParams(searchParams);
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('isCreate');
+      setSearchParams(nextParams);
     }
   }, [isCreate, handleShowCreateModal, searchParams, setSearchParams]);
 
-  const chats = data.chats ?? [];
+  const chats = useMemo(() => data.chats ?? [], [data.chats]);
   const chatCount = data.total ?? chats.length;
 
   useEffect(() => {
@@ -79,6 +83,16 @@ export default function ChatList() {
     () => chats.find((chat) => chat.id === selectedChatId),
     [chats, selectedChatId],
   );
+
+  useEffect(() => {
+    if (!suggestedQuestion || !chats.length) return;
+
+    const targetChatId = selectedChatId || chats[0].id;
+    const params = new URLSearchParams();
+    params.set(ChatSearchParams.isNew, 'true');
+    params.set(ChatSearchParams.SuggestedQuestion, suggestedQuestion);
+    navigate(`${Routes.Chat}/${targetChatId}?${params.toString()}`);
+  }, [chats, navigate, selectedChatId, suggestedQuestion]);
 
   const { data: sessions = [], isFetching: sessionsLoading } = useQuery<
     IConversation[]

@@ -263,6 +263,9 @@ export default {
   // memory
   createMemory: `${restAPIv1}/memories`,
   getMemoryList: `${restAPIv1}/memories`,
+  getMemoryProfile: `${restAPIv1}/memories/profile`,
+  refreshMemoryProfile: `${restAPIv1}/memories/profile/refresh`,
+  memoryProfileTopicMerges: `${restAPIv1}/memories/profile/topic-merges`,
   getMemoryConfig: (id: string) => `${restAPIv1}/memories/${id}/config`,
   deleteMemory: (id: string) => `${restAPIv1}/memories/${id}`,
   getMemoryDetail: (id: string) => `${restAPIv1}/memories/${id}`,

@@ -23,6 +23,7 @@ from common.exceptions import ArgumentException, NotFoundException
 from api.apps import login_required, current_user
 from api.utils.api_utils import validate_request, get_request_json, get_error_argument_result, get_json_result
 from api.apps.services import memory_api_service
+from api.apps.services import memory_profile_service
 from api.utils.tenant_utils import ensure_tenant_model_id_for_params
 
 
@@ -137,6 +138,80 @@ async def list_memory():
     page_size = int(request.args.get("page_size", 50))
     try:
         res = await memory_api_service.list_memory(filter_params, keywords, page, page_size)
+        return get_json_result(message=True, data=res)
+    except Exception as e:
+        logging.error(e)
+        return get_json_result(code=RetCode.SERVER_ERROR, message="Internal server error")
+
+
+@manager.route("/memories/profile", methods=["GET"])  # noqa: F821
+@login_required
+async def get_memory_profile():
+    refresh = request.args.get("refresh", "false").lower() in {"1", "true", "yes"}
+    try:
+        res = await memory_profile_service.get_profile_snapshot(current_user.id, refresh=refresh)
+        return get_json_result(message=True, data=res)
+    except Exception as e:
+        logging.error(e)
+        return get_json_result(code=RetCode.SERVER_ERROR, message="Internal server error")
+
+
+@manager.route("/memories/profile/refresh", methods=["POST"])  # noqa: F821
+@login_required
+async def refresh_memory_profile():
+    try:
+        res = await memory_profile_service.get_profile_snapshot(current_user.id, refresh=True)
+        return get_json_result(message=True, data=res)
+    except Exception as e:
+        logging.error(e)
+        return get_json_result(code=RetCode.SERVER_ERROR, message="Internal server error")
+
+
+@manager.route("/memories/profile/topic-merges", methods=["GET"])  # noqa: F821
+@login_required
+async def get_memory_profile_topic_merges():
+    try:
+        res = memory_profile_service.get_topic_merges(current_user.id)
+        return get_json_result(message=True, data=res)
+    except Exception as e:
+        logging.error(e)
+        return get_json_result(code=RetCode.SERVER_ERROR, message="Internal server error")
+
+
+@manager.route("/memories/profile/topic-merges", methods=["POST"])  # noqa: F821
+@login_required
+async def merge_memory_profile_topics():
+    req = await get_request_json()
+    try:
+        source_topic_ids = req.get("source_topic_ids") or []
+        target_topic_id = req.get("target_topic_id") or ""
+        target_label = req.get("target_label") or ""
+        reason = req.get("reason") or ""
+        res = memory_profile_service.upsert_topic_merge(
+            current_user.id,
+            source_topic_ids,
+            target_topic_id,
+            target_label=target_label,
+            reason=reason,
+        )
+        return get_json_result(message=True, data=res)
+    except ValueError as e:
+        return get_error_argument_result(str(e))
+    except Exception as e:
+        logging.error(e)
+        return get_json_result(code=RetCode.SERVER_ERROR, message="Internal server error")
+
+
+@manager.route("/memories/profile/topic-merges", methods=["DELETE"])  # noqa: F821
+@login_required
+async def delete_memory_profile_topic_merges():
+    req = await get_request_json()
+    try:
+        res = memory_profile_service.delete_topic_merge(
+            current_user.id,
+            source_topic_ids=req.get("source_topic_ids"),
+            target_topic_id=req.get("target_topic_id"),
+        )
         return get_json_result(message=True, data=res)
     except Exception as e:
         logging.error(e)

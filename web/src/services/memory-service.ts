@@ -5,6 +5,9 @@ import { registerNextServer } from '@/utils/register-server';
 const {
   createMemory,
   getMemoryList,
+  getMemoryProfile,
+  refreshMemoryProfile,
+  memoryProfileTopicMerges,
   deleteMemory,
   getMemoryDetail,
   updateMemorySetting,
@@ -22,6 +25,26 @@ const methods = {
   getMemoryList: {
     url: getMemoryList,
     method: 'get',
+  },
+  getMemoryProfile: {
+    url: getMemoryProfile,
+    method: 'get',
+  },
+  refreshMemoryProfile: {
+    url: refreshMemoryProfile,
+    method: 'post',
+  },
+  getMemoryProfileTopicMerges: {
+    url: memoryProfileTopicMerges,
+    method: 'get',
+  },
+  mergeMemoryProfileTopics: {
+    url: memoryProfileTopicMerges,
+    method: 'post',
+  },
+  deleteMemoryProfileTopicMerges: {
+    url: memoryProfileTopicMerges,
+    method: 'delete',
   },
   deleteMemory: { url: deleteMemory, method: 'delete' },
   getMemoryConfig: {

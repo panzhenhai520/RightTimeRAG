@@ -1308,11 +1308,13 @@ def maybe_apply_structured_extraction(task: dict, chunks: list[dict], progress_c
             structure = try_extract_document_structure_with_instructor(
                 chunks,
                 title=title,
+                doc_id=str(task.get("doc_id") or ""),
+                context="background",
                 base_url=str(config.get("base_url") or ""),
                 api_key=str(config.get("api_key") or ""),
                 model=str(config.get("model") or ""),
                 max_tokens=int(config.get("max_tokens") or 1024),
-                max_retries=int(config.get("max_retries") or 0),
+                max_retries=config.get("max_retries"),
             )
         else:
             structure = infer_document_structure_from_chunks(chunks, title=title)

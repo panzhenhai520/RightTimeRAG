@@ -15,11 +15,14 @@
 #
 
 import logging
+import os
 import re
+import threading
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 
 EvidenceType = Literal["title", "clause", "table", "definition", "fact", "summary", "unknown"]
@@ -28,6 +31,16 @@ STRUCTURED_EXTRACTION_CONFIG_KEY = "structured_extraction"
 STRUCTURED_EXTRACTION_EXTRA_KEY = "structured"
 MAX_CHUNKS_FOR_LLM_STRUCTURE = 24
 MAX_CHARS_PER_CHUNK_FOR_LLM_STRUCTURE = 1400
+INSTRUCTOR_DEFAULT_TIMEOUT_SECONDS = 120
+INSTRUCTOR_CONCURRENCY = max(1, int(os.getenv("RAGFLOW_STRUCTURED_INSTRUCTOR_CONCURRENCY", "1") or "1"))
+_INSTRUCTOR_SEMAPHORE = threading.BoundedSemaphore(INSTRUCTOR_CONCURRENCY)
+
+
+@dataclass(frozen=True)
+class InstructorRetryPolicy:
+    context: Literal["online", "background"] = "online"
+    max_retries: int = 0
+    concurrency: int = INSTRUCTOR_CONCURRENCY
 
 
 class ExtractedEntity(BaseModel):
@@ -98,6 +111,56 @@ def structured_extraction_enabled(parser_config: dict | None) -> bool:
     if not isinstance(config, dict):
         return False
     return str(config.get("enabled", "")).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def resolve_instructor_retry_policy(
+    config: dict | None = None,
+    *,
+    context: Literal["online", "background"] = "online",
+) -> InstructorRetryPolicy:
+    """Resolve a bounded Instructor retry policy.
+
+    Online request paths must not ask the LLM to repair structure because every
+    reask expands latency and live KV pressure. Background parsing may retry
+    once, but never more than once on the ds4-server path.
+    """
+    config = config or {}
+    if context == "online":
+        return InstructorRetryPolicy(context="online", max_retries=0)
+
+    configured = config.get("max_retries")
+    if configured is None:
+        configured = 1
+    try:
+        retries = int(configured)
+    except (TypeError, ValueError):
+        retries = 1
+    return InstructorRetryPolicy(context="background", max_retries=max(0, min(retries, 1)))
+
+
+def classify_structured_extraction_error(exc: Exception) -> str:
+    if isinstance(exc, ValidationError):
+        errors = exc.errors()
+        if any(error.get("type") == "missing" for error in errors):
+            return "missing_field"
+        if any(error.get("type") == "extra_forbidden" for error in errors):
+            return "illegal_field"
+        return "validation_error"
+    name = exc.__class__.__name__.lower()
+    text = str(exc).lower()
+    if "json" in name or "json" in text or "decode" in text or "parse" in text:
+        return "json_format_error"
+    if "timeout" in name or "timeout" in text:
+        return "timeout"
+    return "runtime_error"
+
+
+def _first_chunk_page(chunks: list[dict]) -> int | None:
+    for chunk in chunks or []:
+        page = _chunk_page(chunk)
+        if page is not None:
+            return page
+    return None
 
 
 def _chunk_text(chunk: dict) -> str:
@@ -262,26 +325,33 @@ def extract_document_structure_with_instructor(
     api_key: str,
     model: str,
     max_tokens: int = 1024,
-    max_retries: int = 1,
+    max_retries: int = 0,
 ) -> DocumentStructure:
     """Use Instructor JSON mode for offline/low-concurrency structure extraction.
 
     The current ds4-server can return JSON reliably, but validation reask may
-    trigger live KV/session instability. Keep max_retries at 1 unless this runs
-    in a separate offline queue.
+    trigger live KV/session instability. Online callers should keep
+    max_retries=0. Background parsing is capped to one retry by
+    resolve_instructor_retry_policy().
     """
     from openai import OpenAI
     import instructor
 
-    client = instructor.from_openai(OpenAI(base_url=base_url, api_key=api_key), mode=instructor.Mode.JSON)
-    return client.chat.completions.create(
-        model=model,
-        response_model=DocumentStructure,
-        messages=build_structure_prompt(chunks, title),
-        max_tokens=max_tokens,
-        temperature=0,
-        max_retries=max_retries,
-    )
+    acquired = _INSTRUCTOR_SEMAPHORE.acquire(timeout=INSTRUCTOR_DEFAULT_TIMEOUT_SECONDS)
+    if not acquired:
+        raise TimeoutError("structured_instructor_concurrency_timeout")
+    try:
+        client = instructor.from_openai(OpenAI(base_url=base_url, api_key=api_key), mode=instructor.Mode.JSON)
+        return client.chat.completions.create(
+            model=model,
+            response_model=DocumentStructure,
+            messages=build_structure_prompt(chunks, title),
+            max_tokens=max_tokens,
+            temperature=0,
+            max_retries=max_retries,
+        )
+    finally:
+        _INSTRUCTOR_SEMAPHORE.release()
 
 
 def apply_structure_to_chunks(chunks: list[dict], structure: DocumentStructure) -> list[dict]:
@@ -316,9 +386,29 @@ def apply_structure_to_chunks(chunks: list[dict], structure: DocumentStructure) 
     return enriched
 
 
-def try_extract_document_structure_with_instructor(chunks: list[dict], **kwargs) -> DocumentStructure:
+def try_extract_document_structure_with_instructor(
+    chunks: list[dict],
+    *,
+    context: Literal["online", "background"] = "online",
+    doc_id: str = "",
+    **kwargs,
+) -> DocumentStructure:
+    policy = resolve_instructor_retry_policy(kwargs, context=context)
+    kwargs["max_retries"] = policy.max_retries
     try:
         return extract_document_structure_with_instructor(chunks, **kwargs)
     except Exception as exc:  # noqa: BLE001 - structure extraction must never block parsing
-        logging.warning("Structured extraction failed; falling back to deterministic structure: %s", exc)
+        error_type = classify_structured_extraction_error(exc)
+        logging.warning(
+            "Structured extraction failed; fallback=deterministic doc=%s title=%s page=%s chunks=%s "
+            "context=%s retries=%s error_type=%s error=%s",
+            doc_id or "-",
+            kwargs.get("title") or "",
+            _first_chunk_page(chunks),
+            len(chunks or []),
+            policy.context,
+            policy.max_retries,
+            error_type,
+            exc,
+        )
         return infer_document_structure_from_chunks(chunks, kwargs.get("title") or "")

@@ -42,7 +42,7 @@ from memory.services.messages import MessageService
 from rag.utils.redis_conn import REDIS_CONN
 
 
-PROFILE_VERSION = "memo-thought-profile-v1"
+PROFILE_VERSION = "memo-thought-profile-v2"
 PROFILE_CACHE_TTL_SECONDS = 7 * 24 * 3600
 PROFILE_BUILD_LOCK_TTL_SECONDS = 20 * 60
 PROFILE_MAX_MEMORIES = 500
@@ -1116,17 +1116,105 @@ def _build_summary(events: list[dict], clusters: list[TopicCluster], edges: list
     }
 
 
+PREDICTION_STAGE_SIGNALS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("risk_opportunity", ("风险", "机会", "risk", "opportunity")),
+    ("evidence_validation", ("证据", "指标", "数据", "条文", "验证", "evidence", "metric", "validate")),
+    ("action_plan", ("行动", "方案", "落地", "执行", "清单", "action", "plan", "implement")),
+    ("counterexample", ("反例", "边界", "冲突", "例外", "counterexample", "boundary", "conflict", "exception")),
+)
+
+
+def _prediction_id(question: str) -> str:
+    digest = hashlib.sha1(normalize_topic_text(question).encode("utf-8")).hexdigest()[:12]
+    return f"prediction:{digest}"
+
+
+def _cluster_progress_stage(cluster: TopicCluster, events_by_id: dict[str, dict]) -> int:
+    stage = 0
+    evidence_text = "\n".join(
+        " ".join(
+            [
+                str(event.get("title") or ""),
+                str(event.get("summary") or ""),
+                " ".join(event.get("keywords") or []),
+                str(event.get("intent") or ""),
+            ]
+        )
+        for event_id in cluster.event_ids
+        for event in [events_by_id.get(event_id)]
+        if event
+    )
+    normalized = normalize_topic_text(evidence_text)
+    for index, (_, signals) in enumerate(PREDICTION_STAGE_SIGNALS, start=1):
+        if any(normalize_topic_text(signal) in normalized for signal in signals):
+            stage = max(stage, index)
+    return min(stage, 4)
+
+
+def _topic_prediction_candidates(cluster: TopicCluster, events_by_id: dict[str, dict]) -> list[dict]:
+    label = cluster.label
+    stage = _cluster_progress_stage(cluster, events_by_id)
+    templates = [
+        (
+            "risk_opportunity",
+            f"围绕“{label}”，下一步最值得验证的风险或机会是什么？",
+            "该主题在备忘录中出现频率较高，适合先转化为可验证的风险或机会假设。",
+        ),
+        (
+            "evidence_validation",
+            f"围绕“{label}”，需要哪些证据、数据或条文来验证这些判断？",
+            "主题已经进入验证阶段，下一步应寻找可追溯证据，而不是继续停留在泛泛判断。",
+        ),
+        (
+            "action_plan",
+            f"如果“{label}”的关键判断成立，最小可执行行动方案是什么？",
+            "当风险或机会已有证据支持时，适合继续推进到行动方案和资源安排。",
+        ),
+        (
+            "counterexample",
+            f"围绕“{label}”，有哪些反例、边界条件或冲突证据需要排除？",
+            "为了避免确认偏误，下一步应检查相反证据和适用边界。",
+        ),
+        (
+            "decision_checklist",
+            f"如何把“{label}”沉淀成一份可复用的决策清单？",
+            "当主题经过验证、行动和边界检查后，适合沉淀成可复用的方法。",
+        ),
+    ]
+    candidates = []
+    for offset, (stage_name, question, reason) in enumerate(templates[stage:], start=stage):
+        candidates.append(
+            {
+                "id": _prediction_id(question),
+                "question": question,
+                "reason": reason,
+                "evidence_event_ids": cluster.event_ids[:3],
+                "topics": [label],
+                "stage": stage_name,
+                "progress_level": offset,
+                "topic_key": cluster.id,
+            }
+        )
+    return candidates
+
+
 def _build_predictions(events: list[dict], clusters: list[TopicCluster], edges: list[dict]) -> list[dict]:
     predictions = []
+    events_by_id = {event["id"]: event for event in events}
     top_clusters = clusters[:4]
     if len(top_clusters) >= 2:
         first, second = top_clusters[0], top_clusters[1]
+        question = f"{first.label} 和 {second.label} 之间是否存在可落地的应用关系？"
         predictions.append(
             {
-                "question": f"{first.label} 和 {second.label} 之间是否存在可落地的应用关系？",
+                "id": _prediction_id(question),
+                "question": question,
                 "reason": "这两个主题在近期备忘录中活跃度较高，适合进一步追问它们的连接方式。",
                 "evidence_event_ids": list(dict.fromkeys([*first.event_ids[:2], *second.event_ids[:2]])),
                 "topics": [first.label, second.label],
+                "stage": "cross_topic_application",
+                "progress_level": 0,
+                "topic_key": f"{first.id}+{second.id}",
             }
         )
     tool_edges = [edge for edge in edges if edge["type"] in {"tool", "decision"}]
@@ -1135,24 +1223,30 @@ def _build_predictions(events: list[dict], clusters: list[TopicCluster], edges: 
         left = next((event for event in events if event["id"] == edge["source_event_id"]), None)
         right = next((event for event in events if event["id"] == edge["target_event_id"]), None)
         if left and right:
+            question = f"如何把“{left['topic_label']}”用于解决“{right['topic_label']}”中的具体问题？"
             predictions.append(
                 {
-                    "question": f"如何把“{left['topic_label']}”用于解决“{right['topic_label']}”中的具体问题？",
+                    "id": _prediction_id(question),
+                    "question": question,
                     "reason": edge["reason"],
                     "evidence_event_ids": edge["evidence_event_ids"],
                     "topics": [left["topic_label"], right["topic_label"]],
+                    "stage": "relation_application",
+                    "progress_level": 0,
+                    "topic_key": edge["id"],
                 }
             )
-    for cluster in top_clusters[:2]:
-        predictions.append(
-            {
-                "question": f"围绕“{cluster.label}”，下一步最值得验证的风险或机会是什么？",
-                "reason": "该主题在备忘录中出现频率较高，适合转化为下一轮可验证问题。",
-                "evidence_event_ids": cluster.event_ids[:3],
-                "topics": [cluster.label],
-            }
-        )
-    return predictions[:5]
+    for cluster in top_clusters[:3]:
+        predictions.extend(_topic_prediction_candidates(cluster, events_by_id)[:2])
+    unique_predictions = []
+    seen = set()
+    for prediction in predictions:
+        normalized = normalize_topic_text(prediction["question"])
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        unique_predictions.append(prediction)
+    return unique_predictions[:8]
 
 
 def _cluster_to_dict(cluster: TopicCluster, events_by_id: dict[str, dict]) -> dict:
@@ -1322,10 +1416,14 @@ async def get_profile_snapshot(user_id: str, refresh: bool = False) -> dict:
     snapshot = None if refresh else _json_get(_snapshot_key(user_id))
     now = int(time.time())
     if snapshot:
-        snapshot["stale"] = now - int(snapshot.get("generated_at") or 0) > PROFILE_STALE_SECONDS
-        if snapshot["stale"]:
-            _start_background_build(user_id)
-        return snapshot
+        if snapshot.get("version") != PROFILE_VERSION:
+            _delete_key(_snapshot_key(user_id))
+            snapshot = None
+        else:
+            snapshot["stale"] = now - int(snapshot.get("generated_at") or 0) > PROFILE_STALE_SECONDS
+            if snapshot["stale"]:
+                _start_background_build(user_id)
+            return snapshot
 
     started = _start_background_build(user_id, force=refresh)
     status = REDIS_CONN.get(_status_key(user_id)) or ("building" if started else "pending")

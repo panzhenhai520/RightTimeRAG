@@ -72,6 +72,7 @@ type MultipleChatBoxProps = {
   chatBoxIds: string[];
   stopOutputMessage(): void;
   conversation: IClientConversation;
+  onLoadingChange?: (loading: boolean) => void;
 } & Pick<
   ReturnType<typeof useAddChatBox>,
   'removeChatBox' | 'addChatBox' | 'chatBoxIds'
@@ -291,6 +292,7 @@ export function MultipleChatBox({
   addChatBox,
   stopOutputMessage,
   conversation,
+  onLoadingChange,
 }: MultipleChatBoxProps) {
   const { createConversationBeforeSendMessage } =
     useCreateConversationBeforeSendMessage();
@@ -316,6 +318,11 @@ export function MultipleChatBox({
   }, []);
 
   const allChatBoxLoading = [...chatBoxLoading.values()];
+  const anyChatBoxLoading = allChatBoxLoading.some((loading) => loading);
+
+  useEffect(() => {
+    onLoadingChange?.(anyChatBoxLoading);
+  }, [anyChatBoxLoading, onLoadingChange]);
 
   const showInternet = useShowInternet();
 
@@ -420,7 +427,7 @@ export function MultipleChatBox({
         <NextMessageInput
           disabled={disabled}
           sendDisabled={sendDisabled}
-          sendLoading={allChatBoxLoading.some((loading) => loading)}
+          sendLoading={anyChatBoxLoading}
           value={value}
           resize="vertical"
           onInputChange={handleInputChange}

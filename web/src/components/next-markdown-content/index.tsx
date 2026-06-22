@@ -166,6 +166,7 @@ function MarkdownContent({
   reference,
   clickDocumentButton,
   content,
+  loading,
 }: {
   content: string;
   loading: boolean;
@@ -388,7 +389,12 @@ function MarkdownContent({
   const dir = getDirAttribute(toText(content).replace(citationMarkerReg, ''));
 
   return (
-    <div dir={dir} className={styles.markdownContentWrapper}>
+    <div
+      dir={dir}
+      className={cn(styles.markdownContentWrapper, {
+        [styles.streamingAnswer]: loading,
+      })}
+    >
       <Markdown
         rehypePlugins={[rehypeWrapReference, rehypeKatex, rehypeRaw]}
         remarkPlugins={MarkdownRemarkPlugins}

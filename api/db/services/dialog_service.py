@@ -25,6 +25,9 @@ from collections import Counter
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from copy import deepcopy
+from pathlib import Path
+
+import requests
 
 logger = logging.getLogger(__name__)
 from datetime import datetime
@@ -48,6 +51,8 @@ from api.utils.reference_metadata_utils import (
     resolve_reference_metadata_preferences,
 )
 from api.utils.memory_utils import get_memory_display_name
+from api.utils.canonical_topic import infer_canonical_topic
+from api.utils.cross_language_utils import resolve_auto_cross_languages
 from api.db.services.tenant_llm_service import TenantLLMService
 from api.db.joint_services.memory_message_service import embed_and_save, query_message
 from api.db.joint_services.tenant_model_service import get_model_config_by_id, get_model_config_by_type_and_name, get_tenant_default_model_by_type
@@ -1120,6 +1125,15 @@ try:
 except ValueError:
     DS4_MAX_CONCURRENT_GENERATIONS = 2
 DS4_GENERATION_SEMAPHORE = asyncio.Semaphore(DS4_MAX_CONCURRENT_GENERATIONS)
+DS4_MODELS_URL = os.environ.get("RAGFLOW_DS4_MODELS_URL", "http://127.0.0.1:8106/v1/models")
+DS4_HEALTH_STATUS_FILE = Path(
+    os.environ.get(
+        "RAGFLOW_DS4_HEALTH_STATUS_FILE",
+        "/home/xsuper/app/newapp/runtime/ds4/ds4-health.json",
+    )
+)
+DS4_READY_WAIT_SECONDS = int(os.environ.get("RAGFLOW_DS4_READY_WAIT_SECONDS", "180"))
+DS4_READY_POLL_SECONDS = float(os.environ.get("RAGFLOW_DS4_READY_POLL_SECONDS", "5"))
 ACTIVE_TOKEN_COUNTER: ContextVar[DynamicTokenCounter | None] = ContextVar("active_rag_token_counter", default=None)
 CONTEXT_SPAN_ERROR_PATTERNS = (
     "layer-slice token span exceeds context",
@@ -1856,6 +1870,17 @@ def _build_retrieval_query(question: str, fallback_question: str | None = None) 
     elif any(pattern in lower for pattern in ANSWER_LIKE_QUERY_PATTERNS) and fallback:
         normalized = fallback
 
+    canonical_topic = infer_canonical_topic(f"{normalized} {fallback}".strip())
+    if canonical_topic.confidence >= 0.8 and canonical_topic.aliases:
+        normalized_lower_for_alias = normalized.lower()
+        alias_additions = [
+            alias
+            for alias in [canonical_topic.label, *canonical_topic.aliases]
+            if alias and alias.lower() not in normalized_lower_for_alias
+        ]
+        if alias_additions:
+            normalized = f"{normalized} {' '.join(dict.fromkeys(alias_additions[:8]))}"
+
     normalized_lower = normalized.lower()
     if (
         ("租金" in normalized or "rent" in normalized_lower or "rents" in normalized_lower)
@@ -1884,6 +1909,59 @@ def _build_retrieval_query(question: str, fallback_question: str | None = None) 
     if len(normalized) <= MAX_RETRIEVAL_QUERY_CHARS:
         return normalized
     return normalized[:MAX_RETRIEVAL_QUERY_CHARS].rstrip()
+
+
+def _default_empty_knowledge_response(question: str) -> str:
+    if re.search(r"[\u4e00-\u9fff]", question or ""):
+        return "知识库中未找到与该问题相关的可靠证据，因此不能基于知识库回答。请尝试换用更具体的关键词、选择相关知识库，或把该问题作为普通聊天提问。"
+    return "No reliable evidence related to this question was found in the selected knowledge base, so I cannot answer it as a knowledge-base response. Try more specific keywords, select a relevant knowledge base, or ask it as a general chat question."
+
+
+def _is_framework_synthesis_question(question: str, latest_question: str | None = None) -> bool:
+    normalized = _normalize_route_text(f"{question or ''} {latest_question or ''}")
+    if not normalized:
+        return False
+    framework_terms = (
+        "决策清单",
+        "检查清单",
+        "检查表",
+        "可复用",
+        "沉淀",
+        "框架",
+        "模板",
+        "方法论",
+        "操作手册",
+        "sop",
+        "checklist",
+        "decision checklist",
+        "reusable",
+        "distill",
+        "framework",
+        "template",
+        "methodology",
+        "playbook",
+        "operating model",
+    )
+    action_terms = ("如何", "怎么", "怎样", "生成", "形成", "整理", "沉淀", "转化", "how to", "create", "build", "turn", "distill")
+    return any(term in normalized for term in framework_terms) and any(term in normalized for term in action_terms)
+
+
+def _framework_synthesis_guidance(question: str) -> str:
+    if re.search(r"[\u4e00-\u9fff]", question or ""):
+        return (
+            "\n\n### 框架综合模式\n"
+            "本轮没有检索到可引用的知识库证据。若用户问题是在要求清单、框架、模板、方法论或可复用决策工具，"
+            "可以基于已有对话上下文、备忘录和通用专业知识生成一份方法论建议。必须明确说明：该内容不是知识库证据结论，"
+            "没有 PDF/文档引用依据，不能替代专业法律、税务或合规意见。不要编造 Fig、ID 或文档来源。"
+        )
+    return (
+        "\n\n### Framework synthesis mode\n"
+        "No citable knowledge-base evidence was retrieved. If the user is asking for a checklist, framework, template, "
+        "methodology, or reusable decision tool, you may synthesize a practical framework from the conversation context, "
+        "memory, and general domain knowledge. Clearly state that this is not an evidence-backed knowledge-base answer, "
+        "has no PDF/document citation basis, and does not replace professional legal, tax, or compliance advice. "
+        "Do not invent Fig, ID, or document references."
+    )
 
 
 def _classify_retrieval_scope(question: str) -> str:
@@ -2573,6 +2651,134 @@ async def _generation_slot(llm_model_config: dict | None, dialog):
         yield
 
 
+def _ds4_queue_is_busy() -> bool:
+    return int(getattr(DS4_GENERATION_SEMAPHORE, "_value", 1)) <= 0
+
+
+def _probe_ds4_models_ready() -> bool:
+    try:
+        response = requests.get(DS4_MODELS_URL, timeout=5)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
+def _read_ds4_health_status() -> dict:
+    try:
+        if not DS4_HEALTH_STATUS_FILE.exists():
+            return {}
+        return json.loads(DS4_HEALTH_STATUS_FILE.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logging.debug("Failed to read DS4 health status %s: %s", DS4_HEALTH_STATUS_FILE, exc)
+        return {}
+
+
+def _ds4_health_requires_wait(status: dict) -> bool:
+    if not status:
+        return False
+    state = str(status.get("state") or "").lower()
+    if state in {"starting", "warming", "maintenance", "restarting", "degraded"}:
+        return True
+    try:
+        live_tokens = int(status.get("live_tokens") or 0)
+        restart_threshold = int(status.get("restart_threshold") or 0)
+    except (TypeError, ValueError):
+        return False
+    return restart_threshold > 0 and live_tokens >= restart_threshold
+
+
+async def _wait_for_ds4_models_ready(timeout: int = DS4_READY_WAIT_SECONDS) -> bool:
+    if timeout <= 0:
+        return False
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if await asyncio.to_thread(_probe_ds4_models_ready):
+            return True
+        await asyncio.sleep(min(DS4_READY_POLL_SECONDS, max(0.5, deadline - time.time())))
+    return False
+
+
+async def _wait_for_ds4_health_ready(timeout: int = DS4_READY_WAIT_SECONDS) -> bool:
+    if timeout <= 0:
+        return False
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        status = await asyncio.to_thread(_read_ds4_health_status)
+        if not _ds4_health_requires_wait(status) and await asyncio.to_thread(_probe_ds4_models_ready):
+            return True
+        await asyncio.sleep(min(DS4_READY_POLL_SECONDS, max(0.5, deadline - time.time())))
+    return False
+
+
+async def _ds4_pre_generation_status_events(llm_model_config: dict | None, dialog):
+    if not _is_deepseek_v4_model(llm_model_config, dialog):
+        return
+
+    if _ds4_queue_is_busy():
+        yield {
+            "answer": "<retrieving>DeepSeek V4 Flash generation queue is busy; waiting for an available slot.\n</retrieving>",
+            "reference": {},
+            "audio_binary": None,
+            "final": False,
+        }
+
+    health_status = await asyncio.to_thread(_read_ds4_health_status)
+    if _ds4_health_requires_wait(health_status):
+        live_tokens = health_status.get("live_tokens")
+        context_length = health_status.get("context_length")
+        yield {
+            "answer": (
+                "<retrieving>DeepSeek V4 Flash is protecting KV cache state; "
+                f"current live tokens {live_tokens or 'unknown'}"
+                f"/{context_length or 'unknown'}. Waiting for model readiness.\n</retrieving>"
+            ),
+            "reference": {},
+            "audio_binary": None,
+            "final": False,
+        }
+        ready = await _wait_for_ds4_health_ready()
+        if ready:
+            yield {
+                "answer": "<retrieving>DeepSeek V4 Flash is ready; continuing answer generation.\n</retrieving>",
+                "reference": {},
+                "audio_binary": None,
+                "final": False,
+            }
+            return
+        yield {
+            "answer": "<retrieving>DeepSeek V4 Flash is still warming up; backend retry will continue waiting.\n</retrieving>",
+            "reference": {},
+            "audio_binary": None,
+            "final": False,
+        }
+        return
+
+    if await asyncio.to_thread(_probe_ds4_models_ready):
+        return
+
+    yield {
+        "answer": "<retrieving>DeepSeek V4 Flash is warming up after KV cache maintenance; waiting for model readiness.\n</retrieving>",
+        "reference": {},
+        "audio_binary": None,
+        "final": False,
+    }
+    ready = await _wait_for_ds4_models_ready()
+    if ready:
+        yield {
+            "answer": "<retrieving>DeepSeek V4 Flash is ready; continuing answer generation.\n</retrieving>",
+            "reference": {},
+            "audio_binary": None,
+            "final": False,
+        }
+    else:
+        yield {
+            "answer": "<retrieving>DeepSeek V4 Flash is still warming up; backend retry will continue waiting.\n</retrieving>",
+            "reference": {},
+            "audio_binary": None,
+            "final": False,
+        }
+
+
 def _log_rag_token_budget(
     stage: str,
     context_budget: dict[str, int],
@@ -2879,8 +3085,19 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     else:
         questions = questions[-1:]
 
-    if prompt_config.get("cross_languages"):
-        questions = [await cross_languages(dialog.tenant_id, dialog.llm_id, questions[0], prompt_config["cross_languages"])]
+    auto_cross_languages = resolve_auto_cross_languages(
+        dialog.kb_ids,
+        questions[0],
+        prompt_config.get("cross_languages") or [],
+    )
+    if auto_cross_languages:
+        logging.info(
+            "CrossLanguage retrieval expansion languages=%s kb_count=%s question=%s",
+            auto_cross_languages,
+            len(dialog.kb_ids or []),
+            questions[0][:120],
+        )
+        questions = [await cross_languages(dialog.tenant_id, dialog.llm_id, questions[0], auto_cross_languages)]
 
     if dialog.meta_data_filter:
         attachments = await apply_meta_data_filter(
@@ -3057,12 +3274,46 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         logging.debug("MemoryContext injected %d snippets for tenant=%s", len(memory_context), dialog.tenant_id)
 
     retrieval_ts = timer()
-    if not knowledges and prompt_config.get("empty_response"):
-        empty_res = prompt_config["empty_response"]
-        yield {"answer": empty_res, "reference": kbinfos, "prompt": "\n\n### Query:\n%s" % " ".join(questions), "audio_binary": visible_tts(tts_mdl, empty_res, tts_config=tts_config), "final": True}
+    framework_synthesis_mode = (
+        not knowledges
+        and "knowledge" in param_keys
+        and _is_framework_synthesis_question(questions[-1], latest_user_question)
+    )
+    if framework_synthesis_mode:
+        logging.info(
+            "FrameworkSynthesis fallback enabled: question=%s retrieval_query=%s",
+            questions[-1][:160],
+            retrieval_query[:160],
+        )
+        evidence_guidance_text += _framework_synthesis_guidance(questions[-1])
+        kwargs["knowledge"] = (
+            "\n------\n"
+            "No reliable knowledge-base evidence was retrieved for this question. "
+            "Use framework synthesis mode only if the user asks for a reusable checklist, framework, template, or methodology."
+        )
+    elif not knowledges and "knowledge" in param_keys:
+        empty_res = prompt_config.get("empty_response") or _default_empty_knowledge_response(questions[-1])
+        empty_refs = deepcopy(kbinfos)
+        if feature_enabled("evidence_audit"):
+            empty_refs["evidence_audit"] = _build_evidence_audit(
+                kbinfos,
+                set(),
+                questions[-1],
+                retrieval_query,
+                empty_res,
+                {},
+            )
+        yield {
+            "answer": empty_res,
+            "reference": empty_refs,
+            "prompt": "\n\n### Query:\n%s" % " ".join(questions),
+            "audio_binary": visible_tts(tts_mdl, empty_res, tts_config=tts_config),
+            "final": True,
+        }
         return
 
-    kwargs["knowledge"] = "\n------\n" + "\n\n------\n\n".join(knowledges)
+    if not framework_synthesis_mode:
+        kwargs["knowledge"] = "\n------\n" + "\n\n------\n\n".join(knowledges)
     gen_conf = deepcopy(dialog.llm_setting or {})
     if prompt_config.get("reasoning", False) or kwargs.get("reasoning"):
         gen_conf["reasoning"] = True
@@ -3317,6 +3568,8 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         return retry_prompt, retry_msg, retry_gen_conf
 
     if stream:
+        async for event in _ds4_pre_generation_status_events(llm_model_config, dialog):
+            yield event
         if "knowledge" in param_keys and not deep_research_enabled:
             yield {
                 "answer": "<think>Reviewing retrieved evidence and composing the answer.\n</think>",
@@ -4056,7 +4309,19 @@ async def async_ask(question, kb_ids, tenant_id, chat_llm_name=None, search_conf
         context_budget["prompt"] = max(MIN_OUTPUT_TOKENS, context_budget["model"] - context_budget["output"])
         context_budget["knowledge"] = max(MIN_OUTPUT_TOKENS, int(context_budget["prompt"] * 0.35))
         context_budget["fit"] = max(MIN_OUTPUT_TOKENS, int(context_budget["prompt"] * 0.90))
-    retrieval_top_n, retrieval_top_k, retrieval_scope = _resolve_dynamic_retrieval_limits(search_dialog, question, False)
+    configured_cross_languages = search_config.get("cross_languages") or search_config.get("chat_settingcross_languages", [])
+    auto_cross_languages = resolve_auto_cross_languages(kb_ids, question, configured_cross_languages)
+    retrieval_question = question
+    if auto_cross_languages:
+        logging.info(
+            "Search CrossLanguage retrieval expansion languages=%s kb_count=%s question=%s",
+            auto_cross_languages,
+            len(kb_ids or []),
+            question[:120],
+        )
+        retrieval_question = await cross_languages(tenant_id, chat_llm_name, question, auto_cross_languages)
+
+    retrieval_top_n, retrieval_top_k, retrieval_scope = _resolve_dynamic_retrieval_limits(search_dialog, retrieval_question, False)
     tenant_ids = list(set([kb.tenant_id for kb in kbs]))
 
     if meta_data_filter:
@@ -4086,7 +4351,7 @@ async def async_ask(question, kb_ids, tenant_id, chat_llm_name=None, search_conf
     )
 
     kbinfos = await retriever.retrieval(
-        question=question,
+        question=retrieval_question,
         embd_mdl=embd_mdl,
         tenant_ids=tenant_ids,
         kb_ids=kb_ids,
@@ -4098,7 +4363,7 @@ async def async_ask(question, kb_ids, tenant_id, chat_llm_name=None, search_conf
         doc_ids=doc_ids,
         aggs=True,
         rerank_mdl=rerank_mdl,
-        rank_feature=label_question(question, kbs),
+        rank_feature=label_question(retrieval_question, kbs),
         trace_id=search_id,
     )
     if include_reference_metadata:
@@ -4190,6 +4455,8 @@ async def async_ask(question, kb_ids, tenant_id, chat_llm_name=None, search_conf
     sys_prompt, msg, gen_conf, knowledges = build_generation_payload(context_budget, "search_summary_initial")
     last_state = None
     try:
+        async for event in _ds4_pre_generation_status_events(chat_model_config, search_dialog):
+            yield event
         async for kind, value, state in run_summary_stream(sys_prompt, msg, gen_conf):
             last_state = state
             if kind == "marker":

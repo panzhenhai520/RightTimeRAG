@@ -103,7 +103,11 @@ class MemoryService(CommonService):
             memory_type_int = calculate_memory_type(filter_dict["memory_type"])
             memories = memories.where(cls.model.memory_type.bin_and(memory_type_int) > 0)
         if filter_dict.get("storage_type"):
-            memories = memories.where(cls.model.storage_type == filter_dict["storage_type"])
+            storage_type = filter_dict["storage_type"]
+            if isinstance(storage_type, (list, tuple, set)):
+                memories = memories.where(cls.model.storage_type.in_(list(storage_type)))
+            else:
+                memories = memories.where(cls.model.storage_type == storage_type)
         if keywords:
             memories = memories.where(cls.model.name.contains(keywords) | cls.model.description.contains(keywords))
         count = memories.count()

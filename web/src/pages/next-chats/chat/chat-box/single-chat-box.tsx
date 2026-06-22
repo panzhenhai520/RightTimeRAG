@@ -33,12 +33,14 @@ interface IProps {
   controller: AbortController;
   stopOutputMessage(): void;
   conversation: IClientConversation;
+  onLoadingChange?: (loading: boolean) => void;
 }
 
 export function SingleChatBox({
   controller,
   stopOutputMessage,
   conversation,
+  onLoadingChange,
 }: IProps) {
   const {
     value,
@@ -71,10 +73,16 @@ export function SingleChatBox({
   const showInternet = useShowInternet();
 
   useEffect(() => {
+    onLoadingChange?.(sendLoading);
+  }, [onLoadingChange, sendLoading]);
+
+  useEffect(() => {
     const messages = conversation?.messages;
     if (Array.isArray(messages)) {
       setDerivedMessages((prevMessages) => {
-        const localById = new Map(prevMessages.map((m) => [m.id, m]));
+        const localByKey = new Map(
+          prevMessages.map((m) => [buildMessageUuidWithRole(m), m]),
+        );
         const localAssistants = prevMessages.filter(
           (m) => m.role === MessageType.Assistant,
         );
@@ -88,7 +96,7 @@ export function SingleChatBox({
             .map((m) => [m.id, m.files]),
         );
         return messages.map((m) => {
-          const sameIdLocal = localById.get(m.id);
+          const sameIdLocal = localByKey.get(buildMessageUuidWithRole(m));
           let sameOrderLocal: typeof sameIdLocal | undefined;
           let serverReference = m.reference;
           if (m.role === MessageType.Assistant) {
@@ -104,7 +112,8 @@ export function SingleChatBox({
 
           return {
             ...m,
-            ...(hasProcessBlocks(localContent) &&
+            ...(m.role === MessageType.Assistant &&
+            hasProcessBlocks(localContent) &&
             !hasProcessBlocks(serverContent)
               ? {
                   content: mergeFinalAnswerWithProcess(

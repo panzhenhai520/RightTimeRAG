@@ -62,6 +62,36 @@
   }
 }
 
+.streamingAnswer {
+  :global(p:last-of-type),
+  :global(li:last-of-type) {
+    background: linear-gradient(
+      110deg,
+      rgb(var(--text-primary)) 0%,
+      rgb(var(--text-primary)) 36%,
+      rgba(255, 255, 255, 0.98) 48%,
+      #198c6e 55%,
+      rgb(var(--text-primary)) 68%,
+      rgb(var(--text-primary)) 100%
+    );
+    background-clip: text;
+    background-size: 260% 100%;
+    color: transparent;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: answerTextShimmer 1.25s ease-in-out infinite;
+  }
+}
+
+@keyframes answerTextShimmer {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
+}
+
 .referencePopoverWrapper {
   max-width: 50vw;
 }

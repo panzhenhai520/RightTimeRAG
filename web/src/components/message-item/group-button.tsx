@@ -1,5 +1,6 @@
 import { PromptIcon } from '@/assets/icon/next-icon';
 import CopyToClipboard from '@/components/copy-to-clipboard';
+import { Modal } from '@/components/ui/modal/modal';
 import {
   Tooltip,
   TooltipContent,
@@ -174,6 +175,18 @@ export const UserGroupButton = ({
     removeMessageById,
   );
   const { t } = useTranslation();
+  const handleRemoveTurn = useCallback(() => {
+    Modal.confirm({
+      title: t('chat.deleteTurnTitle', { defaultValue: 'Delete this turn?' }),
+      content: t('chat.deleteTurnDescription', {
+        defaultValue:
+          'This will remove the selected question and its answer from this conversation. Deleted content will not be used when adding this conversation to memo.',
+      }),
+      okText: t('common.delete'),
+      cancelText: t('common.cancel'),
+      onOk: onRemoveMessage,
+    });
+  }, [onRemoveMessage, t]);
 
   return (
     <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
@@ -202,13 +215,15 @@ export const UserGroupButton = ({
               variant="transparent"
               size="icon-xs"
               className="border-0"
-              onClick={onRemoveMessage}
+              onClick={handleRemoveTurn}
               disabled={loading}
             >
               <LucideTrash2 />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{t('common.delete')}</TooltipContent>
+          <TooltipContent>
+            {t('chat.deleteTurn', { defaultValue: 'Delete this Q&A turn' })}
+          </TooltipContent>
         </Tooltip>
       )}
     </div>

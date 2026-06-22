@@ -548,33 +548,38 @@ export const useSelectDerivedMessages = () => {
           ? mergeFinalAnswerWithProcess(previousContent, incomingContent)
           : answer.answer;
 
-      return [
-        ...(pre?.slice(0, -1) ?? []),
-        {
-          ...omit(answer, ['reference', 'content']),
+      const assistantMessage = {
+        ...omit(answer, ['reference', 'content']),
+        role: MessageType.Assistant,
+        content,
+        answer: content,
+        reference: answer.reference,
+        id: buildMessageUuid({
+          id: answer.id,
           role: MessageType.Assistant,
-          content,
-          answer: content,
-          reference: answer.reference,
-          id: buildMessageUuid({
-            id: answer.id,
-            role: MessageType.Assistant,
-          }),
-          prompt: answer.prompt,
-          audio_binary: answer.audio_binary,
-        },
-      ];
+        }),
+        prompt: answer.prompt,
+        audio_binary: answer.audio_binary,
+      };
+
+      if (previousMessage?.role !== MessageType.Assistant) {
+        return [...(pre ?? []), assistantMessage];
+      }
+
+      return [...(pre?.slice(0, -1) ?? []), assistantMessage];
     });
   }, []);
 
   // Add the streaming message to the last item in the message list
   const addNewestOneAnswer = useCallback((answer: IAnswer) => {
     setDerivedMessages((pre) => {
-      const idx = pre.findIndex((x) => x.id === answer.id);
+      const idx = pre.findIndex(
+        (x) => x.id === answer.id && x.role === MessageType.Assistant,
+      );
 
       if (idx !== -1) {
         return pre.map((x) => {
-          if (x.id === answer.id) {
+          if (x.id === answer.id && x.role === MessageType.Assistant) {
             const previousContent = String(x.content ?? '');
             const incomingContent = answer.answer ?? '';
             const shouldPreserveProcess =

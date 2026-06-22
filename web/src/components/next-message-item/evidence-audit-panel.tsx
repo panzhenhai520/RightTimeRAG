@@ -42,6 +42,23 @@ export function EvidenceAuditPanel({ audit }: IProps) {
 
   const retrieval = audit.retrieval;
   const warnings = audit.warnings ?? [];
+  const candidateChunks = retrieval.candidate_chunks ?? 0;
+  const candidateDocs = retrieval.candidate_docs ?? 0;
+  const selectedChunks = retrieval.selected_chunks ?? 0;
+  const hasEvidenceDetails =
+    (audit.evidence ?? []).length > 0 ||
+    (audit.answer_basis ?? []).length > 0 ||
+    (audit.answer_evidence_plan ?? []).length > 0 ||
+    warnings.length > 0;
+
+  if (
+    candidateChunks === 0 &&
+    candidateDocs === 0 &&
+    selectedChunks === 0 &&
+    !hasEvidenceDetails
+  ) {
+    return null;
+  }
 
   return (
     <section className="mt-2 w-full max-w-3xl rounded-md border border-[#d9c7cf] bg-white/72 p-3 text-sm text-slate-700 shadow-sm dark:border-[#38546a] dark:bg-[#142637]/72 dark:text-slate-100">
@@ -56,9 +73,9 @@ export function EvidenceAuditPanel({ audit }: IProps) {
         </span>
         <span className="inline-flex items-center gap-3 text-xs text-slate-500 dark:text-slate-300">
           {t('chat.evidenceAuditStats', {
-            chunks: retrieval.candidate_chunks ?? 0,
-            docs: retrieval.candidate_docs ?? 0,
-            selected: retrieval.selected_chunks ?? 0,
+            chunks: candidateChunks,
+            docs: candidateDocs,
+            selected: selectedChunks,
           })}
           {expanded ? (
             <ChevronUp className="size-4" />

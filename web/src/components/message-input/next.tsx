@@ -1,5 +1,6 @@
 'use client';
 
+import { Ds4HealthBar } from '@/components/ds4-health-bar';
 import {
   FileUpload,
   FileUploadDropzone,
@@ -15,13 +16,18 @@ import {
 import { Button } from '@/components/ui/button';
 import { RAGFlowSelect, RAGFlowSelectOptionType } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useFetchKnowledgeList } from '@/hooks/use-knowledge-request';
 import { cn } from '@/lib/utils';
 import { t } from 'i18next';
 import {
-  Atom,
   ArrowUp,
   BookMarked,
+  Brain,
   CircleStop,
   Globe,
   Paperclip,
@@ -288,23 +294,34 @@ export function NextMessageInput({
             )}
 
             {showReasoning && (
-              <Button
-                type="button"
-                size="sm"
-                variant={'outline'}
-                className={cn(
-                  'h-7 border-0 bg-[#8b4c36]/8 text-sm text-[#6f3f2f] hover:bg-[#8b4c36]/14 dark:bg-[#dceef8]/10 dark:text-[#d6eefb] dark:hover:bg-[#dceef8]/16',
-                  {
-                    'bg-[#79394d] text-white hover:bg-[#8f4660] dark:bg-[#2d5f80] dark:text-white dark:hover:bg-[#376f94]':
-                      enableThinking,
-                  },
-                )}
-                onClick={handleThinkingToggle}
-                data-testid="chat-detail-thinking-toggle"
-              >
-                <Atom />
-                <span>{t('chat.deepThinking')}</span>
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant={'outline'}
+                    className={cn(
+                      'h-7 w-7 rounded-full border-0 bg-[#8b4c36]/8 text-[#6f3f2f] hover:bg-[#8b4c36]/14 dark:bg-[#dceef8]/10 dark:text-[#d6eefb] dark:hover:bg-[#dceef8]/16',
+                      {
+                        'bg-[#79394d] text-white hover:bg-[#8f4660] dark:bg-[#2d5f80] dark:text-white dark:hover:bg-[#376f94]':
+                          enableThinking,
+                      },
+                    )}
+                    onClick={handleThinkingToggle}
+                    aria-label={t('chat.deepThinking')}
+                    title={t('chat.deepThinking')}
+                    data-testid="chat-detail-thinking-toggle"
+                  >
+                    <Brain className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  {t('chat.deepThinkingTip', {
+                    defaultValue:
+                      'Enable a deeper reasoning path for complex questions. It may search and reason more carefully, but responses can take longer.',
+                  })}
+                </TooltipContent>
+              </Tooltip>
             )}
 
             <RAGFlowSelect
@@ -316,6 +333,21 @@ export function NextMessageInput({
               triggerTestId="chat-detail-kb-select"
               optionTestIdPrefix="chat-detail-kb-option"
             />
+
+            {showInternet && (
+              <Button
+                type="button"
+                variant={enableInternet ? 'accent' : 'transparent'}
+                size="icon-xs"
+                className="border-0"
+                onClick={handleInternetToggle}
+                title={t('search.enableWebSearch')}
+                aria-label={t('search.enableWebSearch')}
+                data-testid="chat-detail-internet-toggle"
+              >
+                <Globe />
+              </Button>
+            )}
 
             {onAddToMemory && (
               <Button
@@ -332,30 +364,20 @@ export function NextMessageInput({
                 <span>{t('chat.addToMemory')}</span>
               </Button>
             )}
-
-            {showInternet && (
-              <Button
-                type="button"
-                variant={enableInternet ? 'accent' : 'transparent'}
-                size="icon-xs"
-                className="border-0"
-                onClick={handleInternetToggle}
-                data-testid="chat-detail-internet-toggle"
-              >
-                <Globe />
-              </Button>
-            )}
           </div>
 
           {sendLoading ? (
-            <Button
-              data-testid="chat-stream-status"
-              onClick={stopOutputMessage}
+            <div className="flex items-center gap-3">
+              <Ds4HealthBar />
+              <Button
+                data-testid="chat-stream-status"
+                onClick={stopOutputMessage}
                 size="icon-xs"
                 className="rounded-full bg-[#79394d] hover:bg-[#8f4660] dark:bg-[#2d5f80] dark:hover:bg-[#376f94]"
-            >
-              <CircleStop />
-            </Button>
+              >
+                <CircleStop />
+              </Button>
+            </div>
           ) : (
             <div className="flex items-center gap-3">
               <AudioButton
@@ -364,6 +386,7 @@ export function NextMessageInput({
                 }}
                 testId="chat-detail-audio-toggle"
               />
+              <Ds4HealthBar />
 
               <Button
                 size="icon"

@@ -33,6 +33,7 @@ export default {
   deleteLlm: `${webAPI}/llm/delete_llm`,
   enableLlm: `${webAPI}/llm/enable_llm`,
   deleteFactory: `${webAPI}/llm/delete_factory`,
+  ds4Status: `${webAPI}/llm/ds4/status`,
 
   // data source
   dataSourceUpdate: (id: string) => `${restAPIv1}/connectors/${id}`,

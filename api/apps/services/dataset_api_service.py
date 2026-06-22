@@ -921,6 +921,7 @@ async def search(dataset_id: str, tenant_id: str, req: dict):
     from api.db.services.llm_service import LLMBundle
     from api.db.services.search_service import SearchService
     from api.db.services.user_service import UserTenantService
+    from api.utils.cross_language_utils import resolve_auto_cross_languages
     from common.constants import LLMType
     from common.metadata_utils import apply_meta_data_filter
     from rag.app.tag import label_question
@@ -971,7 +972,7 @@ async def search(dataset_id: str, tenant_id: str, req: dict):
         vector_similarity_weight = float(search_config.get("vector_similarity_weight", vector_similarity_weight))
         top = max(1, min(int(search_config.get("top_k", top)), 2048))
         use_kg = search_config.get("use_kg", use_kg)
-        langs = search_config.get("cross_languages", langs)
+        langs = search_config.get("cross_languages") or search_config.get("chat_settingcross_languages", langs)
         logging.debug(
             "Dataset search loaded Search config: search_id=%s dataset_id=%s "
             "vector_similarity_weight=%s full_text_weight=%s similarity_threshold=%s top_k=%s",
@@ -1016,6 +1017,7 @@ async def search(dataset_id: str, tenant_id: str, req: dict):
         return False, "Only owner of dataset authorized for this operation."
 
     _question = question
+    langs = resolve_auto_cross_languages([dataset_id], _question, langs, kb_loader=lambda _kb_id: kb)
     if langs:
         _question = await cross_languages(kb.tenant_id, None, _question, langs)
     if kb.tenant_embd_id:
@@ -1302,6 +1304,7 @@ async def search_datasets(tenant_id: str, req: dict):
     from api.db.services.llm_service import LLMBundle
     from api.db.services.search_service import SearchService
     from api.db.services.user_service import UserTenantService
+    from api.utils.cross_language_utils import resolve_auto_cross_languages
     from common.constants import LLMType
     from common.metadata_utils import apply_meta_data_filter
     from rag.app.tag import label_question
@@ -1359,7 +1362,7 @@ async def search_datasets(tenant_id: str, req: dict):
         vector_similarity_weight = float(search_config.get("vector_similarity_weight", vector_similarity_weight))
         top = max(1, min(int(search_config.get("top_k", top)), 2048))
         use_kg = search_config.get("use_kg", use_kg)
-        langs = search_config.get("cross_languages", langs)
+        langs = search_config.get("cross_languages") or search_config.get("chat_settingcross_languages", langs)
         logging.debug(
             "Dataset search loaded Search config: search_id=%s dataset_ids=%s "
             "vector_similarity_weight=%s full_text_weight=%s similarity_threshold=%s top_k=%s",
@@ -1406,6 +1409,8 @@ async def search_datasets(tenant_id: str, req: dict):
 
     kb = kbs[0]
     _question = question
+    kb_by_id = {dataset.id: dataset for dataset in kbs}
+    langs = resolve_auto_cross_languages(kb_ids, _question, langs, kb_loader=kb_by_id.get)
     if langs:
         _question = await cross_languages(kb.tenant_id, None, _question, langs)
     if kb.tenant_embd_id:

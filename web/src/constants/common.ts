@@ -115,6 +115,7 @@ export const LanguageAbbreviationMap = {
 };
 
 export const LanguageTranslationMap = {
+  'Multilingual/Auto': 'auto',
   English: 'en',
   Chinese: 'zh-Hans',
   'Traditional Chinese': 'zh-Hant',
@@ -165,7 +166,7 @@ export enum FileMimeType {
   Mp4 = 'video/mp4',
   Json = 'application/json',
   Md = 'text/markdown',
-  Mdx = 'text/markdown',
+  Mdx = 'text/x-mdx',
 }
 
 export const Domain = 'cloud.ragflow.io';

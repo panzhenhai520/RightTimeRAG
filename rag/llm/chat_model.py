@@ -22,11 +22,13 @@ import re
 import time
 from abc import ABC
 from copy import deepcopy
-from urllib.parse import urljoin
+from pathlib import Path
+from urllib.parse import urljoin, urlparse
 
 import json_repair
 import litellm
 import openai
+import requests
 from openai import AsyncOpenAI, OpenAI
 from enum import StrEnum
 
@@ -117,6 +119,7 @@ class Base(ABC):
         self.client = OpenAI(api_key=key, base_url=base_url, timeout=timeout)
         self.async_client = AsyncOpenAI(api_key=key, base_url=base_url, timeout=timeout)
         self.model_name = model_name
+        self.base_url = base_url
         # Configure retry parameters
         self.max_retries = kwargs.get("max_retries", int(os.environ.get("LLM_MAX_RETRIES", 5)))
         self.base_delay = kwargs.get("retry_interval", float(os.environ.get("LLM_BASE_DELAY", 2.0)))
@@ -188,6 +191,7 @@ class Base(ABC):
 
     async def _async_chat_streamly(self, history, gen_conf, **kwargs):
         logging.info("[HISTORY STREAMLY]" + json.dumps(history, ensure_ascii=False, indent=4))
+        await self._guard_local_ds4_health_async()
         reasoning_start = False
 
         request_kwargs = {"model": self.model_name, "messages": history, "stream": True, **gen_conf}
@@ -259,6 +263,112 @@ class Base(ABC):
             LLMErrorCode.ERROR_SERVER,
         }
 
+    def _is_local_ds4_endpoint(self) -> bool:
+        model_name = (self.model_name or "").lower()
+        if "deepseek-v4-flash" not in model_name:
+            return False
+        try:
+            parsed = urlparse(str(self.base_url or ""))
+        except Exception:
+            return False
+        return parsed.port == 8106 and parsed.hostname in {
+            "127.0.0.1",
+            "localhost",
+            "0.0.0.0",
+            "192.168.0.64",
+        }
+
+    def _local_ds4_models_url(self) -> str:
+        base_url = str(self.base_url or "").rstrip("/")
+        if base_url.endswith("/v1"):
+            return f"{base_url}/models"
+        return urljoin(f"{base_url}/", "v1/models")
+
+    def _read_local_ds4_health_status(self) -> dict:
+        status_file = Path(
+            os.environ.get(
+                "RAGFLOW_DS4_HEALTH_STATUS_FILE",
+                "/home/xsuper/app/newapp/runtime/ds4/ds4-health.json",
+            )
+        )
+        try:
+            if not status_file.exists():
+                return {}
+            return json.loads(status_file.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logging.debug("Failed to read local ds4 health status %s: %s", status_file, exc)
+            return {}
+
+    @staticmethod
+    def _local_ds4_health_requires_wait(status: dict) -> bool:
+        if not status:
+            return False
+        state = str(status.get("state") or "").lower()
+        if state in {"starting", "warming", "maintenance", "restarting", "degraded"}:
+            return True
+        try:
+            live_tokens = int(status.get("live_tokens") or 0)
+            restart_threshold = int(status.get("restart_threshold") or 0)
+        except (TypeError, ValueError):
+            return False
+        return restart_threshold > 0 and live_tokens >= restart_threshold
+
+    def _wait_for_local_ds4_health_ready(self) -> bool:
+        timeout = int(os.environ.get("LOCAL_DS4_READY_WAIT_SECONDS", "180"))
+        if timeout <= 0 or not self._is_local_ds4_endpoint():
+            return False
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            status = self._read_local_ds4_health_status()
+            if not self._local_ds4_health_requires_wait(status) and self._wait_for_local_ds4_ready():
+                return True
+            time.sleep(min(5, max(0.5, deadline - time.time())))
+        return False
+
+    async def _wait_for_local_ds4_health_ready_async(self) -> bool:
+        return await asyncio.to_thread(self._wait_for_local_ds4_health_ready)
+
+    def _guard_local_ds4_health(self) -> None:
+        if not self._is_local_ds4_endpoint():
+            return
+        status = self._read_local_ds4_health_status()
+        if self._local_ds4_health_requires_wait(status):
+            logging.warning(
+                "Local ds4 health status requires waiting before generation: %s",
+                json.dumps(status, ensure_ascii=False),
+            )
+            self._wait_for_local_ds4_health_ready()
+
+    async def _guard_local_ds4_health_async(self) -> None:
+        if not self._is_local_ds4_endpoint():
+            return
+        status = await asyncio.to_thread(self._read_local_ds4_health_status)
+        if self._local_ds4_health_requires_wait(status):
+            logging.warning(
+                "Local ds4 health status requires async waiting before generation: %s",
+                json.dumps(status, ensure_ascii=False),
+            )
+            await self._wait_for_local_ds4_health_ready_async()
+
+    def _wait_for_local_ds4_ready(self) -> bool:
+        timeout = int(os.environ.get("LOCAL_DS4_READY_WAIT_SECONDS", "180"))
+        if timeout <= 0:
+            return False
+        models_url = self._local_ds4_models_url()
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                response = requests.get(models_url, timeout=5)
+                if response.status_code == 200:
+                    return True
+            except Exception:
+                pass
+            time.sleep(min(5, max(0.5, deadline - time.time())))
+        return False
+
+    async def _wait_for_local_ds4_ready_async(self) -> bool:
+        return await asyncio.to_thread(self._wait_for_local_ds4_ready)
+
     def _should_retry(self, error_code: str) -> bool:
         return error_code in self._retryable_errors
 
@@ -268,6 +378,19 @@ class Base(ABC):
         error_code = self._classify_error(e)
         if attempt == self.max_retries:
             error_code = LLMErrorCode.ERROR_MAX_RETRIES
+
+        if (
+            error_code == LLMErrorCode.ERROR_CONNECTION
+            and self._is_local_ds4_endpoint()
+            and attempt < self.max_retries
+        ):
+            logging.warning(
+                "Local ds4 endpoint is unavailable; waiting for readiness before retry. attempt=%s/%s",
+                attempt + 1,
+                self.max_retries,
+            )
+            if self._wait_for_local_ds4_ready():
+                return None
 
         if self._should_retry(error_code):
             delay = self._get_delay()
@@ -284,6 +407,19 @@ class Base(ABC):
         error_code = self._classify_error(e)
         if attempt == self.max_retries:
             error_code = LLMErrorCode.ERROR_MAX_RETRIES
+
+        if (
+            error_code == LLMErrorCode.ERROR_CONNECTION
+            and self._is_local_ds4_endpoint()
+            and attempt < self.max_retries
+        ):
+            logging.warning(
+                "Local ds4 endpoint is unavailable; waiting for readiness before async retry. attempt=%s/%s",
+                attempt + 1,
+                self.max_retries,
+            )
+            if await self._wait_for_local_ds4_ready_async():
+                return None
 
         if self._should_retry(error_code):
             delay = self._get_delay()
@@ -580,6 +716,7 @@ class Base(ABC):
 
     async def _async_chat(self, history, gen_conf, **kwargs):
         logging.info("[HISTORY]" + json.dumps(history, ensure_ascii=False, indent=2))
+        await self._guard_local_ds4_health_async()
         if self.model_name.lower().find("qwq") >= 0:
             logging.info(f"[INFO] {self.model_name} detected as reasoning model, using async_chat_streamly")
 

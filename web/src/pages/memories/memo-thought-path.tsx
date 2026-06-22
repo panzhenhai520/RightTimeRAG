@@ -28,6 +28,7 @@ import type {
   DeleteMemoryProfileTopicMergesPayload,
   IMemoThoughtEdge,
   IMemoThoughtEvent,
+  IMemoThoughtPrediction,
   IMemoThoughtProfile,
   MergeMemoryProfileTopicsPayload,
 } from './interface';
@@ -72,6 +73,57 @@ const EDGE_LABELS: Record<string, string> = {
   bridge: 'Bridge',
   association: 'Association',
 };
+
+const ASKED_PREDICTION_STORAGE_KEY = 'panython:memo-profile:asked-predictions';
+
+function normalizePredictionQuestion(question?: string) {
+  return (question || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function readAskedPredictionKeys() {
+  if (typeof window === 'undefined') return new Set<string>();
+  try {
+    const raw = window.localStorage.getItem(ASKED_PREDICTION_STORAGE_KEY);
+    const items = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(items)) return new Set<string>();
+    return new Set(
+      items
+        .map((item) => normalizePredictionQuestion(item?.question))
+        .filter(Boolean),
+    );
+  } catch {
+    return new Set<string>();
+  }
+}
+
+function rememberAskedPrediction(prediction: IMemoThoughtPrediction) {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = window.localStorage.getItem(ASKED_PREDICTION_STORAGE_KEY);
+    const items = raw ? JSON.parse(raw) : [];
+    const existingItems = Array.isArray(items) ? items : [];
+    const normalized = normalizePredictionQuestion(prediction.question);
+    const nextItems = [
+      {
+        id: prediction.id,
+        question: prediction.question,
+        topics: prediction.topics,
+        stage: prediction.stage,
+        topic_key: prediction.topic_key,
+        asked_at: Date.now(),
+      },
+      ...existingItems.filter(
+        (item) => normalizePredictionQuestion(item?.question) !== normalized,
+      ),
+    ].slice(0, 100);
+    window.localStorage.setItem(
+      ASKED_PREDICTION_STORAGE_KEY,
+      JSON.stringify(nextItems),
+    );
+  } catch {
+    // Local storage is a convenience signal only. Profile generation still works without it.
+  }
+}
 
 const ALGORITHM_NOTE_URLS: Record<string, string> = {
   'BERTopic: Neural topic modeling with a class-based TF-IDF procedure':
@@ -187,6 +239,13 @@ export function MemoThoughtPath({
     () => profile.topic_merge_suggestions ?? [],
     [profile.topic_merge_suggestions],
   );
+  const visiblePredictions = useMemo(() => {
+    const askedKeys = readAskedPredictionKeys();
+    return (profile.predictions ?? []).filter(
+      (prediction) =>
+        !askedKeys.has(normalizePredictionQuestion(prediction.question)),
+    );
+  }, [profile.predictions]);
   const activeTopicMerges = useMemo(
     () => Object.entries(profile.topic_merges?.rules ?? {}),
     [profile.topic_merges?.rules],
@@ -386,9 +445,10 @@ export function MemoThoughtPath({
     navigate(`${Routes.Memory}${Routes.MemoryMessage}/${memoryId}`);
   };
 
-  const askPrediction = (question: string) => {
+  const askPrediction = (prediction: IMemoThoughtPrediction) => {
+    rememberAskedPrediction(prediction);
     const params = new URLSearchParams();
-    params.set(ChatSearchParams.SuggestedQuestion, question);
+    params.set(ChatSearchParams.SuggestedQuestion, prediction.question);
     navigate(`${Routes.Chats}?${params.toString()}`);
   };
 
@@ -873,7 +933,7 @@ export function MemoThoughtPath({
             </div>
           ) : null}
 
-          {!!profile.predictions.length && (
+          {!!visiblePredictions.length && (
             <div className="mt-5 border-t border-border pt-5">
               <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-primary">
                 <Sparkles className="size-4 text-accent-primary" />
@@ -882,12 +942,12 @@ export function MemoThoughtPath({
                 })}
               </div>
               <div className="space-y-2">
-                {profile.predictions.slice(0, 4).map((prediction, index) => (
+                {visiblePredictions.slice(0, 4).map((prediction, index) => (
                   <button
                     key={`${prediction.question}-${index}`}
                     type="button"
                     className="w-full rounded-lg border border-border bg-bg-base px-3 py-2 text-left text-sm leading-5 text-text-primary transition hover:border-accent-primary hover:bg-accent-primary/5"
-                    onClick={() => askPrediction(prediction.question)}
+                    onClick={() => askPrediction(prediction)}
                   >
                     <span className="block font-medium">
                       {prediction.question}

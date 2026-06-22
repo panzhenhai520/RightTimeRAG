@@ -138,10 +138,14 @@ export interface IMemoThoughtEdge {
 }
 
 export interface IMemoThoughtPrediction {
+  id?: string;
   question: string;
   reason: string;
   evidence_event_ids: string[];
   topics: string[];
+  stage?: string;
+  progress_level?: number;
+  topic_key?: string;
 }
 
 export interface IMemoThoughtAlgorithmNote {

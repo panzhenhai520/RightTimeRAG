@@ -311,7 +311,10 @@ async def list_memory(filter_params: dict, keywords: str, page: int=1, page_size
     :param page: int
     :param page_size: int
     """
-    filter_dict: dict = {"storage_type": filter_params.get("storage_type"), "accessible_user_id": current_user.id}
+    filter_dict: dict = {"accessible_user_id": current_user.id}
+    storage_types = _split_filter_values(filter_params.get("storage_type"))
+    if storage_types:
+        filter_dict["storage_type"] = storage_types
     allowed_tenant_ids = _joined_tenant_ids(current_user.id)
     tenant_ids = _split_filter_values(filter_params.get("tenant_id") or filter_params.get("owner_ids"))
     if tenant_ids:

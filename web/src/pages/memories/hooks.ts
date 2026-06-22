@@ -80,7 +80,7 @@ export const useFetchMemoryList = (options?: FixedPaginationOptions) => {
     page_size: requestPagination.pageSize,
     page: requestPagination.current,
     memory_type: memoryType.length > 0 ? memoryType.join(',') : undefined,
-    storage_type: storageType.length === 1 ? storageType[0] : undefined,
+    storage_type: storageType.length > 0 ? storageType.join(',') : undefined,
   };
 
   if (Array.isArray(owner) && owner.length > 0) {
@@ -413,6 +413,7 @@ export const useRenameMemory = () => {
 };
 
 export function useSelectFilters() {
+  const { t } = useTranslation();
   const { data: res } = useFetchMemoryList();
   const data = res?.data;
 
@@ -427,19 +428,22 @@ export function useSelectFilters() {
     );
   }, [data?.memory_list]);
 
+  const ownerFilter = buildOwnersFilter(data?.memory_list ?? [], 'owner_name');
+  ownerFilter.label = t('memories.owner', { defaultValue: 'Owner' });
+
   const filters: FilterCollection[] = [
-    buildOwnersFilter(data?.memory_list ?? [], 'owner_name'),
+    ownerFilter,
     {
       field: 'memoryType',
       list: memoryType,
-      label: 'Memory Type',
+      label: t('memories.memoryType', { defaultValue: 'Memory type' }),
     },
     {
       field: 'storageType',
       list: storageType,
-      label: 'Storage Type',
+      label: t('memory.config.storageType', { defaultValue: 'Storage type' }),
     },
   ];
 
-  return { filters };
+  return { filters, totalCount: data?.total_count ?? 0 };
 }

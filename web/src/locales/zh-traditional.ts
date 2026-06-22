@@ -39,6 +39,8 @@ export default {
       pleaseSelect: '請選擇',
       pleaseInput: '請輸入',
       submit: '提交',
+      clear: '清空',
+      filterSelectedCount: '篩選。已選擇 {{count}} 個條件。',
       embedIntoSite: '嵌入網站',
       openInNewTab: '在新標籤頁中聊天',
       previousPage: '上一頁',
@@ -216,6 +218,7 @@ export default {
       operation_chat_assistant_group_change: '聊天助手改組',
       operation_chat_assistant_knowledgebases_update: '修改助手知識庫',
       operation_chat_assistant_delete: '刪除聊天助手',
+      operation_chat_message_delete: '刪除聊天問答輪次',
       userAccountsTitle: '用戶賬號',
       userAccountsDescription:
         '刪除用戶前必須先移除其用戶組關係，並遷移或刪除其名下資源；當前登入用戶不能刪除。',
@@ -296,6 +299,36 @@ export default {
       ttsVoiceMaleCantonese: '男聲 / 粵語 / 標準',
       ttsVoiceFemaleEnglish: '女聲 / 英語 / 標準',
       ttsVoiceMaleEnglish: '男聲 / 英語 / 標準',
+    },
+    memories: {
+      raw: '原始',
+      semantic: '語義',
+      episodic: '情景',
+      procedural: '程序',
+      memory: '記憶',
+      memoryType: '記憶類型',
+      filterResultCount: '顯示 {{current}} / {{total}} 個',
+      owner: '所有者',
+      chatMemo: '聊天備忘錄',
+      spacetime: {
+        reset: '重置視圖',
+        canvasTip:
+          '鼠標滾輪滾動時間軸；按住空白處拖拽移動日期；Ctrl/Command + 滾輪縮放。',
+        relationTooltipTitle: '關係說明',
+        relationType: '關係類型',
+        relationStrength: '關聯強度',
+        relationReason:
+          '這兩個備忘錄主題之所以被連接，是因為它們共享以下提取信號：{{terms}}。',
+        relationTypes: {
+          sharedTopic: '共享核心主題',
+          sharedKeywords: '共享關鍵詞',
+          crossLanguageTopic: '跨語言同義線索',
+        },
+      },
+      profile: {
+        openProfile: '打開思維畫像',
+        openingProfile: '正在打開思維畫像...',
+      },
     },
     knowledgeList: {
       welcome: '歡迎回來',
@@ -686,6 +719,13 @@ export default {
         '備忘錄主題（可選）。留空則使用會話中的首個問題作為主題，內容會先寫入備忘錄。',
       addToMemoryTopicPlaceholder: '輸入一個簡短主題',
       viewMemory: '查看備忘錄',
+      deepThinking: '深度思考',
+      deepThinkingTip:
+        '開啟後，本次問題會啟用更深入的推理路徑，適合複雜分析、多步推理和需要更細證據整理的問題；回答可能更慢，也會佔用更多上下文。',
+      deleteTurn: '刪除此輪問答',
+      deleteTurnTitle: '刪除此輪問答？',
+      deleteTurnDescription:
+        '將從當前會話中移除選中的問題及其回答。刪除後，這些內容不會在加入備忘錄時被整理進備忘錄。',
       evidenceAudit: '證據分析',
       evidenceAuditStats:
         '召回 {{chunks}} 個片段 / {{docs}} 個文檔，引用 {{selected}} 個',

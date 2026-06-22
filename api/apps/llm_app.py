@@ -17,6 +17,10 @@ import asyncio
 import logging
 import json
 import os
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
 from quart import request
 
 from api.apps import login_required, current_user
@@ -25,6 +29,142 @@ from api.db.services.llm_service import LLMService
 from api.utils.api_utils import get_allowed_llm_factories, get_data_error_result, get_json_result, get_request_json, server_error_response, validate_request
 from common.constants import StatusEnum, LLMType
 from api.db.db_models import TenantLLM
+
+
+DS4_HEALTH_STATUS_FILE = Path(
+    os.environ.get(
+        "RAGFLOW_DS4_HEALTH_STATUS_FILE",
+        "/home/xsuper/app/newapp/runtime/ds4/ds4-health.json",
+    )
+)
+DS4_HEALTH_STALE_SECONDS = int(
+    os.environ.get("RAGFLOW_DS4_HEALTH_STALE_SECONDS", "120")
+)
+XINFERENCE_DEFAULT_MODEL_ENDPOINTS = [
+    item.strip()
+    for item in os.environ.get(
+        "RAGFLOW_XINFERENCE_MODEL_ENDPOINTS",
+        "http://127.0.0.1:9997/v1/models,http://127.0.0.1:9998/v1/models",
+    ).split(",")
+    if item.strip()
+]
+XINFERENCE_MODEL_LIST_TIMEOUT = float(
+    os.environ.get("RAGFLOW_XINFERENCE_MODEL_LIST_TIMEOUT", "0.8")
+)
+
+
+def _build_ds4_health_level(payload: dict) -> str:
+    state = str(payload.get("state") or "").lower()
+    if state in {"maintenance", "restarting"}:
+        return "critical"
+    if state in {"starting", "warming", "degraded"}:
+        return "warning"
+    usage_percent = payload.get("usage_percent")
+    try:
+        usage = float(usage_percent)
+    except (TypeError, ValueError):
+        return "unknown"
+    if usage >= 87:
+        return "critical"
+    if usage >= 80:
+        return "warning"
+    if usage >= 65:
+        return "watch"
+    return "healthy"
+
+
+def _normalize_xinference_models_endpoint(api_base: str | None) -> str | None:
+    api_base = (api_base or "").strip()
+    if not api_base:
+        return None
+    if not api_base.startswith(("http://", "https://")):
+        api_base = f"http://{api_base}"
+    api_base = api_base.rstrip("/")
+    if api_base.endswith("/v1/models"):
+        return api_base
+    if api_base.endswith("/v1"):
+        return f"{api_base}/models"
+    return f"{api_base}/v1/models"
+
+
+def _fetch_xinference_loaded_model_ids(objs) -> set[str]:
+    endpoints = set(XINFERENCE_DEFAULT_MODEL_ENDPOINTS)
+    for obj in objs:
+        if getattr(obj, "llm_factory", None) != "Xinference":
+            continue
+        endpoint = _normalize_xinference_models_endpoint(getattr(obj, "api_base", None))
+        if endpoint:
+            endpoints.add(endpoint)
+
+    loaded: set[str] = set()
+    for endpoint in endpoints:
+        try:
+            with urllib.request.urlopen(endpoint, timeout=XINFERENCE_MODEL_LIST_TIMEOUT) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            for model in payload.get("data") or []:
+                for key in ("id", "model_name"):
+                    value = str(model.get(key) or "").strip().lower()
+                    if value:
+                        loaded.add(value)
+        except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
+            logging.info("Skip unavailable Xinference model endpoint %s: %s", endpoint, exc)
+    return loaded
+
+
+def _is_xinference_model_loaded(model_name: str, loaded_model_ids: set[str]) -> bool:
+    if not loaded_model_ids:
+        return True
+    name = str(model_name or "").strip().lower()
+    if not name:
+        return False
+    candidates = {name, Path(name).name.lower()}
+    return bool(candidates & loaded_model_ids)
+
+
+@manager.route("/ds4/status", methods=["GET"])  # noqa: F821
+@login_required
+def ds4_status():
+    now = int(time.time())
+    default_payload = {
+        "service": "ds4-server-ragflow.service",
+        "base_url": os.environ.get(
+            "RAGFLOW_DS4_MODELS_URL",
+            "http://127.0.0.1:8106/v1/models",
+        ).replace("/v1/models", ""),
+        "state": "unknown",
+        "reason": "health_status_missing",
+        "ready": False,
+        "context_length": 131072,
+        "live_tokens": None,
+        "remaining_tokens": None,
+        "usage_percent": None,
+        "restart_threshold": None,
+        "min_free_tokens": None,
+        "restart_count": None,
+        "updated_at": None,
+        "stale": True,
+    }
+    try:
+        if DS4_HEALTH_STATUS_FILE.exists():
+            payload = json.loads(DS4_HEALTH_STATUS_FILE.read_text(encoding="utf-8"))
+        else:
+            payload = default_payload
+        updated_at = payload.get("updated_at")
+        stale = True
+        if isinstance(updated_at, (int, float)):
+            stale = now - int(updated_at) > DS4_HEALTH_STALE_SECONDS
+        payload["stale"] = stale
+        if stale and payload.get("state") == "ready":
+            payload["state"] = "degraded"
+            payload["reason"] = "health_status_stale"
+            payload["ready"] = False
+        payload["level"] = _build_ds4_health_level(payload)
+        return get_json_result(data=payload)
+    except Exception as e:
+        logging.exception("Failed to read DS4 health status")
+        fallback = {**default_payload, "reason": f"health_status_error: {e}"}
+        fallback["level"] = "unknown"
+        return get_json_result(data=fallback)
 
 
 def _resolve_my_llm_is_tools(o_dict: dict) -> bool:
@@ -517,20 +657,28 @@ async def list_app():
     try:
         TenantLLMService.ensure_mineru_from_env(tenant_id)
         objs = TenantLLMService.query(tenant_id=tenant_id)
+        xinference_loaded_model_ids = _fetch_xinference_loaded_model_ids(objs)
         facts = set([o.to_dict()["llm_factory"] for o in objs if o.api_key and o.status == StatusEnum.VALID.value])
         tenant_llm_mapping = {f"{o.llm_name}@{o.llm_factory}": o for o in objs}
         status = {(o.llm_name + "@" + o.llm_factory) for o in objs if o.status == StatusEnum.VALID.value}
         llms = LLMService.get_all()
         llms = [m.to_dict() for m in llms if m.status == StatusEnum.VALID.value and m.fid not in weighted and (m.fid == "Builtin" or (m.llm_name + "@" + m.fid) in status)]
+        filtered_llms = []
         for m in llms:
+            if m["fid"] == "Xinference" and not _is_xinference_model_loaded(m["llm_name"], xinference_loaded_model_ids):
+                continue
             m["id"] = tenant_llm_mapping.get(m["llm_name"] + "@" + m["fid"], TenantLLM(id=None)).id
             m["available"] = m["fid"] in facts or m["llm_name"].lower() == "flag-embedding" or m["fid"] in self_deployed
             if "tei-" in os.getenv("COMPOSE_PROFILES", "") and m["model_type"] == LLMType.EMBEDDING and m["fid"] == "Builtin" and m["llm_name"] == os.getenv("TEI_MODEL", ""):
                 m["available"] = True
+            filtered_llms.append(m)
+        llms = filtered_llms
 
         llm_set = set([m["llm_name"] + "@" + m["fid"] for m in llms])
         for o in objs:
             if o.llm_name + "@" + o.llm_factory in llm_set:
+                continue
+            if o.llm_factory == "Xinference" and not _is_xinference_model_loaded(o.llm_name, xinference_loaded_model_ids):
                 continue
             llms.append({"id": o.id, "llm_name": o.llm_name, "model_type": o.model_type, "fid": o.llm_factory, "available": True, "status": StatusEnum.VALID.value})
 

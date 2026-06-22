@@ -51,6 +51,7 @@ from api.utils.reference_metadata_utils import (
     enrich_chunks_with_document_metadata,
     resolve_reference_metadata_preferences,
 )
+from api.utils.cross_language_utils import resolve_auto_cross_languages
 from common import settings
 from common.constants import LLMType, ParserType, RetCode, TaskStatus
 from common.metadata_utils import convert_conditions, meta_filter
@@ -302,6 +303,8 @@ async def retrieval_test(tenant_id):
             rerank_model_config = get_model_config_by_type_and_name(kb.tenant_id, LLMType.RERANK, req["rerank_id"])
             rerank_mdl = LLMBundle(kb.tenant_id, rerank_model_config)
 
+        kb_by_id = {dataset.id: dataset for dataset in kbs}
+        langs = resolve_auto_cross_languages(kb_ids, question, langs, kb_loader=kb_by_id.get)
         if langs:
             question = await cross_languages(kb.tenant_id, None, question, langs)
         if req.get("keyword", False):

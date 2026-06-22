@@ -12,6 +12,7 @@ import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 const Languages = [
+  'Multilingual/Auto',
   'English',
   'Chinese',
   'Spanish',
@@ -25,7 +26,9 @@ const Languages = [
 ];
 
 export const crossLanguageOptions = Languages.map((x) => ({
-  label: t('language.' + toLower(x)),
+  label: t(
+    'language.' + (x === 'Multilingual/Auto' ? 'multilingualAuto' : toLower(x)),
+  ),
   value: x,
 }));
 

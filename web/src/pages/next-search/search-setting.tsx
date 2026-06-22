@@ -1,6 +1,7 @@
 // src/pages/next-search/search-setting.tsx
 
 import AvatarNameDescription from '@/components/avatar-name-description';
+import { CrossLanguageFormField } from '@/components/cross-language-form-field';
 import { KnowledgeBaseFormField } from '@/components/knowledge-base-item';
 import {
   LlmSettingFieldItems,
@@ -61,6 +62,7 @@ const SearchSettingFormSchema = z
     avatar: z.string().optional(),
     description: z.string().optional(),
     search_config: z.object({
+      cross_languages: z.array(z.string()).optional(),
       kb_ids: z.array(z.string()).min(1, 'At least one dataset is required'),
       vector_similarity_weight: z.number().min(0).max(1),
       web_search: z.boolean(),
@@ -156,7 +158,14 @@ const SearchSetting: React.FC<SearchSettingProps> = ({
             ? true
             : false,
         },
-        chat_settingcross_languages: [],
+        cross_languages:
+          search_config?.cross_languages ||
+          search_config?.chat_settingcross_languages ||
+          [],
+        chat_settingcross_languages:
+          search_config?.chat_settingcross_languages ||
+          search_config?.cross_languages ||
+          [],
         highlight: false,
         keyword: false,
         related_search: search_config?.related_search || false,
@@ -305,6 +314,7 @@ const SearchSetting: React.FC<SearchSettingProps> = ({
         ...other_formdata,
         search_config: {
           ...other_config,
+          cross_languages: other_config.chat_settingcross_languages || [],
           reference_metadata: normalizedReferenceMetadata,
           chat_id: llm_setting.llm_id,
           vector_similarity_weight,
@@ -344,15 +354,9 @@ const SearchSetting: React.FC<SearchSettingProps> = ({
       >
         <Form {...formMethods}>
           <form
-            onSubmit={formMethods.handleSubmit(
-              (data) => {
-                console.log('Form submitted with data:', data);
-                onSubmit(data as unknown as IUpdateSearchProps);
-              },
-              (errors) => {
-                console.log('Validation errors:', errors);
-              },
-            )}
+            onSubmit={formMethods.handleSubmit((data) => {
+              onSubmit(data as unknown as IUpdateSearchProps);
+            })}
             className="space-y-6"
           >
             <AvatarNameDescription avatarField="avatar" />
@@ -361,6 +365,7 @@ const SearchSetting: React.FC<SearchSettingProps> = ({
               name="search_config.kb_ids"
               required
             ></KnowledgeBaseFormField>
+            <CrossLanguageFormField name="search_config.chat_settingcross_languages" />
             <MetadataFilter prefix="search_config."></MetadataFilter>
             <FormField
               control={formMethods.control}

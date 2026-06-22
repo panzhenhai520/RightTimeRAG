@@ -28,6 +28,7 @@ from api.db.services.llm_service import LLMBundle
 from api.db.services.memory_service import MemoryService
 from api.db.joint_services import memory_message_service
 from api.db.joint_services.tenant_model_service import get_model_config_by_type_and_name, get_tenant_default_model_by_type
+from api.utils.cross_language_utils import resolve_auto_cross_languages
 from common import settings
 from common.connection_utils import timeout
 from rag.app.tag import label_question
@@ -193,8 +194,15 @@ class Retrieval(ToolBase, ABC):
                 metas_loader=_load_metas,
             )
 
-        if self._param.cross_languages:
-            query = await cross_languages(kbs[0].tenant_id, None, query, self._param.cross_languages)
+        kb_by_id = {kb.id: kb for kb in kbs}
+        cross_language_targets = resolve_auto_cross_languages(
+            filtered_kb_ids,
+            query,
+            self._param.cross_languages,
+            kb_loader=kb_by_id.get,
+        )
+        if cross_language_targets:
+            query = await cross_languages(kbs[0].tenant_id, None, query, cross_language_targets)
 
         if kbs:
             query = re.sub(r"^user[:：\s]*", "", query, flags=re.IGNORECASE)

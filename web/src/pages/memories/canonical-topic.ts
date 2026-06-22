@@ -105,6 +105,26 @@ const STOP_WORDS = new Set([
   '问题',
 ]);
 
+const CJK_SHARED_CONCEPTS = [
+  '方程',
+  '函数',
+  '模型',
+  '算法',
+  '信托',
+  '法律',
+  '股票',
+  '案件',
+  '家族办公室',
+  '家族企业',
+  '财富管理',
+  '慈善',
+  '治理',
+  '传承',
+  '薪酬',
+  '租金',
+  '契诺',
+];
+
 export function normalizeTopicText(text: string) {
   return text
     .toLowerCase()
@@ -118,12 +138,23 @@ export function extractTopicKeywords(text: string, limit = 10) {
   const matches = text.match(
     /[\p{Script=Han}]{2,}|[A-Za-z][A-Za-z0-9.-]{2,}/gu,
   );
-  const keywords = (matches || [])
+  const baseKeywords = (matches || [])
     .map(normalizeTopicText)
-    .filter((x) => x.length > 1 && !STOP_WORDS.has(x))
-    .slice(0, limit);
+    .filter((x) => x.length > 1 && !STOP_WORDS.has(x));
 
-  return Array.from(new Set(keywords));
+  const derivedConcepts = baseKeywords.flatMap((keyword) =>
+    CJK_SHARED_CONCEPTS.filter(
+      (concept) =>
+        keyword !== concept &&
+        keyword.includes(concept) &&
+        !STOP_WORDS.has(concept),
+    ),
+  );
+
+  return Array.from(new Set([...baseKeywords, ...derivedConcepts])).slice(
+    0,
+    limit,
+  );
 }
 
 function ruleMatches(rule: TopicRule, text: string) {

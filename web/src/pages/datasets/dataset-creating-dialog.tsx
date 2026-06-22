@@ -1,4 +1,5 @@
 import { DataFlowSelect } from '@/components/data-pipeline-select';
+import { SelectWithSearch } from '@/components/originui/select-with-search';
 import { ButtonLoading } from '@/components/ui/button';
 import {
   Dialog,
@@ -17,13 +18,14 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { LanguageTranslationMap } from '@/constants/common';
 import { FormLayout } from '@/constants/form';
 import { ParseType } from '@/constants/knowledge';
 import { useFetchTenantInfo } from '@/hooks/use-user-setting-request';
 import { IModalProps } from '@/interfaces/common';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { omit } from 'lodash';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
@@ -56,6 +58,7 @@ export function InputForm({ onOk }: IModalProps<any>) {
           message: t('knowledgeConfiguration.embeddingModelPlaceholder'),
         })
         .trim(),
+      language: z.string().optional(),
       [ChunkMethodName]: z.string().optional(),
       pipeline_id: z.string().optional(),
     })
@@ -88,8 +91,19 @@ export function InputForm({ onOk }: IModalProps<any>) {
       parseType: ParseType.BuiltIn,
       [ChunkMethodName]: '',
       embedding_model: tenantInfo?.embd_id,
+      language: 'Multilingual/Auto',
     },
   });
+
+  const languageOptions = useMemo(() => {
+    return Object.keys(LanguageTranslationMap).map((language) => ({
+      label:
+        language === 'Multilingual/Auto'
+          ? t('language.multilingualAuto')
+          : language,
+      value: language,
+    }));
+  }, [t]);
 
   const parseType = useWatch({
     control: form.control,
@@ -141,6 +155,24 @@ export function InputForm({ onOk }: IModalProps<any>) {
         />
 
         <EmbeddingModelItem line={2} isEdit={false} />
+        <FormField
+          control={form.control}
+          name="language"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('common.language')}</FormLabel>
+              <FormControl>
+                <SelectWithSearch
+                  {...field}
+                  options={languageOptions}
+                  triggerClassName="w-full"
+                  placeholder={t('common.languagePlaceholder')}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <ParseTypeItem />
         {parseType === ParseType.BuiltIn && (
           <ChunkMethodItem name={ChunkMethodName}></ChunkMethodItem>

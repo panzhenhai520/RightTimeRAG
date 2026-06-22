@@ -6,6 +6,7 @@ import React, {
   ReactNode,
   useMemo,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { HomeIcon } from '../svg-icon';
 import { Button, ButtonProps } from '../ui/button';
 import { SearchInput } from '../ui/input';
@@ -75,6 +76,7 @@ export default function ListFilterBar({
   iconClassName?: string;
   filterGroup?: Record<string, string[]>;
 }) {
+  const { t } = useTranslation();
   const filterCount = useMemo(() => {
     return typeof value === 'object' && value !== null
       ? Object.values(value).reduce((pre, cur) => {
@@ -119,7 +121,17 @@ export default function ListFilterBar({
             filterGroup={filterGroup}
             onOpenChange={onOpenChange}
           >
-            <FilterButton count={filterCount}></FilterButton>
+            <FilterButton
+              count={filterCount}
+              aria-label={t('common.filterSelectedCount', {
+                count: filterCount,
+                defaultValue: 'Filter. {{count}} selected.',
+              })}
+              title={t('common.filterSelectedCount', {
+                count: filterCount,
+                defaultValue: 'Filter. {{count}} selected.',
+              })}
+            ></FilterButton>
           </FilterPopover>
         )}
 

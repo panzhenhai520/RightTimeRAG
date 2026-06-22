@@ -85,7 +85,7 @@ TOPIC_RULES: tuple[TopicRule, ...] = (
     TopicRule(
         id="topic:trust-law",
         label="Trust law",
-        aliases=["Trust law", "trust", "信托", "受托人", "受托人条例"],
+        aliases=["Trust law", "Trust Ordinance", "Trustee Ordinance", "trust", "信托", "信托法", "信托条例", "受托人", "受托人条例"],
         language="multi",
         triggers=(
             _compile(r"trustee|trust law|trust ordinance|covenant|rentcharge"),
@@ -189,4 +189,3 @@ def infer_canonical_topic(text: str | None) -> CanonicalTopic:
         language="zh" if re.search(r"[\u4e00-\u9fff]", normalized) else "en",
         confidence=0.45,
     )
-

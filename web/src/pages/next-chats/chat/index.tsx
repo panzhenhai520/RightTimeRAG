@@ -32,6 +32,7 @@ export default function Chat() {
     useHandleClickConversationCard();
 
   const { isDebugMode, switchDebugMode } = useSwitchDebugMode();
+  const [isGenerating, setIsGenerating] = useState(false);
   const { removeChatBox, addChatBox, chatBoxIds, hasSingleChatBox } =
     useAddChatBox(isDebugMode);
 
@@ -80,6 +81,12 @@ export default function Chat() {
           <div className="mb-5">
             <Button
               variant="outline"
+              disabled={isGenerating}
+              title={
+                isGenerating
+                  ? t('chat.waitForGenerationBeforeSwitch')
+                  : undefined
+              }
               onClick={switchDebugMode}
               data-testid="chat-detail-multimodel-back"
             >
@@ -100,6 +107,7 @@ export default function Chat() {
           addChatBox={addChatBox}
           stopOutputMessage={stopOutputMessage}
           conversation={currentConversation}
+          onLoadingChange={setIsGenerating}
         ></MultipleChatBox>
       </section>
     );
@@ -124,6 +132,12 @@ export default function Chat() {
 
                     <Button
                       variant="ghost"
+                      disabled={isGenerating}
+                      title={
+                        isGenerating
+                          ? t('chat.waitForGenerationBeforeSwitch')
+                          : undefined
+                      }
                       onClick={switchDebugMode}
                       data-testid="chat-detail-multimodel-toggle"
                     >
@@ -137,6 +151,7 @@ export default function Chat() {
                     controller={controller}
                     stopOutputMessage={stopOutputMessage}
                     conversation={currentConversation}
+                    onLoadingChange={setIsGenerating}
                   />
                 </CardContent>
               </Card>

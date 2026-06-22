@@ -185,12 +185,12 @@
   .reasoningLineStreaming {
     background: linear-gradient(
       110deg,
-      rgb(106, 106, 116) 0%,
-      rgb(106, 106, 116) 34%,
+      rgb(var(--text-secondary)) 0%,
+      rgb(var(--text-secondary)) 34%,
       rgb(255, 255, 255) 46%,
       rgb(25, 140, 110) 54%,
-      rgb(106, 106, 116) 66%,
-      rgb(106, 106, 116) 100%
+      rgb(var(--text-secondary)) 66%,
+      rgb(var(--text-secondary)) 100%
     );
     background-clip: text;
     background-size: 260% 100%;
@@ -227,17 +227,28 @@
 
   .processStageRunning {
     border-color: rgba(130, 90, 70, 0.22);
+    background: rgba(238, 238, 236, 0.5);
+    box-shadow: 0 2px 10px rgba(80, 70, 65, 0.08);
+    animation: stageAppear 220ms ease-out both;
+  }
+
+  .processStageRunning .processStageLabel,
+  .processStageRunning .processStageStatus {
     background: linear-gradient(
       110deg,
-      rgba(238, 238, 236, 0.82) 0%,
-      rgba(255, 255, 255, 0.96) 44%,
-      rgba(238, 238, 236, 0.82) 88%
+      rgb(var(--text-primary)) 0%,
+      rgb(var(--text-primary)) 34%,
+      rgb(255, 255, 255) 46%,
+      rgb(25, 140, 110) 54%,
+      rgb(var(--text-primary)) 66%,
+      rgb(var(--text-primary)) 100%
     );
-    background-size: 220% 100%;
-    box-shadow: 0 2px 10px rgba(80, 70, 65, 0.08);
-    animation:
-      stageAppear 220ms ease-out both,
-      stageShimmer 1.6s ease-in-out infinite;
+    background-clip: text;
+    background-size: 260% 100%;
+    color: transparent;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: reasoningLineShimmer 1.25s ease-in-out infinite;
   }
 
   .processStageDone {
@@ -296,15 +307,6 @@
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes stageShimmer {
-  0% {
-    background-position: 120% 0;
-  }
-  100% {
-    background-position: -120% 0;
   }
 }
 

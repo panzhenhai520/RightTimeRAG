@@ -49,6 +49,7 @@ from api.utils.reference_metadata_utils import (
     enrich_chunks_with_document_metadata,
     resolve_reference_metadata_preferences,
 )
+from api.utils.cross_language_utils import resolve_auto_cross_languages
 
 logger = logging.getLogger(__name__)
 
@@ -442,7 +443,7 @@ async def retrieval_test_embedded():
     search_config = {}
 
     async def _retrieval():
-        nonlocal similarity_threshold, vector_similarity_weight, top, rerank_id
+        nonlocal similarity_threshold, vector_similarity_weight, top, rerank_id, langs
         local_doc_ids = list(doc_ids) if doc_ids else []
         tenant_ids = []
         _question = question
@@ -471,6 +472,8 @@ async def retrieval_test_embedded():
                 top = int(search_config.get("top_k", top))
             if not req.get("rerank_id"):
                 rerank_id = search_config.get("rerank_id", "")
+            if not req.get("cross_languages"):
+                langs = search_config.get("cross_languages") or search_config.get("chat_settingcross_languages", langs)
         else:
             meta_data_filter = req.get("meta_data_filter") or {}
             if meta_data_filter.get("method") in ["auto", "semi_auto"]:
@@ -502,6 +505,8 @@ async def retrieval_test_embedded():
         if not e:
             return get_error_data_result(message="Knowledgebase not found!")
 
+        kb_by_id = {dataset.id: dataset for dataset in KnowledgebaseService.get_by_ids(kb_ids)}
+        langs = resolve_auto_cross_languages(kb_ids, _question, langs, kb_loader=kb_by_id.get)
         if langs:
             _question = await cross_languages(kb.tenant_id, None, _question, langs)
         if kb.tenant_embd_id:

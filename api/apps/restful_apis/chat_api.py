@@ -30,6 +30,7 @@ from types import SimpleNamespace
 from quart import Response, request
 
 from api.apps import current_user, login_required
+from api.db.db_models import UserManagementOperationLog
 from api.db.joint_services.tenant_model_service import (
     get_model_config_by_type_and_name,
     get_tenant_default_model_by_type,
@@ -89,6 +90,48 @@ _DEFAULT_DIRECT_CHAT_PROMPT_CONFIG = {
     "tts": False,
     "refine_multiturn": True,
 }
+
+_CHAT_MESSAGE_DELETE_LOG_LIMIT = 1200
+
+
+def _truncate_deleted_message_log_text(value, limit=_CHAT_MESSAGE_DELETE_LOG_LIMIT):
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        value = json.dumps(value, ensure_ascii=False)
+    value = _strip_memo_process_text(value)
+    value = re.sub(r"\s+", " ", value).strip()
+    if len(value) <= limit:
+        return value
+    return value[:limit].rstrip() + "..."
+
+
+def _write_chat_message_delete_log(chat_id, session_id, msg_id, deleted_messages):
+    try:
+        if not UserManagementOperationLog.table_exists():
+            UserManagementOperationLog.create_table(safe=True)
+        user_message = next((m for m in deleted_messages if m.get("role") == "user"), {})
+        assistant_message = next((m for m in deleted_messages if m.get("role") == "assistant"), {})
+        target_label = _truncate_deleted_message_log_text(user_message.get("content"), 180)
+        UserManagementOperationLog.create(
+            id=get_uuid(),
+            operator_id=current_user.id,
+            operator_label=getattr(current_user, "nickname", None) or getattr(current_user, "email", None) or current_user.id,
+            action="chat_message_delete",
+            target_type="chat_message",
+            target_id=msg_id,
+            target_label=target_label or msg_id,
+            tenant_id=getattr(current_user, "tenant_id", None),
+            details={
+                "chat_id": chat_id,
+                "session_id": session_id,
+                "message_id": msg_id,
+                "user": _truncate_deleted_message_log_text(user_message.get("content")),
+                "assistant": _truncate_deleted_message_log_text(assistant_message.get("content")),
+            },
+        )
+    except Exception:
+        logging.warning("Failed to write chat message delete log chat=%s session=%s msg=%s", chat_id, session_id, msg_id)
 _DEFAULT_RERANK_MODELS = {"BAAI/bge-reranker-v2-m3", "maidalun1020/bce-reranker-base_v1"}
 _READONLY_FIELDS = {"id", "tenant_id", "created_by", "create_time", "create_date", "update_time", "update_date"}
 _PERSISTED_FIELDS = set(DialogService.model._meta.fields)
@@ -1170,15 +1213,25 @@ async def delete_session_message(chat_id, session_id, msg_id):
         if not ok or conv.dialog_id != chat_id:
             return get_data_error_result(message="Session not found!")
         conv = conv.to_dict()
+        deleted_messages = []
         for i, msg in enumerate(conv["message"]):
             if msg_id != msg.get("id", ""):
                 continue
-            assert conv["message"][i + 1]["id"] == msg_id
+            if msg.get("role") != "user":
+                return get_data_error_result(message="Only user question messages can be deleted.")
+            if i + 1 >= len(conv["message"]) or conv["message"][i + 1].get("id") != msg_id:
+                return get_data_error_result(message="Message pair not found.")
+            deleted_messages = [conv["message"][i], conv["message"][i + 1]]
             conv["message"].pop(i)
             conv["message"].pop(i)
-            conv["reference"].pop(max(0, i // 2 - 1))
+            reference_index = max(0, i // 2 - 1)
+            if 0 <= reference_index < len(conv.get("reference") or []):
+                conv["reference"].pop(reference_index)
             break
+        if not deleted_messages:
+            return get_data_error_result(message="Message not found.")
         ConversationService.update_by_id(conv["id"], conv)
+        _write_chat_message_delete_log(chat_id, session_id, msg_id, deleted_messages)
         return get_json_result(data=_build_session_response(conv))
     except Exception as ex:
         return server_error_response(ex)

@@ -62,6 +62,7 @@ export default {
       pleaseInput: 'Please input',
       submit: 'Submit',
       clear: 'Clear',
+      filterSelectedCount: 'Filter. {{count}} selected.',
       embedIntoSite: 'Embed into webpage',
       openInNewTab: 'Chat in new tab',
       previousPage: 'Previous',
@@ -289,6 +290,7 @@ export default {
       operation_chat_assistant_knowledgebases_update:
         'Update assistant knowledge bases',
       operation_chat_assistant_delete: 'Delete chat assistant',
+      operation_chat_message_delete: 'Delete chat Q&A turn',
       userAccountsTitle: 'User accounts',
       userAccountsDescription:
         'Before deleting a user, remove their group relationships and move or delete owned resources. The current login user cannot be deleted.',
@@ -554,6 +556,8 @@ Procedural Memory: Learned skills, habits, and automated procedures.`,
       name: 'Name',
       memoryNamePlaceholder: 'memory name',
       memoryType: 'Memory type',
+      filterResultCount: '{{current}} / {{total}} visible',
+      owner: 'Owner',
       embeddingModel: 'Embedding model',
       selectModel: 'Select model',
       llm: 'LLM',
@@ -613,7 +617,17 @@ Procedural Memory: Learned skills, habits, and automated procedures.`,
         noSharedMemos: 'No shared related points yet.',
         connectionRule: 'Connection rule',
         connectionRuleDescription:
-          'A curve is drawn when two topics share at least one keyword, alias, or knowledge-base ID. The shared terms shown above are the explanation for the link. Isolated nodes have no shared signal under this rule.',
+          'A curve is drawn when two topics share at least one extracted signal from the topic, summary, or aliases. The shared signals shown above explain the link. Isolated nodes have no shared signal under this rule.',
+        relationTooltipTitle: 'Relation explanation',
+        relationType: 'Relation type',
+        relationStrength: 'Strength',
+        relationReason:
+          'These two memo topics are connected because they share the following extracted signals: {{terms}}.',
+        relationTypes: {
+          sharedTopic: 'Shared core topic',
+          sharedKeywords: 'Shared keywords',
+          crossLanguageTopic: 'Cross-language synonym clue',
+        },
         canvasTip:
           'Mouse wheel pans the time axis. Drag blank space to move dates. Ctrl/Command + wheel zooms.',
         dateAxis: 'Date',
@@ -625,6 +639,7 @@ Procedural Memory: Learned skills, habits, and automated procedures.`,
         entryDescription:
           'Open a full page to inspect top topics, learning path, recent changes, and traceable memo evidence.',
         openProfile: 'Open thinking profile',
+        openingProfile: 'Opening thinking profile...',
         backToSpacetime: 'Back to spacetime',
         disabledTitle: 'Thinking profile is disabled',
         disabledDescription:
@@ -1345,6 +1360,8 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
       messagePlaceholder: 'Type your message here...',
       exit: 'Exit',
       multipleModels: 'Multiple models',
+      waitForGenerationBeforeSwitch:
+        'An answer is still being generated. Please wait before switching views.',
       applyModelConfigs: 'Apply model configs',
       conversations: 'Conversations',
       chatApps: 'Chat apps',
@@ -1388,6 +1405,12 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
       addToMemoryTopicPlaceholder: 'Enter a short topic',
       viewMemory: 'View memo',
       deepThinking: 'Deep thinking',
+      deepThinkingTip:
+        'Enable a deeper reasoning path for this question. It is useful for complex analysis, multi-step reasoning, and more careful evidence organization, but responses may take longer and use more context.',
+      deleteTurn: 'Delete this Q&A turn',
+      deleteTurnTitle: 'Delete this Q&A turn?',
+      deleteTurnDescription:
+        'This will remove the selected question and its answer from this conversation. Deleted content will not be used when adding this conversation to memo.',
       processRunning: 'Working...',
       processShow: 'View reasoning and retrieval process',
       processHide: 'Hide reasoning and retrieval process',
@@ -1399,6 +1422,31 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
       processDone: 'Done',
       processInProgress: 'In progress',
       processPending: 'Pending',
+      ds4HealthTitle: 'Model context health',
+      ds4HealthUsage: '{{percent}}% used',
+      ds4HealthRemaining: '{{tokens}} tokens remaining',
+      ds4HealthReady:
+        'The model is ready and context usage is in the safe range.',
+      ds4HealthWarning:
+        'Context usage is elevated; requests will be queued and controlled.',
+      ds4HealthCritical:
+        'Context usage is near the limit and may trigger automatic maintenance.',
+      ds4HealthMaintenance:
+        'The model is clearing context cache or restarting. New answers will wait until it is ready.',
+      ds4HealthWarming: 'The model is warming up. Please wait briefly.',
+      ds4HealthState: 'State',
+      ds4HealthContextUsage: 'Current context usage',
+      ds4HealthUsageRatio: 'Usage ratio',
+      ds4HealthAvailableContext: 'Available context',
+      ds4HealthMaintenanceThreshold: 'Maintenance threshold',
+      ds4HealthReason: 'Reason',
+      ds4HealthState_ready: 'Ready',
+      ds4HealthState_starting: 'Starting',
+      ds4HealthState_warming: 'Warming',
+      ds4HealthState_maintenance: 'Maintenance',
+      ds4HealthState_restarting: 'Restarting',
+      ds4HealthState_degraded: 'Degraded',
+      ds4HealthState_unknown: 'Unknown',
       retrieving: 'Retrieving...',
       retrieved: 'Retrieved',
       thinking: 'Thinking...',
@@ -3284,6 +3332,7 @@ Important structured information may include: names, dates, locations, events, k
       chooseDataset: 'Please select a dataset first',
     },
     language: {
+      multilingualAuto: 'Multilingual / Auto',
       english: 'English',
       chinese: 'Chinese',
       spanish: 'Spanish',

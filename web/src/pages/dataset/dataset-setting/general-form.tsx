@@ -23,11 +23,14 @@ export function GeneralForm() {
   const { t } = useTranslation();
 
   const languageOptions = useMemo(() => {
-    return Object.keys(LanguageTranslationMap).map((x) => ({
-      label: x,
-      value: x,
+    return Object.keys(LanguageTranslationMap).map((language) => ({
+      label:
+        language === 'Multilingual/Auto'
+          ? t('language.multilingualAuto')
+          : language,
+      value: language,
     }));
-  }, []);
+  }, [t]);
 
   return (
     <>

@@ -191,6 +191,16 @@ class Base(ABC):
 
     async def _async_chat_streamly(self, history, gen_conf, **kwargs):
         logging.info("[HISTORY STREAMLY]" + json.dumps(history, ensure_ascii=False, indent=4))
+        if self._is_local_ds4_endpoint():
+            _ds4_status = await asyncio.to_thread(self._read_local_ds4_health_status)
+            if self._local_ds4_health_requires_wait(_ds4_status):
+                _state = str(_ds4_status.get("state") or "unknown")
+                _reason = str(_ds4_status.get("reason") or "").lower()
+                if any(k in _reason for k in ("kv", "watermark", "overflow", "token")):
+                    _wait_msg = "⏳ AI引擎正在清理KV缓存（上下文队列已满），通常需要1-3分钟，清理完成后会自动继续，请稍候..."
+                else:
+                    _wait_msg = f"⏳ AI引擎正在重启中（{_state}），通常需要1-3分钟，完成后会自动继续，请稍候..."
+                yield _wait_msg, 0
         await self._guard_local_ds4_health_async()
         reasoning_start = False
 

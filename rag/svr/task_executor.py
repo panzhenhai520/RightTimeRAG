@@ -150,11 +150,16 @@ CURRENT_TASKS = {}
 MAX_CONCURRENT_TASKS = int(os.environ.get('MAX_CONCURRENT_TASKS', "5"))
 MAX_CONCURRENT_CHUNK_BUILDERS = int(os.environ.get('MAX_CONCURRENT_CHUNK_BUILDERS', "1"))
 MAX_CONCURRENT_MINIO = int(os.environ.get('MAX_CONCURRENT_MINIO', '10'))
+# Max concurrent auto_questions LLM calls globally (across all concurrent parse tasks)
+MAX_CONCURRENT_AUTO_QUESTIONS = int(os.environ.get('MAX_CONCURRENT_AUTO_QUESTIONS', '5'))
+# Files larger than this (in MB) will have auto_questions forced to 0
+AUTO_QUESTIONS_MAX_FILE_SIZE_MB = int(os.environ.get('AUTO_QUESTIONS_MAX_FILE_SIZE_MB', '10'))
 task_limiter = LoopLocalSemaphore(MAX_CONCURRENT_TASKS)
 chunk_limiter = LoopLocalSemaphore(MAX_CONCURRENT_CHUNK_BUILDERS)
 embed_limiter = LoopLocalSemaphore(MAX_CONCURRENT_CHUNK_BUILDERS)
 minio_limiter = LoopLocalSemaphore(MAX_CONCURRENT_MINIO)
 kg_limiter = LoopLocalSemaphore(2)
+auto_questions_limiter = LoopLocalSemaphore(MAX_CONCURRENT_AUTO_QUESTIONS)
 WORKER_HEARTBEAT_TIMEOUT = int(os.environ.get('WORKER_HEARTBEAT_TIMEOUT', '120'))
 stop_event = threading.Event()
 
@@ -426,7 +431,20 @@ async def build_chunks(task, progress_callback):
             raise
         progress_callback(msg="Keywords generation {} chunks completed in {:.2f}s".format(len(docs), timer() - st))
 
-    if task["parser_config"].get("auto_questions", 0):
+    _auto_questions_count = task["parser_config"].get("auto_questions", 0)
+    _aq_max_bytes = AUTO_QUESTIONS_MAX_FILE_SIZE_MB * 1024 * 1024
+    if _auto_questions_count and task.get("size", 0) > _aq_max_bytes:
+        logging.warning(
+            "auto_questions forced to 0: file size %d bytes exceeds limit %d MB (%s)",
+            task.get("size", 0), AUTO_QUESTIONS_MAX_FILE_SIZE_MB, task.get("name", "")
+        )
+        progress_callback(msg=(
+            f"Skipping question generation: file too large "
+            f"({task.get('size', 0) // 1024 // 1024} MB > {AUTO_QUESTIONS_MAX_FILE_SIZE_MB} MB limit). "
+            f"Set AUTO_QUESTIONS_MAX_FILE_SIZE_MB env var to change this threshold."
+        ))
+        _auto_questions_count = 0
+    if _auto_questions_count:
         st = timer()
         progress_callback(msg="Start to generate questions for every chunk ...")
         chat_model_config = get_model_config_by_type_and_name(task["tenant_id"], LLMType.CHAT, task["llm_id"])
@@ -438,8 +456,9 @@ async def build_chunks(task, progress_callback):
                 if has_canceled(task["id"]):
                     progress_callback(-1, msg="Task has been canceled.")
                     return
-                async with chat_limiter:
-                    cached = await question_proposal(chat_mdl, d["content_with_weight"], topn)
+                async with auto_questions_limiter:
+                    async with chat_limiter:
+                        cached = await question_proposal(chat_mdl, d["content_with_weight"], topn)
                 set_llm_cache(chat_mdl.llm_name, d["content_with_weight"], cached, "question", {"topn": topn})
             if cached:
                 d["question_kwd"] = cached.split("\n")

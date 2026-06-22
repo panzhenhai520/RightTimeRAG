@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Routes } from '@/routes';
+import { DEV_FEATURE_SESSION_KEY, Routes } from '@/routes';
 import { formatDate } from '@/utils/date';
 import {
   BrainCircuit,
@@ -7,7 +7,7 @@ import {
   ChevronRight,
   ExternalLink,
   GitBranch,
-  Info,
+  Loader2,
   LocateFixed,
   MessageSquareText,
   MousePointer2,
@@ -68,6 +68,29 @@ type PositionedNode = MemoSpacetimeNode & {
   y: number;
   radius: number;
   visible: boolean;
+};
+
+type CurveControl =
+  | {
+      kind: 'quadratic';
+      cp: { x: number; y: number };
+    }
+  | {
+      kind: 'bezier';
+      cp1: { x: number; y: number };
+      cp2: { x: number; y: number };
+    };
+
+type MemoRelationType = 'sharedTopic' | 'sharedKeywords' | 'crossLanguageTopic';
+
+type PositionedRelation = {
+  id: string;
+  source: PositionedNode;
+  target: PositionedNode;
+  sharedKeywords: string[];
+  relationType: MemoRelationType;
+  strength: number;
+  curve: CurveControl;
 };
 
 type DateFocusReport = {
@@ -333,7 +356,7 @@ function getCanvasTheme(): CanvasTheme {
     background: '#070b14',
     panel: 'rgba(15,23,42,0.36)',
     dayEven: 'rgba(51,65,85,0.22)',
-    dayOdd: 'rgba(2,6,23,0.42)',
+    dayOdd: 'rgba(30,41,59,0.28)',
     grid: 'rgba(71,85,105,0.34)',
     gridStrong: 'rgba(99,102,241,0.38)',
     text: 'rgba(226,232,240,0.9)',
@@ -397,6 +420,188 @@ function getLinkKeywords(node: MemoSpacetimeNode) {
 function getSharedKeywords(a: MemoSpacetimeNode, b: MemoSpacetimeNode) {
   const bKeywords = new Set(getLinkKeywords(b));
   return getLinkKeywords(a).filter((keyword) => bKeywords.has(keyword));
+}
+
+function normalizeSignal(value?: string) {
+  return (value || '').trim().toLowerCase();
+}
+
+function getRelationType(
+  source: MemoSpacetimeNode,
+  target: MemoSpacetimeNode,
+  sharedKeywords: string[],
+): MemoRelationType {
+  const primarySignals = new Set([
+    normalizeSignal(getNodePrimaryKeyword(source)),
+    normalizeSignal(getNodePrimaryKeyword(target)),
+    normalizeSignal(source.topic),
+    normalizeSignal(target.topic),
+  ]);
+  const hasPrimarySignal = sharedKeywords.some((keyword) =>
+    primarySignals.has(normalizeSignal(keyword)),
+  );
+
+  if (hasPrimarySignal) return 'sharedTopic';
+  if (
+    source.language &&
+    target.language &&
+    source.language !== target.language
+  ) {
+    return 'crossLanguageTopic';
+  }
+
+  return 'sharedKeywords';
+}
+
+function getRelationStrength(
+  sharedKeywords: string[],
+  source: MemoSpacetimeNode,
+  target: MemoSpacetimeNode,
+) {
+  const keywordWeight = Math.min(0.42, sharedKeywords.length * 0.12);
+  const turnWeight = Math.min(
+    0.16,
+    Math.sqrt(source.turns + target.turns) * 0.025,
+  );
+  const memoryWeight = Math.min(
+    0.12,
+    Math.sqrt(source.memoryCount + target.memoryCount) * 0.025,
+  );
+  return Math.round(
+    Math.min(0.94, 0.3 + keywordWeight + turnWeight + memoryWeight) * 100,
+  );
+}
+
+function getRelationCurve(
+  source: PositionedNode,
+  target: PositionedNode,
+  dayWidth: number,
+): CurveControl {
+  if (Math.abs(source.x - target.x) < 2) {
+    const midY = (source.y + target.y) / 2;
+    const offset = -Math.min(
+      dayWidth * 0.45,
+      Math.abs(source.y - target.y) * 0.35,
+    );
+    return {
+      kind: 'quadratic',
+      cp: { x: source.x + offset, y: midY },
+    };
+  }
+
+  const midX = (source.x + target.x) / 2;
+  return {
+    kind: 'bezier',
+    cp1: { x: midX, y: source.y },
+    cp2: { x: midX, y: target.y },
+  };
+}
+
+function buildVisibleRelations(positioned: PositionedNode[], dayWidth: number) {
+  const relations: PositionedRelation[] = [];
+
+  positioned.forEach((source, sourceIndex) => {
+    if (!source.visible) return;
+    positioned.slice(sourceIndex + 1).forEach((target) => {
+      if (!target.visible) return;
+      const sharedKeywords = getSharedKeywords(source, target);
+      if (!sharedKeywords.length) return;
+      relations.push({
+        id: [source.id, target.id].sort().join('__'),
+        source,
+        target,
+        sharedKeywords,
+        relationType: getRelationType(source, target, sharedKeywords),
+        strength: getRelationStrength(sharedKeywords, source, target),
+        curve: getRelationCurve(source, target, dayWidth),
+      });
+    });
+  });
+
+  return relations;
+}
+
+function traceRelationPath(
+  ctx: CanvasRenderingContext2D,
+  relation: PositionedRelation,
+) {
+  ctx.beginPath();
+  ctx.moveTo(relation.source.x, relation.source.y);
+  if (relation.curve.kind === 'quadratic') {
+    ctx.quadraticCurveTo(
+      relation.curve.cp.x,
+      relation.curve.cp.y,
+      relation.target.x,
+      relation.target.y,
+    );
+  } else {
+    ctx.bezierCurveTo(
+      relation.curve.cp1.x,
+      relation.curve.cp1.y,
+      relation.curve.cp2.x,
+      relation.curve.cp2.y,
+      relation.target.x,
+      relation.target.y,
+    );
+  }
+}
+
+function getRelationPoint(relation: PositionedRelation, progress: number) {
+  const t = Math.max(0, Math.min(1, progress));
+  const x0 = relation.source.x;
+  const y0 = relation.source.y;
+  const x3 = relation.target.x;
+  const y3 = relation.target.y;
+
+  if (relation.curve.kind === 'quadratic') {
+    const { x: x1, y: y1 } = relation.curve.cp;
+    const oneMinusT = 1 - t;
+    return {
+      x: oneMinusT * oneMinusT * x0 + 2 * oneMinusT * t * x1 + t * t * x3,
+      y: oneMinusT * oneMinusT * y0 + 2 * oneMinusT * t * y1 + t * t * y3,
+    };
+  }
+
+  const { x: x1, y: y1 } = relation.curve.cp1;
+  const { x: x2, y: y2 } = relation.curve.cp2;
+  const oneMinusT = 1 - t;
+  return {
+    x:
+      oneMinusT * oneMinusT * oneMinusT * x0 +
+      3 * oneMinusT * oneMinusT * t * x1 +
+      3 * oneMinusT * t * t * x2 +
+      t * t * t * x3,
+    y:
+      oneMinusT * oneMinusT * oneMinusT * y0 +
+      3 * oneMinusT * oneMinusT * t * y1 +
+      3 * oneMinusT * t * t * y2 +
+      t * t * t * y3,
+  };
+}
+
+function findNearestRelation(
+  x: number,
+  y: number,
+  relations: PositionedRelation[],
+) {
+  let nearest:
+    | {
+        relation: PositionedRelation;
+        distance: number;
+      }
+    | undefined;
+
+  relations.forEach((relation) => {
+    for (let index = 0; index <= 36; index += 1) {
+      const point = getRelationPoint(relation, index / 36);
+      const distance = Math.hypot(point.x - x, point.y - y);
+      if (!nearest || distance < nearest.distance) {
+        nearest = { relation, distance };
+      }
+    }
+  });
+
+  return nearest && nearest.distance <= 18 ? nearest.relation : undefined;
 }
 
 function formatDay(date: Date) {
@@ -708,17 +913,24 @@ export function MemoSpacetimeNetwork({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const positionedRef = useRef<PositionedNode[]>([]);
+  const relationsRef = useRef<PositionedRelation[]>([]);
   const dragRef = useRef({ dragging: false, lastX: 0 });
   const [canvasSize, setCanvasSize] = useState({ width: 960, height: 620 });
   const [zoom, setZoom] = useState(1);
   const [dateOffsetDays, setDateOffsetDays] = useState(0);
   const [themeVersion, setThemeVersion] = useState(0);
   const [hoveredId, setHoveredId] = useState<string>();
+  const [hoveredRelation, setHoveredRelation] = useState<PositionedRelation>();
   const [tooltip, setTooltip] = useState<{ x: number; y: number }>();
+  const [relationTooltip, setRelationTooltip] = useState<{
+    x: number;
+    y: number;
+  }>();
   const [selectedId, setSelectedId] = useState<string>();
   const [focusDate, setFocusDate] = useState(
     new Date().toISOString().slice(0, 10),
   );
+  const [profileOpening, setProfileOpening] = useState(false);
   const [dateFocusReport, setDateFocusReport] = useState<DateFocusReport>();
   const [keywordWeaveReport, setKeywordWeaveReport] =
     useState<KeywordWeaveReport>();
@@ -911,7 +1123,7 @@ export function MemoSpacetimeNetwork({
   }, []);
 
   useEffect(() => {
-    if (!activeKeyword && !selectedId && !hoveredId) return;
+    if (!activeKeyword && !selectedId && !hoveredId && !hoveredRelation) return;
     let frame = 0;
     let disposed = false;
     const tick = () => {
@@ -924,7 +1136,7 @@ export function MemoSpacetimeNetwork({
       disposed = true;
       window.cancelAnimationFrame(frame);
     };
-  }, [activeKeyword, hoveredId, selectedId]);
+  }, [activeKeyword, hoveredId, hoveredRelation, selectedId]);
 
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1011,51 +1223,40 @@ export function MemoSpacetimeNetwork({
     ctx.textAlign = 'left';
 
     const activeNodeId = hoveredId || selectedId;
-    positioned.forEach((source, sourceIndex) => {
-      if (!source.visible) return;
-      positioned.slice(sourceIndex + 1).forEach((target) => {
-        if (!target.visible) return;
-        const sharedKeywords = getSharedKeywords(source, target);
-        const shared = sharedKeywords.length;
-        if (!shared) return;
-        const isNodeActive =
-          activeNodeId &&
-          (source.id === activeNodeId || target.id === activeNodeId);
-        const isKeywordActive =
-          activeKeyword &&
-          source.keywords.includes(activeKeyword) &&
-          target.keywords.includes(activeKeyword);
-        const isActive = isNodeActive || isKeywordActive;
-        ctx.strokeStyle = isActive ? theme.accent : theme.edge;
-        ctx.globalAlpha = isActive ? 0.56 : 1;
-        ctx.lineWidth = isActive ? 1.65 : Math.min(1.15, 0.9 + shared * 0.08);
-        if (isActive) {
-          ctx.setLineDash([6, 9]);
-          ctx.lineDashOffset = dashOffset;
-          ctx.shadowColor = theme.accent;
-          ctx.shadowBlur = 5;
-        } else {
-          ctx.setLineDash([]);
-          ctx.shadowBlur = 0;
-        }
-        ctx.beginPath();
-        ctx.moveTo(source.x, source.y);
-        if (Math.abs(source.x - target.x) < 2) {
-          const midY = (source.y + target.y) / 2;
-          const offset = -Math.min(
-            dayWidth * 0.45,
-            Math.abs(source.y - target.y) * 0.35,
-          );
-          ctx.quadraticCurveTo(source.x + offset, midY, target.x, target.y);
-        } else {
-          const midX = (source.x + target.x) / 2;
-          ctx.bezierCurveTo(midX, source.y, midX, target.y, target.x, target.y);
-        }
-        ctx.stroke();
+    const relations = buildVisibleRelations(positioned, dayWidth);
+    relationsRef.current = relations;
+    relations.forEach((relation) => {
+      const isNodeActive =
+        activeNodeId &&
+        (relation.source.id === activeNodeId ||
+          relation.target.id === activeNodeId);
+      const isKeywordActive =
+        activeKeyword &&
+        relation.source.keywords.includes(activeKeyword) &&
+        relation.target.keywords.includes(activeKeyword);
+      const isRelationActive = relation.id === hoveredRelation?.id;
+      const isActive = isNodeActive || isKeywordActive || isRelationActive;
+      ctx.strokeStyle = isActive ? theme.accent : theme.edge;
+      ctx.globalAlpha = isRelationActive ? 0.72 : isActive ? 0.56 : 1;
+      ctx.lineWidth = isRelationActive
+        ? 2.2
+        : isActive
+          ? 1.65
+          : Math.min(1.15, 0.9 + relation.sharedKeywords.length * 0.08);
+      if (isActive) {
+        ctx.setLineDash(isRelationActive ? [5, 6] : [6, 9]);
+        ctx.lineDashOffset = dashOffset;
+        ctx.shadowColor = theme.accent;
+        ctx.shadowBlur = isRelationActive ? 9 : 5;
+      } else {
         ctx.setLineDash([]);
         ctx.shadowBlur = 0;
-        ctx.globalAlpha = 1;
-      });
+      }
+      traceRelationPath(ctx, relation);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
     });
 
     positioned.forEach((node) => {
@@ -1100,6 +1301,7 @@ export function MemoSpacetimeNetwork({
     dashOffset,
     dateOffsetDays,
     hoveredId,
+    hoveredRelation?.id,
     i18n.language,
     nodes,
     selectedId,
@@ -1149,9 +1351,25 @@ export function MemoSpacetimeNetwork({
       }
 
       const node = findNode(point.x, point.y);
-      setHoveredId(node?.id);
-      setTooltip(node ? { x: point.x, y: point.y } : undefined);
-      event.currentTarget.style.cursor = node ? 'pointer' : 'grab';
+      if (node) {
+        setHoveredId(node.id);
+        setTooltip({ x: point.x, y: point.y });
+        setHoveredRelation(undefined);
+        setRelationTooltip(undefined);
+        event.currentTarget.style.cursor = 'pointer';
+        return;
+      }
+
+      const relation = findNearestRelation(
+        point.x,
+        point.y,
+        relationsRef.current,
+      );
+      setHoveredId(undefined);
+      setTooltip(undefined);
+      setHoveredRelation(relation);
+      setRelationTooltip(relation ? { x: point.x, y: point.y } : undefined);
+      event.currentTarget.style.cursor = relation ? 'help' : 'grab';
     },
     [canvasSize.width, findNode, getCanvasPoint],
   );
@@ -1164,6 +1382,17 @@ export function MemoSpacetimeNetwork({
         setSelectedId(node.id);
         return;
       }
+      const relation = findNearestRelation(
+        point.x,
+        point.y,
+        relationsRef.current,
+      );
+      if (relation) {
+        setSelectedId(relation.source.id);
+        setHoveredRelation(relation);
+        setRelationTooltip({ x: point.x, y: point.y });
+        return;
+      }
       dragRef.current = { dragging: true, lastX: point.x };
       event.currentTarget.style.cursor = 'grabbing';
     },
@@ -1174,19 +1403,41 @@ export function MemoSpacetimeNetwork({
     dragRef.current.dragging = false;
   }, []);
 
-  const handleWheel = useCallback(
-    (event: React.WheelEvent<HTMLCanvasElement>) => {
-      event.preventDefault();
-      if (event.ctrlKey || event.metaKey) {
+  const handleMouseLeave = useCallback(() => {
+    dragRef.current.dragging = false;
+    setHoveredId(undefined);
+    setTooltip(undefined);
+    setHoveredRelation(undefined);
+    setRelationTooltip(undefined);
+  }, []);
+
+  const handleWheelDelta = useCallback(
+    (deltaY: number, ctrlKey?: boolean, metaKey?: boolean) => {
+      if (ctrlKey || metaKey) {
         setZoom((current) =>
-          Math.min(2.2, Math.max(0.55, current - event.deltaY * 0.0015)),
+          Math.min(2.2, Math.max(0.55, current - deltaY * 0.0015)),
         );
-      } else {
-        setDateOffsetDays((current) => current + event.deltaY / 360);
+        return;
       }
+      setDateOffsetDays((current) => current + deltaY / 360);
     },
     [],
   );
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      handleWheelDelta(event.deltaY, event.ctrlKey, event.metaKey);
+    };
+
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, [handleWheelDelta]);
 
   const openMemory = useCallback(
     (id: string) => {
@@ -1195,7 +1446,11 @@ export function MemoSpacetimeNetwork({
     [navigate],
   );
   const openProfile = useCallback(() => {
-    navigate(Routes.MemoriesProfile);
+    setProfileOpening(true);
+    window.sessionStorage.setItem(DEV_FEATURE_SESSION_KEY, '1');
+    window.setTimeout(() => {
+      navigate(Routes.MemoriesProfile);
+    }, 80);
   }, [navigate]);
 
   const resetViewport = useCallback(() => {
@@ -1295,8 +1550,13 @@ export function MemoSpacetimeNetwork({
             variant="outline"
             className="border-[#d8b9c4] bg-[#f8f1ef] text-[#6d334a] hover:bg-[#ead8d2] dark:border-indigo-800/60 dark:bg-indigo-950/70 dark:text-indigo-200 dark:hover:bg-indigo-900"
             onClick={openProfile}
+            disabled={profileOpening}
           >
-            <BrainCircuit className="size-4" />
+            {profileOpening ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <BrainCircuit className="size-4" />
+            )}
             {t('memories.profile.openProfile', {
               defaultValue: 'Open thinking profile',
             })}
@@ -1812,8 +2072,13 @@ export function MemoSpacetimeNetwork({
                     size="sm"
                     variant="outline"
                     onClick={openProfile}
+                    disabled={profileOpening}
                   >
-                    <BrainCircuit className="size-4" />
+                    {profileOpening ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <BrainCircuit className="size-4" />
+                    )}
                     {t('memories.profile.openProfile', {
                       defaultValue: 'Open thinking profile',
                     })}
@@ -1825,14 +2090,7 @@ export function MemoSpacetimeNetwork({
         </aside>
 
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="flex shrink-0 items-center justify-between border-b border-[#e6dcd8] dark:border-slate-800/80 bg-[#f8f1ef] dark:bg-slate-900 px-4 py-2 text-xs">
-            <span className="flex items-center gap-1.5 text-[#68717d] dark:text-slate-400">
-              <Info className="size-4 text-[#8d4660] dark:text-indigo-400" />
-              {t('memories.spacetime.canvasTip', {
-                defaultValue:
-                  'Mouse wheel pans the time axis. Drag blank space to move dates. Ctrl/Command + wheel zooms.',
-              })}
-            </span>
+          <div className="flex shrink-0 items-center justify-end border-b border-[#e6dcd8] dark:border-slate-800/80 bg-[#f8f1ef] dark:bg-slate-900 px-4 py-2 text-xs">
             <div className="flex items-center gap-3 text-[11px] text-[#68717d] dark:text-slate-400">
               {keywordLegendItems.length
                 ? keywordLegendItems.map(([keyword, count]) => (
@@ -1860,9 +2118,18 @@ export function MemoSpacetimeNetwork({
             ref={wrapperRef}
             className="relative min-h-0 flex-1 overflow-hidden bg-[#fbf7f5] dark:bg-[#070b14]"
           >
-            {loading && (
+            {(loading || profileOpening) && (
               <div className="absolute inset-0 z-20 flex items-center justify-center bg-white dark:bg-slate-950/60 backdrop-blur-sm">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-primary border-t-transparent" />
+                <div className="flex flex-col items-center gap-3 rounded-xl border border-[#e6dcd8] bg-white/90 px-5 py-4 text-sm text-[#4f5865] shadow-xl dark:border-slate-800 dark:bg-slate-950/90 dark:text-slate-300">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-primary border-t-transparent" />
+                  <span>
+                    {profileOpening
+                      ? t('memories.profile.openingProfile', {
+                          defaultValue: 'Opening thinking profile...',
+                        })
+                      : t('common.loading', { defaultValue: 'Loading...' })}
+                  </span>
+                </div>
               </div>
             )}
             {nodes.length ? (
@@ -1873,8 +2140,7 @@ export function MemoSpacetimeNetwork({
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                  onWheel={handleWheel}
+                  onMouseLeave={handleMouseLeave}
                 />
                 {hoveredNode && tooltip && (
                   <div
@@ -1926,6 +2192,84 @@ export function MemoSpacetimeNetwork({
                         defaultValue: 'Open memo',
                       })}
                     </Button>
+                  </div>
+                )}
+                {hoveredRelation && relationTooltip && (
+                  <div
+                    className="pointer-events-none absolute z-30 w-80 rounded-xl border border-[#d8c9c4] bg-[#f8f1ef] p-3 text-xs shadow-2xl backdrop-blur dark:border-slate-700/80 dark:bg-slate-900/95"
+                    style={{
+                      left: Math.min(
+                        relationTooltip.x + 16,
+                        canvasSize.width - 336,
+                      ),
+                      top: Math.min(
+                        relationTooltip.y + 16,
+                        canvasSize.height - 240,
+                      ),
+                    }}
+                  >
+                    <div className="mb-2 flex items-start gap-2">
+                      <GitBranch className="mt-0.5 size-4 shrink-0 text-accent-primary" />
+                      <div className="min-w-0">
+                        <div className="font-semibold text-[#263241] dark:text-slate-100">
+                          {t('memories.spacetime.relationTooltipTitle', {
+                            defaultValue: 'Relation explanation',
+                          })}
+                        </div>
+                        <div className="mt-1 line-clamp-2 text-[#68717d] dark:text-slate-400">
+                          {hoveredRelation.source.topic} /{' '}
+                          {hoveredRelation.target.topic}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mb-2 grid grid-cols-2 gap-2">
+                      <div className="rounded-lg border border-[#e6dcd8] bg-white p-2 dark:border-slate-800 dark:bg-slate-950">
+                        <span className="block text-[10px] text-[#83818a] dark:text-slate-500">
+                          {t('memories.spacetime.relationType', {
+                            defaultValue: 'Relation type',
+                          })}
+                        </span>
+                        <span className="font-bold text-[#6d334a] dark:text-indigo-300">
+                          {t(
+                            `memories.spacetime.relationTypes.${hoveredRelation.relationType}`,
+                            {
+                              defaultValue: hoveredRelation.relationType,
+                            },
+                          )}
+                        </span>
+                      </div>
+                      <div className="rounded-lg border border-[#e6dcd8] bg-white p-2 dark:border-slate-800 dark:bg-slate-950">
+                        <span className="block text-[10px] text-[#83818a] dark:text-slate-500">
+                          {t('memories.spacetime.relationStrength', {
+                            defaultValue: 'Strength',
+                          })}
+                        </span>
+                        <span className="font-mono font-bold text-[#6d334a] dark:text-indigo-300">
+                          {hoveredRelation.strength}%
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mb-2 leading-5 text-[#68717d] dark:text-slate-400">
+                      {t('memories.spacetime.relationReason', {
+                        terms: hoveredRelation.sharedKeywords
+                          .slice(0, 6)
+                          .join(', '),
+                        defaultValue:
+                          'These two memo topics are connected because they share the following extracted signals: {{terms}}.',
+                      })}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {hoveredRelation.sharedKeywords
+                        .slice(0, 8)
+                        .map((keyword) => (
+                          <span
+                            className="rounded-full bg-accent-primary/10 px-2 py-0.5 text-accent-primary"
+                            key={keyword}
+                          >
+                            {keyword}
+                          </span>
+                        ))}
+                    </div>
                   </div>
                 )}
               </>

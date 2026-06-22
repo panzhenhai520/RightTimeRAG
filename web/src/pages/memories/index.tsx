@@ -1,15 +1,14 @@
 import { EmptyCardType } from '@/components/empty/constant';
 import { EmptyAppCard } from '@/components/empty/empty';
-import ListFilterBar from '@/components/list-filter-bar';
 import { Button } from '@/components/ui/button';
 import { useTranslate } from '@/hooks/common-hooks';
 import { useFeatureFlags } from '@/hooks/use-feature-flags';
 import { Plus } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { AddOrEditModal } from './add-or-edit-modal';
 import { defaultMemoryFields } from './constants';
-import { useFetchMemoryList, useRenameMemory, useSelectFilters } from './hooks';
+import { useFetchMemoryList, useRenameMemory } from './hooks';
 import { ICreateMemoryProps, IMemory } from './interface';
 import { MemoSpacetimeNetwork } from './memo-spacetime-network';
 import { MemoryCard } from './memory-card';
@@ -21,11 +20,7 @@ export default function MemoryList() {
   // const [isEdit, setIsEdit] = useState(false);
   const {
     data: list,
-    searchString,
-    handleInputChange,
     refetch: refetchList,
-    filterValue,
-    handleFilterSubmit,
     isLoading,
   } = useFetchMemoryList({ page: 1, pageSize: 500 });
   const { enabled } = useFeatureFlags();
@@ -51,9 +46,11 @@ export default function MemoryList() {
     showMemoryRenameModal(defaultMemoryFields as unknown as IMemory);
   }, [showMemoryRenameModal]);
   const [searchUrl, setMemoryUrl] = useSearchParams();
-  const { filters } = useSelectFilters();
   const isCreate = searchUrl.get('isCreate') === 'true';
-  const memoryList = list?.data?.memory_list ?? [];
+  const memoryList = useMemo(
+    () => list?.data?.memory_list ?? [],
+    [list?.data?.memory_list],
+  );
   const hasMemories = memoryList.length > 0;
   const isInitialLoading = isLoading && !list;
   useEffect(() => {
@@ -65,19 +62,12 @@ export default function MemoryList() {
   }, [isCreate, openCreateModalFun, searchUrl, setMemoryUrl]);
 
   const toolbar = (
-    <ListFilterBar
-      className="justify-end gap-0 [&>h1]:hidden [&_[role=toolbar]]:gap-2"
-      onSearchChange={handleInputChange}
-      searchString={searchString}
-      filters={filters}
-      onChange={handleFilterSubmit}
-      value={filterValue}
-    >
+    <div className="flex items-center justify-end gap-2">
       <Button size="sm" onClick={() => openCreateModalFun()}>
         <Plus className="size-[1em]" />
         {t('createMemory')}
       </Button>
-    </ListFilterBar>
+    </div>
   );
 
   return (
@@ -89,16 +79,16 @@ export default function MemoryList() {
         >
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-primary border-t-transparent" />
         </article>
-      ) : hasMemories || searchString ? (
+      ) : hasMemories ? (
         <article className="size-full flex flex-col" data-testid="memory-list">
-          {hasMemories && memoSpacetimeEnabled ? (
+          {memoSpacetimeEnabled ? (
             <MemoSpacetimeNetwork
               memories={memoryList}
               loading={isLoading}
               onCreate={openCreateModalFun}
               toolbar={toolbar}
             />
-          ) : hasMemories ? (
+          ) : (
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto px-6 py-5">
               {toolbar}
               <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
@@ -113,17 +103,6 @@ export default function MemoryList() {
                   />
                 ))}
               </div>
-            </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <EmptyAppCard
-                showIcon
-                size="large"
-                className="w-[480px] p-14"
-                isSearch
-                type={EmptyCardType.Memory}
-                onClick={() => openCreateModalFun()}
-              />
             </div>
           )}
         </article>

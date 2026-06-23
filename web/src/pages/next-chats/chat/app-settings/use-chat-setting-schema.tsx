@@ -27,6 +27,7 @@ export function useChatSettingSchema() {
         gender: z.string().optional(),
         voice_profile: z.string().optional(),
         sync_caption: z.boolean().optional(),
+        stream_audio: z.boolean().optional(),
       })
       .optional(),
     empty_response: z.string().optional(),

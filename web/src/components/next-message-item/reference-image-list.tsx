@@ -10,8 +10,8 @@ import { MarkdownRemarkPlugins } from '@/constants/markdown-remark-plugins';
 import { IReferenceChunk } from '@/interfaces/database/chat';
 import { restAPIv1 } from '@/utils/api';
 import { isPlainObject } from 'lodash';
-import { RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
-import { useMemo } from 'react';
+import { Maximize2, Minimize2, RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Markdown from 'react-markdown';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
@@ -117,9 +117,14 @@ function EvidenceMarkdown({ content }: { content?: string }) {
 function EvidenceCard({ chunk, index }: EvidenceItem) {
   const { t } = useTranslation();
   const sourceChunks = chunk.source_chunks ?? [];
+  const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <article className="min-h-40 rounded-md border border-border-default bg-bg-card p-3 text-sm text-text-primary">
+    <article
+      className={`min-h-40 rounded-md border border-border-default bg-bg-card p-3 text-sm text-text-primary transition-all duration-200 ${
+        isExpanded ? 'col-span-full' : ''
+      }`}
+    >
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <span className="font-medium">Fig. {index + 1}</span>
         {chunk.is_raptor_summary && (
@@ -127,20 +132,36 @@ function EvidenceCard({ chunk, index }: EvidenceItem) {
             {t('chat.summaryCitation')}
           </span>
         )}
-        <span className="text-xs font-semibold text-[#5b2737] dark:text-[#d7e7f0]">
+        <span className="flex-1 text-xs font-semibold text-[#5b2737] dark:text-[#d7e7f0]">
           {chunk.document_name}
         </span>
+        <button
+          type="button"
+          onClick={() => setIsExpanded((v) => !v)}
+          className="ml-auto shrink-0 rounded p-0.5 text-text-secondary hover:bg-bg-base hover:text-text-primary"
+          title={isExpanded ? t('common.collapse') : t('common.expand')}
+        >
+          {isExpanded ? (
+            <Minimize2 className="size-3.5" />
+          ) : (
+            <Maximize2 className="size-3.5" />
+          )}
+        </button>
       </div>
       {chunk.image_id ? (
         <PhotoView src={`${restAPIv1}/documents/images/${chunk.image_id}`}>
           <Image
             id={chunk.image_id}
-            className="mb-2 h-32 w-full"
+            className={`mb-2 w-full cursor-pointer ${isExpanded ? 'h-64' : 'h-32'}`}
             label={`Fig. ${(index + 1).toString()}`}
           />
         </PhotoView>
       ) : null}
-      <div className="max-h-56 overflow-y-auto leading-6">
+      <div
+        className={`leading-6 ${
+          isExpanded ? 'overflow-y-auto' : 'max-h-56 overflow-y-auto'
+        }`}
+      >
         <EvidenceMarkdown content={chunk.content} />
       </div>
       {chunk.is_raptor_summary && sourceChunks.length > 0 && (

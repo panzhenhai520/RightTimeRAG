@@ -451,6 +451,10 @@ async def add_llm():
     model_type = llm["model_type"]
     model_api_key = llm["api_key"]
     model_base_url = llm.get("api_base", "")
+    # Local DS4 (thinking model) needs a longer validation timeout — it queues
+    # inference requests and reasoning tokens arrive after the queue drains.
+    if model_base_url and "127.0.0.1:8106" in model_base_url:
+        timeout_seconds = max(timeout_seconds, 120)
     match model_type:
         case LLMType.EMBEDDING.value:
             assert factory in EmbeddingModel, f"Embedding model from {factory} is not supported yet."

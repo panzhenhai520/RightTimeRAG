@@ -93,6 +93,7 @@ export default function ChatBasicSetting() {
         currentConfig.voice_profile ?? ttsEngineSettings.default_voice_profile,
       sync_caption:
         currentConfig.sync_caption ?? ttsEngineSettings.supports_sync_caption,
+      stream_audio: currentConfig.stream_audio ?? false,
     });
   }, [form, ttsEngineSettings]);
 
@@ -282,6 +283,11 @@ export default function ChatBasicSetting() {
                   tooltip={t('ttsSyncCaptionTip')}
                 ></SwitchFormField>
               )}
+              <SwitchFormField
+                name={'prompt_config.tts_config.stream_audio'}
+                label={t('ttsStreamAudio')}
+                tooltip={t('ttsStreamAudioTip')}
+              ></SwitchFormField>
             </div>
           )}
         </div>

@@ -3579,30 +3579,30 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
             }
         last_state = None
         try:
-            async for kind, value, state in run_model_stream(prompt, msg, gen_conf):
-                last_state = state
+            async for kind, value, state in _sentence_tts_pipeline(tts_mdl, tts_config, run_model_stream(prompt, msg, gen_conf)):
                 if kind == "marker":
                     flags = {"start_to_think": True} if value == "<think>" else {"end_to_think": True}
                     yield {"answer": "", "reference": {}, "audio_binary": None, "final": False, **flags}
-                    continue
-                if _is_context_span_error(value):
-                    raise RuntimeError(value)
-                yield {"answer": value, "reference": {}, "audio_binary": visible_tts(tts_mdl, value, state.in_think, tts_config), "final": False}
+                elif kind == "audio":
+                    yield {"answer": "", "reference": {}, "audio_binary": value, "final": False}
+                else:
+                    last_state = state
+                    yield {"answer": value, "reference": {}, "audio_binary": None, "final": False}
         except Exception as exc:
             if not _is_context_span_error(exc):
                 raise
             logging.warning("Context span error from LLM; retrying with reduced prompt budget: %s", exc)
             retry_prompt, retry_msg, retry_gen_conf = build_context_retry_payload()
             last_state = None
-            async for kind, value, state in run_model_stream(retry_prompt, retry_msg, retry_gen_conf):
-                last_state = state
+            async for kind, value, state in _sentence_tts_pipeline(tts_mdl, tts_config, run_model_stream(retry_prompt, retry_msg, retry_gen_conf)):
                 if kind == "marker":
                     flags = {"start_to_think": True} if value == "<think>" else {"end_to_think": True}
                     yield {"answer": "", "reference": {}, "audio_binary": None, "final": False, **flags}
-                    continue
-                if _is_context_span_error(value):
-                    raise RuntimeError(value)
-                yield {"answer": value, "reference": {}, "audio_binary": visible_tts(tts_mdl, value, state.in_think, tts_config), "final": False}
+                elif kind == "audio":
+                    yield {"answer": "", "reference": {}, "audio_binary": value, "final": False}
+                else:
+                    last_state = state
+                    yield {"answer": value, "reference": {}, "audio_binary": None, "final": False}
         full_answer = last_state.full_text if last_state else ""
         if full_answer:
             final = await decorate_answer(_extract_visible_answer(thought + full_answer), include_think=False)
@@ -4119,19 +4119,60 @@ Please correct the error and write SQL again using json_extract_string(chunk_dat
     return result
 
 
+_TTS_CITATION_RE = re.compile(r'\[ID\s*:\s*\d+\]', re.IGNORECASE)
+_TTS_MARKDOWN_BOLD_RE = re.compile(r'\*{2}(.+?)\*{2}', re.DOTALL)
+_TTS_MARKDOWN_ITALIC_RE = re.compile(r'\*(.+?)\*', re.DOTALL)
+_TTS_MARKDOWN_HEADER_RE = re.compile(r'^#{1,6}\s+', re.MULTILINE)
+_TTS_MARKDOWN_HR_RE = re.compile(r'^[-*_]{3,}\s*$', re.MULTILINE)
+_TTS_MARKDOWN_CODE_RE = re.compile(r'`{1,3}.*?`{1,3}', re.DOTALL)
+_TTS_URL_RE = re.compile(r'https?://\S+')
+_TTS_MULTI_PUNCT_RE = re.compile(r'([！!？?。，,；;：:…])\1+')
+_TTS_EMOJI_RE = re.compile(
+    r'[\U0001f600-\U0001f64f\U0001f300-\U0001f5ff\U0001f680-\U0001f6ff'
+    r'\U0001f1e0-\U0001f1ff\U00002700-\U000027bf\U0001f900-\U0001f9ff'
+    r'\U0001fa70-\U0001faff\U0001fad0-\U0001faff]+',
+    flags=re.UNICODE,
+)
+
+
 def clean_tts_text(text: str) -> str:
     if not text:
         return ""
 
     text = text.encode("utf-8", "ignore").decode("utf-8", "ignore")
-
+    # Strip control characters (keep newline \x0A and tab \x09)
     text = re.sub(r"[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]", "", text)
 
-    emoji_pattern = re.compile(
-        "[\U0001f600-\U0001f64f\U0001f300-\U0001f5ff\U0001f680-\U0001f6ff\U0001f1e0-\U0001f1ff\U00002700-\U000027bf\U0001f900-\U0001f9ff\U0001fa70-\U0001faff\U0001fad0-\U0001faff]+", flags=re.UNICODE
-    )
-    text = emoji_pattern.sub("", text)
+    # Remove knowledge-base citation references like [ID:0] [ID: 12]
+    text = _TTS_CITATION_RE.sub("", text)
 
+    # Strip URLs — not speakable
+    text = _TTS_URL_RE.sub("", text)
+
+    # Strip Markdown code spans/blocks
+    text = _TTS_MARKDOWN_CODE_RE.sub("", text)
+
+    # Strip Markdown bold/italic — keep inner text
+    text = _TTS_MARKDOWN_BOLD_RE.sub(r"\1", text)
+    text = _TTS_MARKDOWN_ITALIC_RE.sub(r"\1", text)
+
+    # Strip Markdown headings (# / ## / …)
+    text = _TTS_MARKDOWN_HEADER_RE.sub("", text)
+
+    # Remove horizontal rules
+    text = _TTS_MARKDOWN_HR_RE.sub("", text)
+
+    # Strip list bullets "- " / "* " / "1. " at line start
+    text = re.sub(r'(?m)^\s*(?:\d+\.|[-*•])\s+', "", text)
+
+    # Remove emojis
+    text = _TTS_EMOJI_RE.sub("", text)
+
+    # Reduce consecutive duplicate punctuation (!!!  →  !)
+    text = _TTS_MULTI_PUNCT_RE.sub(r"\1", text)
+
+    # Collapse whitespace, convert newlines to pause-friendly comma when mid-sentence
+    text = re.sub(r'\n+', '，', text)
     text = re.sub(r"\s+", " ", text).strip()
 
     MAX_LEN = 500
@@ -4139,6 +4180,141 @@ def clean_tts_text(text: str) -> str:
         text = text[:MAX_LEN]
 
     return text
+
+
+_SENTENCE_END_RE = re.compile(r'[。！？\n…!?；;]+')
+_TTS_SENTENCE_MAX_CHARS = 100
+_tts_log = logging.getLogger("panython.tts")
+
+
+async def _sentence_tts_pipeline(tts_mdl, tts_config, gen):
+    """Wrap an LLM stream: yield text at full LLM speed, fire TTS asynchronously.
+
+    Two modes controlled by tts_config["stream_audio"]:
+
+    stream_audio=False (default / batch):
+        All audio events are yielded after the LLM stream ends, in sentence order.
+        Text appears first, then all audio plays sequentially.
+
+    stream_audio=True (real-time):
+        After each text event, non-blocking check: if the earliest pending TTS
+        future has already completed, yield its audio immediately, interleaved
+        with the text stream. CosyVoice3 Semaphore(1) guarantees completion order
+        == submission order, so audio order is always correct.
+        Futures still pending at LLM stream end are awaited normally.
+
+    Yields (kind, value, state) where kind is "text", "marker", or "audio".
+    Context-span errors are re-raised as RuntimeError.
+    """
+    tts_buf = ""
+    tts_futures: list[asyncio.Future] = []
+    sentence_idx = 0
+    audio_idx = 0      # running total of audio events emitted
+    stream_next = 0    # tts_futures index: next to check in stream drain
+    t0 = time.time()
+    stream_audio = bool((tts_config or {}).get("stream_audio", False)) if tts_mdl else False
+
+    async for kind, value, state in gen:
+        if kind == "marker":
+            if state.in_think and tts_mdl:
+                sentence = tts_buf.strip()
+                tts_buf = ""
+                if sentence:
+                    _tts_log.info("[TTS] pre-think sentence queued len=%d", len(sentence))
+                    tts_futures.append(
+                        asyncio.ensure_future(asyncio.to_thread(tts, tts_mdl, sentence, tts_config))
+                    )
+            yield ("marker", value, state)
+            continue
+
+        if _is_context_span_error(value):
+            for fut in tts_futures:
+                fut.cancel()
+            raise RuntimeError(value)
+
+        # Yield text immediately — never blocks
+        yield ("text", value, state)
+
+        # Stream mode: non-blocking drain — emit any futures that finished already
+        if stream_audio:
+            while stream_next < len(tts_futures) and tts_futures[stream_next].done():
+                audio_idx += 1
+                try:
+                    audio = tts_futures[stream_next].result()
+                    if audio:
+                        _tts_log.info("[TTS] stream audio#%d ready elapsed=%.1fs", audio_idx, time.time() - t0)
+                        yield ("audio", audio, None)
+                    else:
+                        _tts_log.warning("[TTS] stream audio#%d returned None", audio_idx)
+                except Exception as exc:
+                    _tts_log.warning("[TTS] stream audio#%d failed: %s", audio_idx, exc)
+                stream_next += 1
+
+        if not tts_mdl or state.in_think:
+            continue
+
+        visible = _strip_process_blocks(value)
+        if not visible:
+            continue
+        tts_buf += visible
+        hit_boundary = bool(_SENTENCE_END_RE.search(tts_buf)) or len(tts_buf) >= _TTS_SENTENCE_MAX_CHARS
+        if not hit_boundary:
+            continue
+
+        sentence = tts_buf.strip()
+        tts_buf = ""
+        if not sentence:
+            continue
+        sentence_idx += 1
+        _tts_log.info("[TTS] sentence#%d queued len=%d text=%r elapsed=%.1fs", sentence_idx, len(sentence), sentence[:40], time.time() - t0)
+        tts_futures.append(
+            asyncio.ensure_future(asyncio.to_thread(tts, tts_mdl, sentence, tts_config))
+        )
+
+    # End of LLM stream: queue remaining buffer
+    if tts_mdl:
+        remaining = tts_buf.strip()
+        if remaining:
+            sentence_idx += 1
+            _tts_log.info("[TTS] remaining#%d queued len=%d text=%r elapsed=%.1fs", sentence_idx, len(remaining), remaining[:40], time.time() - t0)
+            tts_futures.append(
+                asyncio.ensure_future(asyncio.to_thread(tts, tts_mdl, remaining, tts_config))
+            )
+
+        _tts_log.info("[TTS] stream end total=%d mode=%s elapsed=%.1fs", len(tts_futures), "stream" if stream_audio else "batch", time.time() - t0)
+
+        # Final non-blocking drain (catches futures that completed while we were
+        # queuing the remaining buffer)
+        if stream_audio:
+            while stream_next < len(tts_futures) and tts_futures[stream_next].done():
+                audio_idx += 1
+                try:
+                    audio = tts_futures[stream_next].result()
+                    if audio:
+                        _tts_log.info("[TTS] stream audio#%d ready elapsed=%.1fs", audio_idx, time.time() - t0)
+                        yield ("audio", audio, None)
+                    else:
+                        _tts_log.warning("[TTS] stream audio#%d returned None", audio_idx)
+                except Exception as exc:
+                    _tts_log.warning("[TTS] stream audio#%d failed: %s", audio_idx, exc)
+                stream_next += 1
+
+        # Await any futures not yet emitted
+        # batch mode: all futures (stream_next=0); stream mode: only those still pending
+        start = stream_next if stream_audio else 0
+        for i in range(start, len(tts_futures)):
+            audio_idx += 1
+            try:
+                audio = await tts_futures[i]
+                if audio:
+                    _tts_log.info("[TTS] audio#%d ready len=%d elapsed=%.1fs", audio_idx, len(audio), time.time() - t0)
+                    yield ("audio", audio, None)
+                else:
+                    _tts_log.warning("[TTS] audio#%d returned None", audio_idx)
+            except Exception as exc:
+                _tts_log.warning("[TTS] audio#%d failed: %s", audio_idx, exc)
+
+    _tts_log.info("[TTS] pipeline complete sentences=%d audio=%d elapsed=%.1fs", sentence_idx, audio_idx, time.time() - t0)
 
 
 def tts(tts_mdl, text, tts_config=None):

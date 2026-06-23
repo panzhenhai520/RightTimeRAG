@@ -163,6 +163,9 @@ export default {
       filesDescription: '管理系统文件和技能文件。',
       configuration: '配置管理',
       configurationDescription: '管理数据源和外部连接配置。',
+      modelManagement: '模型管理',
+      modelManagementDescription:
+        '配置模型供应商，管理 LLM、Embedding、Reranker 等模型接入。',
       tenantRelationsTitle: '用户组设置',
       tenantRelationsDescription:
         '按用户组展示成员、聊天助手和助手可访问知识库。用户加入某个用户组后，就能使用该用户组下发布的助手；助手可以在这里维护可访问知识库。',
@@ -1505,6 +1508,9 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取实体和关系
       ttsDialectMinnan: '闽南语',
       ttsSyncCaption: '声文同步字幕',
       ttsSyncCaptionTip: '开启后，系统会按分段准备语音和文字的同步播放。',
+      ttsStreamAudio: '实时串流朗读',
+      ttsStreamAudioTip:
+        '开启后，每句语音合成完成即立刻播放，与文字输出同步。关闭则等全文输出完成后再统一播放。',
       relatedQuestion: '相关问题',
       answerTitle: '智能回答',
       multiTurn: '多轮对话优化',

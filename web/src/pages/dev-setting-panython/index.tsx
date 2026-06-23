@@ -46,6 +46,11 @@ const devEntries = [
     descriptionKey: 'devSettingPanython.configurationDescription',
     path: `${Routes.UserSetting}${Routes.DataSource}`,
   },
+  {
+    titleKey: 'devSettingPanython.modelManagement',
+    descriptionKey: 'devSettingPanython.modelManagementDescription',
+    path: `${Routes.UserSetting}${Routes.Model}`,
+  },
 ];
 
 const tenantRelationsApi = '/api/v1/dev/tenant-relations';

@@ -287,30 +287,54 @@ export const useSpeech = (
     }
   }, [setIsPlaying, speech, isPlaying, isLoading, pause]);
 
+  // Queue for streaming TTS audio clips — plays them sequentially without interruption
+  const streamingAudioQueue = useRef<string[]>([]);
+  const streamingBusy = useRef(false);
+
+  const processStreamingQueue = useCallback(() => {
+    if (streamingBusy.current || !streamingAudioQueue.current.length) return;
+    const hex = streamingAudioQueue.current.shift()!;
+    const units = hexStringToUint8Array(hex);
+    if (!units) {
+      processStreamingQueue();
+      return;
+    }
+    streamingBusy.current = true;
+    const audio = ref.current;
+    if (!audio) {
+      streamingBusy.current = false;
+      return;
+    }
+    revokeAudioUrl();
+    const audioUrl = URL.createObjectURL(
+      new Blob([units], { type: 'audio/wav' }),
+    );
+    audioUrlRef.current = audioUrl;
+    audio.src = audioUrl;
+    audio.load();
+    const onDone = () => {
+      audio.removeEventListener('ended', onDone);
+      audio.removeEventListener('error', onDone);
+      streamingBusy.current = false;
+      processStreamingQueue();
+    };
+    audio.addEventListener('ended', onDone);
+    audio.addEventListener('error', onDone);
+    audio.play().catch(() => {
+      streamingBusy.current = false;
+      processStreamingQueue();
+    });
+  }, [revokeAudioUrl]);
+
   useEffect(() => {
     if (audioBinary) {
-      const units = hexStringToUint8Array(audioBinary);
-      if (units) {
-        try {
-          revokeAudioUrl();
-          const audioUrl = URL.createObjectURL(
-            new Blob([units], { type: 'audio/wav' }),
-          );
-          audioUrlRef.current = audioUrl;
-          const audio = ref.current;
-          if (audio) {
-            audio.src = audioUrl;
-            audio.load();
-            audio.play().catch((error) => {
-              console.warn(error);
-            });
-          }
-        } catch (error) {
-          console.warn(error);
-        }
-      }
+      streamingAudioQueue.current.push(audioBinary);
+      processStreamingQueue();
     }
-  }, [audioBinary, revokeAudioUrl]);
+    // Do NOT clear queue when audioBinary is null — text-chunk events also carry
+    // audio_binary:null, so clearing here would drop queued clips mid-playback.
+    // Each message component owns its own queue; it drains naturally via onDone.
+  }, [audioBinary, processStreamingQueue]);
 
   useEffect(() => {
     const audio = ref.current;

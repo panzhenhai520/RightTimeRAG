@@ -184,6 +184,7 @@ class Base(ABC):
             "logprobs",
             "top_logprobs",
             "extra_headers",
+            "_ds4_no_checkpoint",
         }
 
         gen_conf = {k: v for k, v in gen_conf.items() if k in allowed_conf}
@@ -191,8 +192,13 @@ class Base(ABC):
 
     async def _async_chat_streamly(self, history, gen_conf, **kwargs):
         logging.info("[HISTORY STREAMLY]" + json.dumps(history, ensure_ascii=False, indent=4))
+        _no_checkpoint = gen_conf.pop("_ds4_no_checkpoint", False)
         if self._is_local_ds4_endpoint():
             _ds4_status = await asyncio.to_thread(self._read_local_ds4_health_status)
+            _usage_pct = _ds4_status.get("usage_percent") if _ds4_status else None
+            if isinstance(_usage_pct, (int, float)) and _usage_pct >= 86:
+                yield "⚠️ AI引擎上下文队列已满（当前使用率 {:.1f}%），暂时无法接受新请求，系统将在稍后自动清理，请等待1-3分钟后重试。".format(_usage_pct), 0
+                return
             if self._local_ds4_health_requires_wait(_ds4_status):
                 _state = str(_ds4_status.get("state") or "unknown")
                 _reason = str(_ds4_status.get("reason") or "").lower()
@@ -205,6 +211,8 @@ class Base(ABC):
         reasoning_start = False
 
         request_kwargs = {"model": self.model_name, "messages": history, "stream": True, **gen_conf}
+        if _no_checkpoint and self._is_local_ds4_endpoint():
+            request_kwargs["extra_body"] = {"no_live_checkpoint": True}
         stop = kwargs.get("stop")
         if stop:
             request_kwargs["stop"] = stop
@@ -726,6 +734,10 @@ class Base(ABC):
 
     async def _async_chat(self, history, gen_conf, **kwargs):
         logging.info("[HISTORY]" + json.dumps(history, ensure_ascii=False, indent=2))
+        _no_checkpoint = gen_conf.pop("_ds4_no_checkpoint", False)
+        if _no_checkpoint and self._is_local_ds4_endpoint():
+            kwargs = dict(kwargs)
+            kwargs.setdefault("extra_body", {})["no_live_checkpoint"] = True
         await self._guard_local_ds4_health_async()
         if self.model_name.lower().find("qwq") >= 0:
             logging.info(f"[INFO] {self.model_name} detected as reasoning model, using async_chat_streamly")

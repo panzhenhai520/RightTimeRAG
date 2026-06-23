@@ -118,7 +118,9 @@ export function getTtsReadableContent(text: string = '') {
       .replace(
         /<section[^>]*class=["'][^"']*(?:think|retrieving)[^"']*["'][^>]*>[\s\S]*?<\/section>/gi,
         '',
-      ),
+      )
+      // Strip citation markers — [ID:0], [0], 【0】, (ID: 0) — so TTS doesn't vocalize them.
+      .replace(citationMarkerReg, ''),
   );
 }
 

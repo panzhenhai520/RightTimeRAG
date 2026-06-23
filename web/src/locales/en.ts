@@ -189,6 +189,9 @@ export default {
       configuration: 'Configuration',
       configurationDescription:
         'Manage data sources and external connection settings.',
+      modelManagement: 'Model management',
+      modelManagementDescription:
+        'Configure model providers and manage LLM, Embedding, Reranker integrations.',
       tenantRelationsTitle: 'User group settings',
       tenantRelationsDescription:
         'View members, chat assistants, and accessible knowledge bases by user group. A user can use assistants published under their group, and assistant knowledge-base access can be maintained here.',
@@ -1639,6 +1642,9 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
       ttsSyncCaption: 'Synchronized captions',
       ttsSyncCaptionTip:
         'When enabled, the system will prepare speech and text as synchronized segments.',
+      ttsStreamAudio: 'Real-time audio',
+      ttsStreamAudioTip:
+        "Stream each sentence's audio as soon as it is ready, interleaved with text. Disable to play all audio after the full answer is shown.",
       relatedQuestion: 'Related question',
       answerTitle: 'R',
       multiTurn: 'Multi-turn optimization',

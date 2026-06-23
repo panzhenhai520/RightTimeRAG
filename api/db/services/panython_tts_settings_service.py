@@ -41,29 +41,45 @@ DEFAULT_TTS_ENGINE_SETTINGS = {
     "segment_max_words_en": 18,
 }
 
+# Dialect display names (for UI labels only — NOT sent to TTS engine)
 DIALECT_INSTRUCTIONS = {
-    "mandarin": "Mandarin Chinese",
-    "cantonese": "Cantonese Chinese",
-    "sichuan": "Sichuan-accented Chinese",
-    "shanghai": "Shanghainese-accented Chinese",
-    "dongbei": "Northeastern Mandarin",
-    "minnan": "Minnan-accented Chinese",
-    "tianjin": "Tianjin-accented Chinese",
-    "shandong": "Shandong-accented Chinese",
+    "mandarin": "普通话",
+    "cantonese": "粤语",
+    "sichuan": "四川话",
+    "shanghai": "上海话",
+    "dongbei": "东北话",
+    "minnan": "闽南话",
+    "tianjin": "天津话",
+    "shandong": "山东话",
 }
 
 EMOTION_INSTRUCTIONS = {
-    "professional": "professional, clear, and natural",
-    "calm": "calm and steady",
-    "friendly": "friendly and warm",
-    "formal": "formal and precise",
-    "lively": "lively and expressive",
-    "serious": "serious and composed",
+    "professional": "语调自然清晰",
+    "calm": "语调平稳沉静",
+    "friendly": "语调温和亲切",
+    "formal": "语调正式严谨",
+    "lively": "语调活泼生动",
+    "serious": "语调认真严肃",
 }
 
 GENDER_INSTRUCTIONS = {
-    "female": "female",
-    "male": "male",
+    "female": "女声",
+    "male": "男声",
+}
+
+# Map (dialect, gender) → CosyVoice3 voice profile ID.
+# Profile IDs must match the keys defined in openai_tts_server.py _build_default_profiles().
+# Dialects not listed here fall back to default Mandarin female.
+_DIALECT_GENDER_TO_VOICE: dict[tuple[str, str], str] = {
+    ("mandarin", "female"): "female_mandarin_01",
+    ("mandarin", "male"):   "male_mandarin_01",
+    ("cantonese", "female"): "female_cantonese_01",
+    ("cantonese", "male"):   "male_cantonese_01",
+    ("sichuan", "female"):   "female_sichuan_01",
+    ("sichuan", "male"):     "male_sichuan_01",
+    ("shanghai", "female"):  "female_shanghai_01",
+    ("dongbei", "female"):   "female_dongbei_01",
+    ("minnan", "female"):    "female_minnan_01",
 }
 
 
@@ -144,33 +160,41 @@ def normalize_tts_runtime_config(raw: dict | None, engine_settings: dict | None 
         "gender": _normalize_choice(raw.get("gender"), set(GENDER_INSTRUCTIONS), gender_default),
         "voice_profile": str(raw.get("voice_profile") or voice_default).strip()[:96],
         "sync_caption": _to_bool(raw.get("sync_caption"), bool(engine_settings.get("supports_sync_caption"))),
+        # stream_audio=True: yield each sentence's audio as soon as it is ready,
+        # interleaved with text output. False (default): all audio after full text.
+        "stream_audio": _to_bool(raw.get("stream_audio"), False),
     }
 
 
-def build_tts_instructions(config: dict | None, text: str = "") -> str:
+def build_tts_voice_profile(config: dict | None) -> str:
+    """Return the CosyVoice3 voice profile ID for the given TTS runtime config.
+
+    Voice profiles encode dialect + gender and are defined in openai_tts_server.py.
+    The TTS engine handles all style switching internally \u2014 no instruction text is sent.
+    """
     config = normalize_tts_runtime_config(config)
-    dialect = DIALECT_INSTRUCTIONS.get(config["dialect"], DIALECT_INSTRUCTIONS["mandarin"])
-    emotion = EMOTION_INSTRUCTIONS.get(config["emotion"], EMOTION_INSTRUCTIONS["professional"])
-    gender = GENDER_INSTRUCTIONS.get(config["gender"], GENDER_INSTRUCTIONS["female"])
-    has_chinese = any("\u4e00" <= char <= "\u9fff" for char in str(text or ""))
-    language_part = f"Read Chinese text in {dialect}" if has_chinese else "Read the text naturally"
-    return (
-        "You are a helpful assistant. "
-        f"{language_part}. Use a {gender} voice with a {emotion} delivery. "
-        "Keep pronunciation accurate and pacing natural.<|endofprompt|>"
+    dialect = config.get("dialect", "mandarin")
+    gender = config.get("gender", "female")
+    return _DIALECT_GENDER_TO_VOICE.get(
+        (dialect, gender),
+        _DIALECT_GENDER_TO_VOICE.get((dialect, "female"), "female_mandarin_01"),
     )
 
 
 def build_tts_kwargs(config: dict | None, text: str = "", engine_settings: dict | None = None) -> dict:
+    """Build kwargs for synthesize_with_cache / tts_model calls.
+
+    Sends only `voice` (profile ID) and `speed` \u2014 no `instructions`.
+    CosyVoice3's inference_instruct2 format is handled inside the TTS server;
+    passing instruction text from here caused the instructions to be spoken aloud.
+    """
     engine_settings = normalize_tts_engine_settings(engine_settings)
     config = normalize_tts_runtime_config(config, engine_settings)
-    kwargs = {}
+    kwargs: dict = {}
     if engine_settings.get("supports_speed"):
         kwargs["speed"] = config["speed"]
-    if engine_settings.get("supports_emotion") or engine_settings.get("supports_dialect"):
-        kwargs["instructions"] = build_tts_instructions(config, text)
     if engine_settings.get("supports_voice_profile"):
-        kwargs["voice"] = config["voice_profile"]
+        kwargs["voice"] = build_tts_voice_profile(config)
     return kwargs
 
 

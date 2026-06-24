@@ -14,8 +14,12 @@
 #  limitations under the License.
 #
 
+import base64
+import json
+import logging
 from datetime import datetime
 
+import httpx
 from quart import request
 
 from api.apps import current_user, login_required
@@ -34,6 +38,7 @@ from api.db.db_models import (
     UserManagementOperationLog,
     UserTenant,
 )
+from api.db.joint_services.tenant_model_service import get_tenant_default_model_by_type
 from api.utils.api_utils import (
     get_data_error_result,
     get_json_result,
@@ -42,9 +47,11 @@ from api.utils.api_utils import (
 )
 from api.utils.tenant_utils import ensure_tenant_model_id_for_params
 from api.db.services.panython_tts_settings_service import PanythonTTSSettingsService
-from common.constants import RetCode, StatusEnum
+from common.constants import LLMType, RetCode, StatusEnum
 from common.misc_utils import get_uuid
 from common.time_utils import current_timestamp, datetime_format
+
+_dev_log = logging.getLogger("panython.dev")
 
 
 def _require_superuser():
@@ -118,6 +125,106 @@ async def save_tts_engine_settings():
     try:
         req = await get_request_json()
         return get_json_result(data=PanythonTTSSettingsService.save_settings(req or {}))
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+# ---------------------------------------------------------------------------
+# TTS voice profiles (Custom voice cloning — Part 2)
+# ---------------------------------------------------------------------------
+
+def _get_tts_base_url() -> str | None:
+    """Return the CosyVoice3 server base URL from the admin tenant's TTS model config."""
+    try:
+        engine_settings = PanythonTTSSettingsService.get_settings()
+        if not engine_settings.get("tts_enabled"):
+            return None
+        # Try to get the TTS model config from the current user's tenant.
+        model_config = get_tenant_default_model_by_type(current_user.id, LLMType.TTS)
+        if not model_config:
+            return None
+        base_url = (model_config.get("api_base") or "").rstrip("/")
+        return base_url if base_url else None
+    except Exception as exc:
+        _dev_log.warning("Could not resolve TTS base URL: %s", exc)
+        return None
+
+
+@manager.route("/dev/tts-voices", methods=["GET"])  # noqa: F821
+@login_required
+async def list_tts_voices():
+    try:
+        base_url = _get_tts_base_url()
+        if not base_url:
+            return get_data_error_result(message="TTS engine not configured or disabled.")
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"{base_url}/v1/voices")
+            resp.raise_for_status()
+        return get_json_result(data=resp.json())
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+@manager.route("/dev/tts-voices", methods=["POST"])  # noqa: F821
+@login_required
+async def add_tts_voice():
+    try:
+        base_url = _get_tts_base_url()
+        if not base_url:
+            return get_data_error_result(message="TTS engine not configured or disabled.")
+
+        form = await request.form
+        files = await request.files
+
+        voice_id = (form.get("voice_id") or "").strip()
+        display_name = (form.get("display_name") or "").strip()
+        prompt_text = (form.get("prompt_text") or "").strip()
+
+        if not voice_id:
+            return get_data_error_result(message="voice_id is required.")
+        if not prompt_text:
+            return get_data_error_result(message="prompt_text is required.")
+
+        audio_file = files.get("audio")
+        if not audio_file:
+            return get_data_error_result(message="audio file is required.")
+
+        audio_data = audio_file.read()
+        if not audio_data:
+            return get_data_error_result(message="audio file is empty.")
+
+        audio_b64 = base64.b64encode(audio_data).decode("utf-8")
+
+        payload = {
+            "voice_id": voice_id,
+            "display_name": display_name or voice_id,
+            "prompt_text": prompt_text,
+            "audio_base64": audio_b64,
+        }
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(f"{base_url}/v1/voices/add", json=payload)
+            if resp.status_code != 200:
+                error_detail = resp.json().get("detail", resp.text) if resp.content else resp.text
+                return get_data_error_result(message=f"CosyVoice3 error: {error_detail}")
+        return get_json_result(data=resp.json())
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+@manager.route("/dev/tts-voices/<voice_id>", methods=["DELETE"])  # noqa: F821
+@login_required
+async def delete_tts_voice(voice_id: str):
+    try:
+        base_url = _get_tts_base_url()
+        if not base_url:
+            return get_data_error_result(message="TTS engine not configured or disabled.")
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.delete(f"{base_url}/v1/voices/{voice_id}")
+            if resp.status_code not in (200, 404):
+                error_detail = resp.json().get("detail", resp.text) if resp.content else resp.text
+                return get_data_error_result(message=f"CosyVoice3 error: {error_detail}")
+        return get_json_result(data=resp.json())
     except Exception as exc:
         return server_error_response(exc)
 

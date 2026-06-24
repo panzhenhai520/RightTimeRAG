@@ -6,7 +6,14 @@ import { useRegister } from '@/hooks/use-login-request';
 import { DEV_FEATURE_SESSION_KEY, Routes } from '@/routes';
 import { rsaPsw } from '@/utils';
 import request from '@/utils/next-request';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
@@ -1687,6 +1694,497 @@ function TtsEngineSettingsCard() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Voice profile types & audio helpers
+// ---------------------------------------------------------------------------
+
+type VoiceProfile = {
+  id: string;
+  mode: string;
+  is_custom: boolean;
+  display_name: string;
+};
+
+function encodePcmToWav(
+  samples: Float32Array,
+  sampleRate: number,
+): ArrayBuffer {
+  const n = samples.length;
+  const buf = new ArrayBuffer(44 + n * 2);
+  const v = new DataView(buf);
+  const w = (off: number, s: string) => {
+    for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i));
+  };
+  w(0, 'RIFF');
+  v.setUint32(4, 36 + n * 2, true);
+  w(8, 'WAVE');
+  w(12, 'fmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, sampleRate, true);
+  v.setUint32(28, sampleRate * 2, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  w(36, 'data');
+  v.setUint32(40, n * 2, true);
+  let off = 44;
+  for (let i = 0; i < n; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    v.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    off += 2;
+  }
+  return buf;
+}
+
+async function blobToWav16k(blob: Blob): Promise<Blob> {
+  const ab = await blob.arrayBuffer();
+  const ctx = new AudioContext({ sampleRate: 16000 });
+  let decoded: AudioBuffer;
+  try {
+    decoded = await ctx.decodeAudioData(ab);
+  } finally {
+    await ctx.close();
+  }
+  const mono = decoded.getChannelData(0);
+  return new Blob([encodePcmToWav(mono, 16000)], { type: 'audio/wav' });
+}
+
+// ---------------------------------------------------------------------------
+// TtsVoiceProfilesCard — recording + custom voice management
+// ---------------------------------------------------------------------------
+
+function TtsVoiceProfilesCard() {
+  const { t } = useTranslation();
+  const [voices, setVoices] = useState<VoiceProfile[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [voiceId, setVoiceId] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [promptText, setPromptText] = useState('');
+  const [recordingState, setRecordingState] = useState<
+    'idle' | 'recording' | 'recorded'
+  >('idle');
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [wavBlob, setWavBlob] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const playingRef = useRef<HTMLAudioElement | null>(null);
+
+  const loadVoices = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await request.get('/api/v1/dev/tts-voices');
+      if (res.data?.code === 0) setVoices(res.data.data?.voices ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadVoices();
+  }, [loadVoices]);
+
+  useEffect(
+    () => () => {
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+    },
+    [audioUrl],
+  );
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      chunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const raw = new Blob(chunksRef.current, {
+          type: recorder.mimeType || 'audio/webm',
+        });
+        try {
+          const wav = await blobToWav16k(raw);
+          if (audioUrl) URL.revokeObjectURL(audioUrl);
+          const url = URL.createObjectURL(wav);
+          setAudioUrl(url);
+          setWavBlob(wav);
+          setRecordingState('recorded');
+        } catch {
+          message.error('Audio conversion failed — please try again.');
+          setRecordingState('idle');
+        }
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      let secs = 0;
+      setRecordingSeconds(0);
+      timerRef.current = setInterval(() => {
+        secs++;
+        setRecordingSeconds(secs);
+      }, 1000);
+      setRecordingState('recording');
+    } catch {
+      message.error('Microphone access denied.');
+    }
+  }, [audioUrl]);
+
+  const stopRecording = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (mediaRecorderRef.current?.state === 'recording')
+      mediaRecorderRef.current.stop();
+  }, []);
+
+  const resetRecording = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stream?.getTracks().forEach((t) => t.stop());
+      mediaRecorderRef.current.stop();
+    }
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setAudioUrl(null);
+    setWavBlob(null);
+    setRecordingState('idle');
+    setRecordingSeconds(0);
+  }, [audioUrl]);
+
+  const playRecording = useCallback(() => {
+    if (!audioUrl) return;
+    if (playingRef.current) {
+      playingRef.current.pause();
+      playingRef.current = null;
+    }
+    const a = new Audio(audioUrl);
+    playingRef.current = a;
+    a.play();
+  }, [audioUrl]);
+
+  const resetForm = useCallback(() => {
+    setVoiceId('');
+    setDisplayName('');
+    setPromptText('');
+    resetRecording();
+  }, [resetRecording]);
+
+  const handleSave = useCallback(async () => {
+    if (!wavBlob) {
+      message.warning(t('devSettingPanython.ttsAddVoiceNoAudio'));
+      return;
+    }
+    if (recordingSeconds < 3) {
+      message.warning(t('devSettingPanython.ttsAddVoiceTooShort'));
+      return;
+    }
+    if (!voiceId.trim()) {
+      message.warning('Profile ID is required');
+      return;
+    }
+    if (!promptText.trim()) {
+      message.warning('Recording text is required');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append('voice_id', voiceId.trim());
+      formData.append('display_name', displayName.trim() || voiceId.trim());
+      formData.append('prompt_text', promptText.trim());
+      formData.append('audio', wavBlob, `${voiceId.trim()}.wav`);
+      const res = await request.post('/api/v1/dev/tts-voices', formData);
+      if (res.data?.code === 0) {
+        message.success(
+          t('devSettingPanython.ttsAddVoiceSaved', {
+            name: displayName.trim() || voiceId.trim(),
+          }),
+        );
+        setShowAddForm(false);
+        resetForm();
+        await loadVoices();
+      } else {
+        message.error(
+          t('devSettingPanython.ttsAddVoiceError', {
+            error: res.data?.message || 'unknown',
+          }),
+        );
+      }
+    } catch (err) {
+      message.error(
+        t('devSettingPanython.ttsAddVoiceError', { error: String(err) }),
+      );
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    wavBlob,
+    recordingSeconds,
+    voiceId,
+    promptText,
+    displayName,
+    t,
+    resetForm,
+    loadVoices,
+  ]);
+
+  const handleDelete = useCallback(
+    async (v: VoiceProfile) => {
+      if (
+        !window.confirm(
+          t('devSettingPanython.ttsVoiceProfilesDeleteConfirm', {
+            name: v.display_name || v.id,
+          }),
+        )
+      )
+        return;
+      const res = await request.delete(`/api/v1/dev/tts-voices/${v.id}`);
+      if (res.data?.code === 0) {
+        message.success(t('devSettingPanython.ttsVoiceProfilesDeleted'));
+        await loadVoices();
+      }
+    },
+    [t, loadVoices],
+  );
+
+  const builtIn = useMemo(() => voices.filter((v) => !v.is_custom), [voices]);
+  const custom = useMemo(() => voices.filter((v) => v.is_custom), [voices]);
+
+  return (
+    <article className="mt-4 rounded-lg border border-border bg-bg-card p-5 md:col-span-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-medium text-text-primary">
+            {t('devSettingPanython.ttsVoiceProfilesTitle')}
+          </h2>
+          <p className="mt-2 text-sm text-text-secondary">
+            {t('devSettingPanython.ttsVoiceProfilesDescription')}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            loading={loading}
+            onClick={loadVoices}
+          >
+            {t('devSettingPanython.ttsVoiceProfilesRefresh')}
+          </Button>
+          <Button
+            type="button"
+            className="bg-[#6f3f2f] text-white dark:bg-[#2d5f80]"
+            onClick={() => {
+              setShowAddForm((v) => !v);
+              if (showAddForm) resetForm();
+            }}
+          >
+            {t('devSettingPanython.ttsVoiceProfilesAdd')}
+          </Button>
+        </div>
+      </div>
+
+      {/* Add voice form */}
+      {showAddForm && (
+        <div className="mt-5 rounded-lg border border-[#6f3f2f]/40 bg-bg-base/60 p-4 dark:border-[#9bc7dd]/40">
+          <h3 className="mb-4 text-base font-semibold text-text-primary">
+            {t('devSettingPanython.ttsAddVoiceTitle')}
+          </h3>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-text-primary">
+                {t('devSettingPanython.ttsAddVoiceId')}
+              </span>
+              <input
+                className="h-9 rounded-md border border-border-button bg-bg-input px-3 text-sm text-text-primary outline-none focus:border-[#6f3f2f] dark:focus:border-[#9bc7dd]"
+                placeholder={t('devSettingPanython.ttsAddVoiceIdPlaceholder')}
+                value={voiceId}
+                onChange={(e) =>
+                  setVoiceId(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))
+                }
+              />
+              <span className="text-xs text-text-secondary">
+                {t('devSettingPanython.ttsAddVoiceIdHelp')}
+              </span>
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-text-primary">
+                {t('devSettingPanython.ttsAddVoiceDisplayName')}
+              </span>
+              <input
+                className="h-9 rounded-md border border-border-button bg-bg-input px-3 text-sm text-text-primary outline-none focus:border-[#6f3f2f] dark:focus:border-[#9bc7dd]"
+                placeholder={t(
+                  'devSettingPanython.ttsAddVoiceDisplayNamePlaceholder',
+                )}
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <label className="mt-3 flex flex-col gap-1 text-sm">
+            <span className="font-medium text-text-primary">
+              {t('devSettingPanython.ttsAddVoicePromptText')}
+            </span>
+            <textarea
+              className="min-h-[72px] rounded-md border border-border-button bg-bg-input px-3 py-2 text-sm text-text-primary outline-none focus:border-[#6f3f2f] dark:focus:border-[#9bc7dd]"
+              placeholder={t(
+                'devSettingPanython.ttsAddVoicePromptTextPlaceholder',
+              )}
+              value={promptText}
+              onChange={(e) => setPromptText(e.target.value)}
+            />
+            <span className="text-xs text-text-secondary">
+              {t('devSettingPanython.ttsAddVoicePromptTextHelp')}
+            </span>
+          </label>
+
+          {/* Recording controls */}
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {recordingState === 'idle' && (
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                onClick={startRecording}
+              >
+                <span className="text-base">●</span>
+                {t('devSettingPanython.ttsAddVoiceRecord')}
+              </button>
+            )}
+            {recordingState === 'recording' && (
+              <button
+                type="button"
+                className="inline-flex animate-pulse items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white"
+                onClick={stopRecording}
+              >
+                <span className="text-base">■</span>
+                {t('devSettingPanython.ttsAddVoiceRecording')}
+                <span className="ml-1 font-mono tabular-nums">
+                  {recordingSeconds}s
+                </span>
+              </button>
+            )}
+            {recordingState === 'recorded' && (
+              <>
+                <span className="text-sm text-text-secondary">
+                  {t('devSettingPanython.ttsAddVoiceRecorded', {
+                    seconds: recordingSeconds,
+                  })}
+                </span>
+                <Button type="button" variant="outline" onClick={playRecording}>
+                  {t('devSettingPanython.ttsAddVoicePlay')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetRecording}
+                >
+                  {t('devSettingPanython.ttsAddVoiceReRecord')}
+                </Button>
+              </>
+            )}
+          </div>
+
+          <div className="mt-5 flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowAddForm(false);
+                resetForm();
+              }}
+            >
+              取消
+            </Button>
+            <ButtonLoading
+              type="button"
+              loading={saving}
+              disabled={
+                recordingState !== 'recorded' ||
+                !voiceId.trim() ||
+                !promptText.trim()
+              }
+              className="bg-[#6f3f2f] text-white dark:bg-[#2d5f80]"
+              onClick={handleSave}
+            >
+              {saving
+                ? t('devSettingPanython.ttsAddVoiceSaving')
+                : t('devSettingPanython.ttsAddVoiceSave')}
+            </ButtonLoading>
+          </div>
+        </div>
+      )}
+
+      {/* Custom voices list */}
+      <section className="mt-5">
+        <h3 className="mb-3 text-sm font-semibold text-text-primary">
+          {t('devSettingPanython.ttsVoiceProfilesCustom')}
+        </h3>
+        {custom.length === 0 ? (
+          <p className="text-sm text-text-secondary">
+            {t('devSettingPanython.ttsVoiceProfilesEmpty')}
+          </p>
+        ) : (
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {custom.map((v) => (
+              <div
+                key={v.id}
+                className="flex items-center justify-between gap-2 rounded-md border border-[#6f3f2f]/30 bg-[#6f3f2f]/5 px-3 py-2 text-sm dark:border-[#9bc7dd]/30 dark:bg-[#2d5f80]/10"
+              >
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-text-primary">
+                    {v.display_name || v.id}
+                  </div>
+                  <div className="text-xs text-text-secondary">{v.id}</div>
+                </div>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  className="shrink-0 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+                  onClick={() => handleDelete(v)}
+                >
+                  删除
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Built-in voices (collapsible) */}
+      <details className="mt-5">
+        <summary className="cursor-pointer text-sm font-semibold text-text-secondary hover:text-text-primary">
+          {t('devSettingPanython.ttsVoiceProfilesBuiltIn')} ({builtIn.length})
+        </summary>
+        <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {builtIn.map((v) => (
+            <div
+              key={v.id}
+              className="rounded-md border border-border/60 bg-bg-base/50 px-3 py-2 text-sm"
+            >
+              <div className="font-medium text-text-primary">
+                {v.display_name || v.id}
+              </div>
+              <div className="text-xs text-text-secondary">{v.mode}</div>
+            </div>
+          ))}
+        </div>
+      </details>
+    </article>
+  );
+}
+
 function DevEntryCard({ entry }: { entry: (typeof devEntries)[number] }) {
   const { t } = useTranslation();
 
@@ -1753,6 +2251,7 @@ export default function DevSettingPanython() {
 
           <TabsContent value="tts">
             <TtsEngineSettingsCard />
+            <TtsVoiceProfilesCard />
           </TabsContent>
 
           <TabsContent value="users">

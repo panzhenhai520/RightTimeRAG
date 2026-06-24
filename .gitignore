@@ -1,0 +1,48 @@
+# Model weights - never commit (too large)
+newapp/models/
+newapp/src/ds4-tp/ds4-kv-cache-*/
+newapp/src/ds4-tp/*.gguf
+newapp/src/ds4-tp/ds4-server
+newapp/src/ds4-tp/ds4-trace*.log
+newapp/runtime/ds4/ds4-server*.log
+newapp/runtime/ds4/watchdog*.log
+newapp/runtime/ds4/ds4-trace*.log
+
+# Python virtualenvs
+newapp/ragflow/.venv/
+newapp/CosyVoice/.venv/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+*.egg-info/
+
+# Node modules
+**/node_modules/
+
+# Logs
+newapp/ragflow/logs/
+newapp/runtime/*.log
+newapp/runtime/ragflow-*.log
+
+# Runtime data (not source code)
+newapp/ragclaw/auth_storage/
+newapp/ragclaw/crawler_articles.db
+newapp/ragclaw/crawler_articles.db-*
+
+# Build artifacts
+newapp/ragflow/web/dist/
+ragflow/app/web/dist/
+
+# Secrets / env
+.env
+*.env
+ragflow/.env
+newapp/ragclaw/.env
+
+# Large binary data
+ragflow/mysql_data/
+ragflow/minio_data/
+ragflow/esdata01/
+ragflow/redis_data/
+ragflow/app/logs/

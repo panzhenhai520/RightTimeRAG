@@ -7,6 +7,27 @@ newapp/src/ds4-tp/ds4-trace*.log
 newapp/runtime/ds4/ds4-server*.log
 newapp/runtime/ds4/watchdog*.log
 newapp/runtime/ds4/ds4-trace*.log
+base/
+newapp/.cache/
+newapp/CosyVoice/
+newapp/backups/
+newapp/bin/
+newapp/data/
+newapp/ragclaw/
+newapp/ragflow_backups/
+newapp/ragflow_setup_log.md
+newapp/runtime/PANYTHON_RUNTIME_STARTUP.md
+newapp/runtime/asr/
+newapp/runtime/backup-login-shihe-20260615003700/
+newapp/runtime/backup-login-ui-20260614/
+newapp/runtime/backup-oem-ui-20260615/
+newapp/runtime/ds4/
+newapp/runtime/nginx-panython.conf
+newapp/runtime/qwen3-asr.service
+newapp/runtime/righttime-setup.bat
+newapp/runtime/scripts/wait-for-services.sh
+newapp/runtime/service-files/
+
 
 # Python virtualenvs
 newapp/ragflow/.venv/

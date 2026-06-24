@@ -1,0 +1,5 @@
+[rhis_server] 2025-06-20 14:12:43.428 INFO 当前模式:prod
+[rhis_server] 2025-06-20 14:12:43.433 INFO env:undefined
+[rhis_server] 2025-06-20 14:12:43.434 INFO Web服务端口：80
+[rhis_server] 2025-06-20 14:12:43.819 INFO http 服务启动成功，进程ID：19
+[rhis_server] 2025-06-20 14:12:44.439 DEBUG 开始监听日志消息队列

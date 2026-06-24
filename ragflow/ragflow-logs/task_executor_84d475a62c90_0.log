@@ -1,0 +1,1187 @@
+2025-06-17 15:51:47,080 INFO     40 task_executor_84d475a62c90_0 log path: /ragflow/logs/task_executor_84d475a62c90_0.log, log levels: {'peewee': 'WARNING', 'pdfminer': 'WARNING', 'root': 'INFO'}
+2025-06-17 15:51:47,080 INFO     40 
+  ______           __      ______                     __
+ /_  __/___ ______/ /__   / ____/  _____  _______  __/ /_____  _____
+  / / / __ `/ ___/ //_/  / __/ | |/_/ _ \/ ___/ / / / __/ __ \/ ___/
+ / / / /_/ (__  ) ,<    / /____>  </  __/ /__/ /_/ / /_/ /_/ / /
+/_/  \__,_/____/_/|_|  /_____/_/|_|\___/\___/\__,_/\__/\____/_/
+    
+2025-06-17 15:51:47,081 INFO     40 TaskExecutor: RAGFlow version: v0.19.0 slim
+2025-06-17 15:51:47,081 INFO     40 Use Elasticsearch http://es01:9200 as the doc engine.
+2025-06-17 15:51:47,096 INFO     40 GET http://es01:9200/ [status:200 duration:0.013s]
+2025-06-17 15:51:47,104 INFO     40 HEAD http://es01:9200/ [status:200 duration:0.008s]
+2025-06-17 15:51:47,105 INFO     40 Elasticsearch http://es01:9200 is healthy.
+2025-06-17 15:51:47,114 WARNING  40 Load term.freq FAIL!
+2025-06-17 15:51:47,123 WARNING  40 Realtime synonym is disabled, since no redis connection.
+2025-06-17 15:51:47,132 WARNING  40 Load term.freq FAIL!
+2025-06-17 15:51:47,140 WARNING  40 Realtime synonym is disabled, since no redis connection.
+2025-06-17 15:51:47,140 INFO     40 MAX_CONTENT_LENGTH: 134217728
+2025-06-17 15:51:47,140 INFO     40 MAX_FILE_COUNT_PER_USER: 0
+2025-06-17 15:51:47,148 INFO     40 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T15:51:47.147+08:00", "boot_at": "2025-06-17T15:51:47.079+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 15:51:47,150 WARNING  40 RedisDB.get_unacked_iterator queue rag_flow_svr_queue_1 doesn't exist
+2025-06-17 15:52:17,152 INFO     40 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T15:52:17.150+08:00", "boot_at": "2025-06-17T15:51:47.079+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 15:52:17,154 INFO     40 task_executor_7f18972b2296_0 expired, removed
+2025-06-17 15:52:47,157 INFO     40 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T15:52:47.156+08:00", "boot_at": "2025-06-17T15:51:47.079+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 15:53:17,160 INFO     40 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T15:53:17.159+08:00", "boot_at": "2025-06-17T15:51:47.079+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 15:53:47,164 INFO     40 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T15:53:47.163+08:00", "boot_at": "2025-06-17T15:51:47.079+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 15:54:17,169 INFO     40 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T15:54:17.167+08:00", "boot_at": "2025-06-17T15:51:47.079+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 15:54:47,175 INFO     40 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T15:54:47.173+08:00", "boot_at": "2025-06-17T15:51:47.079+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 15:55:17,179 INFO     40 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T15:55:17.177+08:00", "boot_at": "2025-06-17T15:51:47.079+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 15:55:47,183 INFO     40 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T15:55:47.181+08:00", "boot_at": "2025-06-17T15:51:47.079+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 15:55:58,539 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1116, in get_connection
+    if connection.can_read() and connection.client_cache is None:
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 524, in can_read
+    return self._parser.can_read(timeout)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/base.py", line 128, in can_read
+    return self._buffer and self._buffer.can_read(timeout)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/socket.py", line 95, in can_read
+    return bool(self.unread_bytes()) or self._read_from_socket(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/socket.py", line 68, in _read_from_socket
+    raise ConnectionError(SERVER_CLOSED_CONNECTION_ERROR)
+valkey.exceptions.ConnectionError: Connection closed by server.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1120, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:55:58,547 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:55:58,639 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:55:58,642 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:55:58,741 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:55:58,743 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:55:58,841 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:55:58,844 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:55:58,942 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:55:58,945 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:56:03,554 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:56:03,558 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:56:03,648 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:56:03,652 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:56:03,750 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:56:03,754 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:56:03,850 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:56:03,853 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:56:03,951 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:56:03,958 ERROR    40 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 15:58:44,882 INFO     48 task_executor_84d475a62c90_0 log path: /ragflow/logs/task_executor_84d475a62c90_0.log, log levels: {'peewee': 'WARNING', 'pdfminer': 'WARNING', 'root': 'INFO'}
+2025-06-17 15:58:44,883 INFO     48 
+  ______           __      ______                     __
+ /_  __/___ ______/ /__   / ____/  _____  _______  __/ /_____  _____
+  / / / __ `/ ___/ //_/  / __/ | |/_/ _ \/ ___/ / / / __/ __ \/ ___/
+ / / / /_/ (__  ) ,<    / /____>  </  __/ /__/ /_/ / /_/ /_/ / /
+/_/  \__,_/____/_/|_|  /_____/_/|_|\___/\___/\__,_/\__/\____/_/
+    
+2025-06-17 15:58:44,883 INFO     48 TaskExecutor: RAGFlow version: v0.19.0 slim
+2025-06-17 15:58:44,884 INFO     48 Use Elasticsearch http://es01:9200 as the doc engine.
+2025-06-17 15:58:44,908 INFO     48 GET http://es01:9200/ [status:200 duration:0.023s]
+2025-06-17 15:58:44,916 INFO     48 HEAD http://es01:9200/ [status:200 duration:0.007s]
+2025-06-17 15:58:44,917 INFO     48 Elasticsearch http://es01:9200 is healthy.
+2025-06-17 15:58:44,930 WARNING  48 Load term.freq FAIL!
+2025-06-17 15:58:44,941 WARNING  48 Realtime synonym is disabled, since no redis connection.
+2025-06-17 15:58:44,953 WARNING  48 Load term.freq FAIL!
+2025-06-17 15:58:44,961 WARNING  48 Realtime synonym is disabled, since no redis connection.
+2025-06-17 15:58:44,961 INFO     48 MAX_CONTENT_LENGTH: 134217728
+2025-06-17 15:58:44,961 INFO     48 MAX_FILE_COUNT_PER_USER: 0
+2025-06-17 15:58:44,970 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T15:58:44.969+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 15:58:44,974 WARNING  48 RedisDB.get_unacked_iterator queue rag_flow_svr_queue_1 doesn't exist
+2025-06-17 15:59:14,975 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T15:59:14.973+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 15:59:44,980 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T15:59:44.978+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:00:14,985 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T16:00:14.983+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:00:44,989 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T16:00:44.988+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:01:14,994 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T16:01:14.992+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:01:44,999 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T16:01:44.997+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:02:15,003 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T16:02:15.001+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:02:45,008 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T16:02:45.006+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:03:15,013 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T16:03:15.011+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:03:45,018 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T16:03:45.016+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:04:15,023 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T16:04:15.021+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:04:45,029 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T16:04:45.026+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:05:15,034 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T16:05:15.032+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:05:45,039 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T16:05:45.037+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:06:15,044 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T16:06:15.042+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:06:45,049 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T16:06:45.048+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:07:12,898 ERROR    48 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1116, in get_connection
+    if connection.can_read() and connection.client_cache is None:
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 524, in can_read
+    return self._parser.can_read(timeout)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/base.py", line 128, in can_read
+    return self._buffer and self._buffer.can_read(timeout)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/socket.py", line 95, in can_read
+    return bool(self.unread_bytes()) or self._read_from_socket(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/socket.py", line 68, in _read_from_socket
+    raise ConnectionError(SERVER_CLOSED_CONNECTION_ERROR)
+valkey.exceptions.ConnectionError: Connection closed by server.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1120, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 16:07:12,996 ERROR    48 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 16:07:12,999 ERROR    48 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 16:07:13,002 ERROR    48 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 16:07:13,099 ERROR    48 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 16:07:13,102 ERROR    48 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 16:07:13,201 ERROR    48 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 16:07:13,205 ERROR    48 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 16:07:13,300 ERROR    48 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 16:07:13,303 ERROR    48 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 16:07:15,058 WARNING  48 RedisDB.queue_info rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 16:07:15,061 WARNING  48 RedisDB.zadd task_executor_84d475a62c90_0 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 16:07:15,062 INFO     48 task_executor_84d475a62c90_0 reported heartbeat: {"name": "task_executor_84d475a62c90_0", "now": "2025-06-17T16:07:15.054+08:00", "boot_at": "2025-06-17T15:58:44.881+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-17 16:07:15,065 WARNING  48 RedisDB.zcount task_executor_84d475a62c90_0 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-17 16:07:15,067 ERROR    48 report_status got exception
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 670, in report_status
+    if redis_lock.acquire():
+  File "/ragflow/rag/utils/redis_conn.py", line 350, in acquire
+    REDIS_CONN.delete_if_equal(self.lock_key, self.lock_value)
+  File "/ragflow/rag/utils/redis_conn.py", line 324, in delete_if_equal
+    return bool(self.lua_delete_if_equal(keys=[key], args=[expected_value], client=self.REDIS))
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 6356, in __call__
+    return client.evalsha(self.sha, len(keys), *args)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 5730, in evalsha
+    return self._evalsha("EVALSHA", sha, numkeys, *keys_and_args)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 5714, in _evalsha
+    return self.execute_command(command, sha, numkeys, *keys_and_args)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.

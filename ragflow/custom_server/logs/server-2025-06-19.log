@@ -1,0 +1,35 @@
+[rhis_server] 2025-06-19 12:41:41.857 INFO 当前模式:prod
+[rhis_server] 2025-06-19 12:41:41.860 INFO env:undefined
+[rhis_server] 2025-06-19 12:41:41.860 INFO Web服务端口：80
+[rhis_server] 2025-06-19 12:41:42.123 INFO http 服务启动成功，进程ID：19
+[rhis_server] 2025-06-19 12:41:42.864 DEBUG 开始监听日志消息队列
+[rhis_server] 2025-06-19 13:54:18.157 INFO 当前模式:prod
+[rhis_server] 2025-06-19 13:54:18.161 INFO env:undefined
+[rhis_server] 2025-06-19 13:54:18.162 INFO Web服务端口：80
+[rhis_server] 2025-06-19 13:54:18.542 INFO http 服务启动成功，进程ID：19
+[rhis_server] 2025-06-19 13:54:19.166 DEBUG 开始监听日志消息队列
+[rhis_server] 2025-06-19 14:03:59.207 INFO 当前模式:prod
+[rhis_server] 2025-06-19 14:03:59.208 INFO env:undefined
+[rhis_server] 2025-06-19 14:03:59.208 INFO Web服务端口：80
+[rhis_server] 2025-06-19 14:03:59.461 INFO http 服务启动成功，进程ID：19
+[rhis_server] 2025-06-19 14:04:00.211 DEBUG 开始监听日志消息队列
+[rhis_server] 2025-06-19 14:39:37.815 INFO 当前模式:prod
+[rhis_server] 2025-06-19 14:39:37.818 INFO env:undefined
+[rhis_server] 2025-06-19 14:39:37.819 INFO Web服务端口：80
+[rhis_server] 2025-06-19 14:39:38.196 INFO http 服务启动成功，进程ID：19
+[rhis_server] 2025-06-19 14:39:38.825 DEBUG 开始监听日志消息队列
+[rhis_server] 2025-06-19 14:43:20.033 INFO 当前模式:prod
+[rhis_server] 2025-06-19 14:43:20.034 INFO env:undefined
+[rhis_server] 2025-06-19 14:43:20.034 INFO Web服务端口：80
+[rhis_server] 2025-06-19 14:43:20.114 INFO http 服务启动成功，进程ID：19
+[rhis_server] 2025-06-19 14:43:21.036 DEBUG 开始监听日志消息队列
+[rhis_server] 2025-06-19 14:52:00.618 INFO 当前模式:prod
+[rhis_server] 2025-06-19 14:52:00.621 INFO env:undefined
+[rhis_server] 2025-06-19 14:52:00.621 INFO Web服务端口：80
+[rhis_server] 2025-06-19 14:52:00.952 INFO http 服务启动成功，进程ID：19
+[rhis_server] 2025-06-19 14:52:01.625 DEBUG 开始监听日志消息队列
+[rhis_server] 2025-06-19 15:32:28.614 INFO 当前模式:prod
+[rhis_server] 2025-06-19 15:32:28.615 INFO env:undefined
+[rhis_server] 2025-06-19 15:32:28.615 INFO Web服务端口：80
+[rhis_server] 2025-06-19 15:32:28.695 INFO http 服务启动成功，进程ID：19
+[rhis_server] 2025-06-19 15:32:29.617 DEBUG 开始监听日志消息队列

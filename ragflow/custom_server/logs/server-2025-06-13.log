@@ -1,0 +1,80 @@
+[rhis_server] 2025-06-13 23:42:55.095 INFO 当前模式:prod
+[rhis_server] 2025-06-13 23:42:55.097 INFO env:undefined
+[rhis_server] 2025-06-13 23:42:55.097 INFO Web服务端口：80
+[rhis_server] 2025-06-13 23:42:55.377 INFO http 服务启动成功，进程ID：20
+[rhis_server] 2025-06-13 23:42:56.100 DEBUG 开始监听日志消息队列
+[rhis_server] 2025-06-13 23:45:56.124 INFO 当前模式:prod
+[rhis_server] 2025-06-13 23:45:56.125 INFO env:undefined
+[rhis_server] 2025-06-13 23:45:56.125 INFO Web服务端口：80
+[rhis_server] 2025-06-13 23:45:56.198 INFO http 服务启动成功，进程ID：19
+[rhis_server] 2025-06-13 23:45:57.127 DEBUG 开始监听日志消息队列
+[rhis_server] 2025-06-13 23:52:41.589 INFO 当前模式:prod
+[rhis_server] 2025-06-13 23:52:41.591 INFO env:undefined
+[rhis_server] 2025-06-13 23:52:41.591 INFO Web服务端口：80
+[rhis_server] 2025-06-13 23:52:41.907 INFO http 服务启动成功，进程ID：19
+[rhis_server] 2025-06-13 23:52:42.594 DEBUG 开始监听日志消息队列
+[rhis_server] 2025-06-13 23:54:05.389 ERROR connect ECONNREFUSED 172.30.0.3:5455 ConnectionRefusedError [SequelizeConnectionRefusedError]: connect ECONNREFUSED 172.30.0.3:5455
+    at ConnectionManager.connect (/app/node_modules/sequelize/lib/dialects/mysql/connection-manager.js:92:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async ConnectionManager._connect (/app/node_modules/sequelize/lib/dialects/abstract/connection-manager.js:222:24)
+    at async /app/node_modules/sequelize/lib/dialects/abstract/connection-manager.js:174:32
+    at async ConnectionManager.getConnection (/app/node_modules/sequelize/lib/dialects/abstract/connection-manager.js:197:7)
+    at async /app/node_modules/sequelize/lib/sequelize.js:305:26
+    at async MySQLQueryInterface.select (/app/node_modules/sequelize/lib/dialects/abstract/query-interface.js:407:12)
+    at async user.findAll (/app/node_modules/sequelize/lib/model.js:1140:21)
+    at async user.findOne (/app/node_modules/sequelize/lib/model.js:1240:12)
+    at async module.exports.getItem (/app/logic/user.js:9:21) {
+  parent: Error: connect ECONNREFUSED 172.30.0.3:5455
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
+    errno: -111,
+    code: 'ECONNREFUSED',
+    syscall: 'connect',
+    address: '172.30.0.3',
+    port: 5455,
+    fatal: true
+  },
+  original: Error: connect ECONNREFUSED 172.30.0.3:5455
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
+    errno: -111,
+    code: 'ECONNREFUSED',
+    syscall: 'connect',
+    address: '172.30.0.3',
+    port: 5455,
+    fatal: true
+  }
+}
+[rhis_server] 2025-06-13 23:54:10.060 ERROR connect ECONNREFUSED 172.30.0.3:5455 ConnectionRefusedError [SequelizeConnectionRefusedError]: connect ECONNREFUSED 172.30.0.3:5455
+    at ConnectionManager.connect (/app/node_modules/sequelize/lib/dialects/mysql/connection-manager.js:92:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async ConnectionManager._connect (/app/node_modules/sequelize/lib/dialects/abstract/connection-manager.js:222:24)
+    at async /app/node_modules/sequelize/lib/dialects/abstract/connection-manager.js:174:32
+    at async ConnectionManager.getConnection (/app/node_modules/sequelize/lib/dialects/abstract/connection-manager.js:197:7)
+    at async /app/node_modules/sequelize/lib/sequelize.js:305:26
+    at async MySQLQueryInterface.select (/app/node_modules/sequelize/lib/dialects/abstract/query-interface.js:407:12)
+    at async user.findAll (/app/node_modules/sequelize/lib/model.js:1140:21)
+    at async user.findOne (/app/node_modules/sequelize/lib/model.js:1240:12)
+    at async module.exports.getItem (/app/logic/user.js:9:21) {
+  parent: Error: connect ECONNREFUSED 172.30.0.3:5455
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
+    errno: -111,
+    code: 'ECONNREFUSED',
+    syscall: 'connect',
+    address: '172.30.0.3',
+    port: 5455,
+    fatal: true
+  },
+  original: Error: connect ECONNREFUSED 172.30.0.3:5455
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
+    errno: -111,
+    code: 'ECONNREFUSED',
+    syscall: 'connect',
+    address: '172.30.0.3',
+    port: 5455,
+    fatal: true
+  }
+}
+[rhis_server] 2025-06-13 23:55:26.378 INFO http 服务启动成功，进程ID：19
+[rhis_server] 2025-06-13 23:55:26.204 INFO 当前模式:prod
+[rhis_server] 2025-06-13 23:55:26.206 INFO env:undefined
+[rhis_server] 2025-06-13 23:55:26.206 INFO Web服务端口：80
+[rhis_server] 2025-06-13 23:55:27.208 DEBUG 开始监听日志消息队列

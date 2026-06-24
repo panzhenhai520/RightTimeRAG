@@ -1,0 +1,415 @@
+2026-01-07 19:12:47,708 INFO     143 task_executor_aac81a196014_0 log path: /ragflow/logs/task_executor_aac81a196014_0.log, log levels: {'peewee': 'WARNING', 'pdfminer': 'WARNING', 'root': 'INFO'}
+2026-01-07 19:12:47,709 INFO     143 
+  ______           __      ______                     __
+ /_  __/___ ______/ /__   / ____/  _____  _______  __/ /_____  _____
+  / / / __ `/ ___/ //_/  / __/ | |/_/ _ \/ ___/ / / / __/ __ \/ ___/
+ / / / /_/ (__  ) ,<    / /____>  </  __/ /__/ /_/ / /_/ /_/ / /
+/_/  \__,_/____/_/|_|  /_____/_/|_|\___/\___/\__,_/\__/\____/_/
+    
+2026-01-07 19:12:47,710 INFO     143 TaskExecutor: RAGFlow version: v0.19.0 slim
+2026-01-07 19:12:47,711 INFO     143 Use Elasticsearch http://es01:9200 as the doc engine.
+2026-01-07 19:12:47,728 INFO     143 GET http://es01:9200/ [status:200 duration:0.015s]
+2026-01-07 19:12:47,736 INFO     143 HEAD http://es01:9200/ [status:200 duration:0.007s]
+2026-01-07 19:12:47,737 INFO     143 Elasticsearch http://es01:9200 is healthy.
+2026-01-07 19:12:47,747 WARNING  143 Load term.freq FAIL!
+2026-01-07 19:12:47,756 WARNING  143 Realtime synonym is disabled, since no redis connection.
+2026-01-07 19:12:47,766 WARNING  143 Load term.freq FAIL!
+2026-01-07 19:12:47,773 WARNING  143 Realtime synonym is disabled, since no redis connection.
+2026-01-07 19:12:47,773 INFO     143 MAX_CONTENT_LENGTH: 134217728
+2026-01-07 19:12:47,774 INFO     143 MAX_FILE_COUNT_PER_USER: 0
+2026-01-07 19:12:47,782 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:12:47.781+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:12:47,784 INFO     143 task_executor_bc3f18914302_0 expired, removed
+2026-01-07 19:12:47,785 WARNING  143 RedisDB.get_unacked_iterator queue rag_flow_svr_queue_1 doesn't exist
+2026-01-07 19:13:17,787 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:13:17.785+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:13:47,790 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:13:47.789+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:14:17,795 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:14:17.793+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:14:47,800 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:14:47.798+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:15:17,805 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:15:17.803+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:15:47,809 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:15:47.807+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:16:17,815 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:16:17.813+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:16:47,822 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:16:47.820+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:17:17,827 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:17:17.824+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:17:47,832 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:17:47.830+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:18:17,837 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:18:17.835+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:18:47,843 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:18:47.841+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:19:17,848 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:19:17.846+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:19:47,853 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:19:47.851+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:20:17,858 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:20:17.856+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:20:47,863 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:20:47.861+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:21:17,870 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:21:17.868+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:21:47,875 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:21:47.873+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:22:17,880 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:22:17.878+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:22:47,887 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:22:47.884+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:23:17,893 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:23:17.891+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:23:47,900 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:23:47.897+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:24:17,905 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:24:17.903+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:24:47,910 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:24:47.908+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:25:17,915 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:25:17.913+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:25:47,921 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:25:47.918+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:26:17,928 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:26:17.926+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:26:47,937 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:26:47.934+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:27:17,944 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:27:17.942+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:27:47,974 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:27:47.971+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:28:17,980 INFO     143 task_executor_aac81a196014_0 reported heartbeat: {"name": "task_executor_aac81a196014_0", "now": "2026-01-07T19:28:17.978+08:00", "boot_at": "2026-01-07T19:12:47.707+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2026-01-07 19:28:43,450 ERROR    143 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error while reading from redis:6379 : (104, 'Connection reset by peer')
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 546, in read_response
+    response = self._parser.read_response(disable_decoding=disable_decoding)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/resp2.py", line 15, in read_response
+    result = self._read_response(disable_decoding=disable_decoding)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/resp2.py", line 25, in _read_response
+    raw = self._buffer.readline()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/socket.py", line 115, in readline
+    self._read_from_socket()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/socket.py", line 65, in _read_from_socket
+    data = self._sock.recv(socket_read_size)
+ConnectionResetError: [Errno 104] Connection reset by peer
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 570, in execute_command
+    response = conn.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 65, in call_with_retry
+    fail(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 574, in <lambda>
+    lambda error: self._disconnect_raise(conn, error),
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 556, in _disconnect_raise
+    raise error
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 571, in <lambda>
+    lambda: self._send_command_parse_response(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 543, in _send_command_parse_response
+    return self.parse_response(conn, command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 590, in parse_response
+    response = connection.read_response()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 554, in read_response
+    raise ConnectionError(
+valkey.exceptions.ConnectionError: Error while reading from redis:6379 : (104, 'Connection reset by peer')
+2026-01-07 19:28:43,461 ERROR    143 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error 111 connecting to redis:6379. Connection refused.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 728, in _connect
+    raise err
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 716, in _connect
+    sock.connect(socket_address)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error 111 connecting to redis:6379. Connection refused.
+2026-01-07 19:28:43,464 ERROR    143 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error 111 connecting to redis:6379. Connection refused.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 728, in _connect
+    raise err
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 716, in _connect
+    sock.connect(socket_address)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error 111 connecting to redis:6379. Connection refused.
+2026-01-07 19:28:43,466 ERROR    143 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error 111 connecting to redis:6379. Connection refused.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 728, in _connect
+    raise err
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 716, in _connect
+    sock.connect(socket_address)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error 111 connecting to redis:6379. Connection refused.
+2026-01-07 19:28:43,468 ERROR    143 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error 111 connecting to redis:6379. Connection refused.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 728, in _connect
+    raise err
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 716, in _connect
+    sock.connect(socket_address)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error 111 connecting to redis:6379. Connection refused.
+2026-01-07 19:28:43,470 ERROR    143 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error 111 connecting to redis:6379. Connection refused.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 728, in _connect
+    raise err
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 716, in _connect
+    sock.connect(socket_address)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error 111 connecting to redis:6379. Connection refused.
+2026-01-07 19:28:43,562 ERROR    143 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error 111 connecting to redis:6379. Connection refused.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 728, in _connect
+    raise err
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 716, in _connect
+    sock.connect(socket_address)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error 111 connecting to redis:6379. Connection refused.
+2026-01-07 19:28:43,565 ERROR    143 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error 111 connecting to redis:6379. Connection refused.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 728, in _connect
+    raise err
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 716, in _connect
+    sock.connect(socket_address)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error 111 connecting to redis:6379. Connection refused.
+2026-01-07 19:28:43,664 ERROR    143 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error 111 connecting to redis:6379. Connection refused.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 728, in _connect
+    raise err
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 716, in _connect
+    sock.connect(socket_address)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error 111 connecting to redis:6379. Connection refused.
+2026-01-07 19:28:43,666 ERROR    143 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error 111 connecting to redis:6379. Connection refused.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 728, in _connect
+    raise err
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 716, in _connect
+    sock.connect(socket_address)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error 111 connecting to redis:6379. Connection refused.

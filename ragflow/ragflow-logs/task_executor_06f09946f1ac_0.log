@@ -1,0 +1,829 @@
+2025-06-18 21:46:04,868 INFO     39 task_executor_06f09946f1ac_0 log path: /ragflow/logs/task_executor_06f09946f1ac_0.log, log levels: {'peewee': 'WARNING', 'pdfminer': 'WARNING', 'root': 'INFO'}
+2025-06-18 21:46:04,869 INFO     39 
+  ______           __      ______                     __
+ /_  __/___ ______/ /__   / ____/  _____  _______  __/ /_____  _____
+  / / / __ `/ ___/ //_/  / __/ | |/_/ _ \/ ___/ / / / __/ __ \/ ___/
+ / / / /_/ (__  ) ,<    / /____>  </  __/ /__/ /_/ / /_/ /_/ / /
+/_/  \__,_/____/_/|_|  /_____/_/|_|\___/\___/\__,_/\__/\____/_/
+    
+2025-06-18 21:46:04,869 INFO     39 TaskExecutor: RAGFlow version: v0.19.0 slim
+2025-06-18 21:46:04,870 INFO     39 Use Elasticsearch http://es01:9200 as the doc engine.
+2025-06-18 21:46:05,179 INFO     39 GET http://es01:9200/ [status:200 duration:0.308s]
+2025-06-18 21:46:05,185 INFO     39 HEAD http://es01:9200/ [status:200 duration:0.006s]
+2025-06-18 21:46:05,187 INFO     39 Elasticsearch http://es01:9200 is healthy.
+2025-06-18 21:46:05,197 WARNING  39 Load term.freq FAIL!
+2025-06-18 21:46:05,207 WARNING  39 Realtime synonym is disabled, since no redis connection.
+2025-06-18 21:46:05,217 WARNING  39 Load term.freq FAIL!
+2025-06-18 21:46:05,225 WARNING  39 Realtime synonym is disabled, since no redis connection.
+2025-06-18 21:46:05,225 INFO     39 MAX_CONTENT_LENGTH: 134217728
+2025-06-18 21:46:05,225 INFO     39 MAX_FILE_COUNT_PER_USER: 0
+2025-06-18 21:46:05,233 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:46:05.231+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:46:05,234 INFO     39 task_executor_1c7ae0293b9d_0 expired, removed
+2025-06-18 21:46:05,235 WARNING  39 RedisDB.get_unacked_iterator queue rag_flow_svr_queue_1 doesn't exist
+2025-06-18 21:46:35,237 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:46:35.235+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:47:05,240 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:47:05.239+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:47:35,245 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:47:35.243+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:48:05,249 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:48:05.248+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:48:35,254 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:48:35.252+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:49:05,259 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:49:05.257+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:49:35,263 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:49:35.261+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:50:05,267 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:50:05.265+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:50:35,272 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:50:35.270+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:51:05,277 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:51:05.275+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:51:35,281 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:51:35.279+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:52:05,286 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:52:05.284+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:52:35,291 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:52:35.289+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:53:05,295 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:53:05.293+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:53:35,300 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:53:35.298+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:54:05,304 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:54:05.302+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:54:35,309 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:54:35.307+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:55:05,314 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:55:05.312+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:55:35,318 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:55:35.317+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:56:05,323 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:56:05.321+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:56:35,328 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:56:35.326+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:57:05,333 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:57:05.331+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:57:35,338 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:57:35.336+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:58:05,343 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:58:05.341+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:58:35,347 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:58:35.345+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:59:05,351 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:59:05.349+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 21:59:35,355 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T21:59:35.353+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:00:05,360 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:00:05.358+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:00:35,375 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:00:35.373+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:01:05,380 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:01:05.378+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:01:35,384 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:01:35.382+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:02:05,388 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:02:05.386+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:02:35,392 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:02:35.390+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:03:05,397 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:03:05.395+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:03:35,401 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:03:35.399+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:04:05,406 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:04:05.404+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:04:35,410 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:04:35.408+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:05:05,415 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:05:05.413+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:05:35,420 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:05:35.418+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:06:05,424 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:06:05.422+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:06:35,429 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:06:35.427+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:07:05,434 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:07:05.432+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:07:35,438 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:07:35.436+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:08:05,443 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:08:05.441+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:08:35,448 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:08:35.446+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:09:05,453 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:09:05.451+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:09:35,458 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:09:35.455+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:10:05,462 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:10:05.461+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:10:35,465 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:10:35.464+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:11:05,468 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:11:05.467+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:11:35,472 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:11:35.470+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:12:05,475 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:12:05.474+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:12:35,478 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:12:35.477+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:13:05,482 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:13:05.481+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:13:35,485 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:13:35.483+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:14:05,487 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:14:05.486+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:14:35,491 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:14:35.490+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:15:05,495 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:15:05.493+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:15:35,498 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:15:35.497+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:16:05,507 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:16:05.506+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:16:35,511 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:16:35.510+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:17:05,514 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:17:05.513+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:17:35,517 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:17:35.516+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:18:05,521 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:18:05.520+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:18:35,524 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:18:35.523+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:19:05,527 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:19:05.527+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:19:35,531 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:19:35.530+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:20:05,534 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:20:05.533+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:20:35,537 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:20:35.537+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:21:05,540 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:21:05.539+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:21:35,543 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:21:35.542+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:22:05,547 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:22:05.546+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:22:35,550 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:22:35.549+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:23:05,552 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:23:05.551+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:23:35,554 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:23:35.553+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:24:05,557 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:24:05.556+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:24:35,562 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:24:35.560+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:25:05,565 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:25:05.564+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:25:35,568 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:25:35.567+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:26:05,571 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:26:05.570+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:26:35,575 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:26:35.573+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:27:05,579 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:27:05.577+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:27:35,583 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:27:35.582+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:28:05,587 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:28:05.586+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:28:35,591 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:28:35.590+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:29:05,594 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:29:05.593+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:29:35,598 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:29:35.597+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:30:05,601 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:30:05.600+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:30:35,605 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:30:35.604+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:31:05,608 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:31:05.607+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:31:35,613 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:31:35.611+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:32:05,617 INFO     39 task_executor_06f09946f1ac_0 reported heartbeat: {"name": "task_executor_06f09946f1ac_0", "now": "2025-06-18T22:32:05.616+08:00", "boot_at": "2025-06-18T21:46:04.868+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 22:32:09,742 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1116, in get_connection
+    if connection.can_read() and connection.client_cache is None:
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 524, in can_read
+    return self._parser.can_read(timeout)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/base.py", line 128, in can_read
+    return self._buffer and self._buffer.can_read(timeout)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/socket.py", line 95, in can_read
+    return bool(self.unread_bytes()) or self._read_from_socket(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/socket.py", line 68, in _read_from_socket
+    raise ConnectionError(SERVER_CLOSED_CONNECTION_ERROR)
+valkey.exceptions.ConnectionError: Connection closed by server.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1120, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:09,757 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:09,839 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:09,842 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:09,941 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:09,945 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:10,040 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:10,043 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:10,140 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:10,143 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:14,762 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:14,765 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:14,848 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:14,851 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:14,950 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:14,952 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:15,047 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:15,049 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:15,148 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 22:32:15,150 ERROR    39 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.

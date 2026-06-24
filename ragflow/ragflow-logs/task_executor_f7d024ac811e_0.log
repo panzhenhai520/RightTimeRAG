@@ -1,0 +1,103 @@
+2026-01-07 18:16:50,128 INFO     78 task_executor_f7d024ac811e_0 log path: /ragflow/logs/task_executor_f7d024ac811e_0.log, log levels: {'peewee': 'WARNING', 'pdfminer': 'WARNING', 'root': 'INFO'}
+2026-01-07 18:16:50,140 INFO     78 
+  ______           __      ______                     __
+ /_  __/___ ______/ /__   / ____/  _____  _______  __/ /_____  _____
+  / / / __ `/ ___/ //_/  / __/ | |/_/ _ \/ ___/ / / / __/ __ \/ ___/
+ / / / /_/ (__  ) ,<    / /____>  </  __/ /__/ /_/ / /_/ /_/ / /
+/_/  \__,_/____/_/|_|  /_____/_/|_|\___/\___/\__,_/\__/\____/_/
+    
+2026-01-07 18:16:50,140 INFO     78 TaskExecutor: RAGFlow version: v0.19.0 slim
+2026-01-07 18:16:50,141 INFO     78 Use Elasticsearch http://es01:9200 as the doc engine.
+2026-01-07 18:16:50,145 INFO     78 GET http://es01:9200/ [status:N/A duration:0.003s]
+2026-01-07 18:16:50,145 WARNING  78 Node <Urllib3HttpNode(http://es01:9200)> has failed for 1 times in a row, putting on 1 second timeout
+2026-01-07 18:16:50,145 WARNING  78 Retrying request after failure (attempt 0 of 3)
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_transport.py", line 328, in perform_request
+    meta, raw_data = node.perform_request(
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_node/_http_urllib3.py", line 202, in perform_request
+    raise err from None
+elastic_transport.ConnectionError: Connection error caused by: NameResolutionError(<urllib3.connection.HTTPConnection object at 0x7f4124bc0430>: Failed to resolve 'es01' ([Errno -3] Temporary failure in name resolution))
+2026-01-07 18:16:50,148 INFO     78 GET http://es01:9200/ [status:N/A duration:0.002s]
+2026-01-07 18:16:50,148 WARNING  78 Node <Urllib3HttpNode(http://es01:9200)> has failed for 2 times in a row, putting on 2 second timeout
+2026-01-07 18:16:50,148 WARNING  78 Retrying request after failure (attempt 1 of 3)
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_transport.py", line 328, in perform_request
+    meta, raw_data = node.perform_request(
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_node/_http_urllib3.py", line 202, in perform_request
+    raise err from None
+elastic_transport.ConnectionError: Connection error caused by: NameResolutionError(<urllib3.connection.HTTPConnection object at 0x7f4124bc3640>: Failed to resolve 'es01' ([Errno -3] Temporary failure in name resolution))
+2026-01-07 18:16:50,150 INFO     78 GET http://es01:9200/ [status:N/A duration:0.002s]
+2026-01-07 18:16:50,150 WARNING  78 Node <Urllib3HttpNode(http://es01:9200)> has failed for 3 times in a row, putting on 4 second timeout
+2026-01-07 18:16:50,150 WARNING  78 Retrying request after failure (attempt 2 of 3)
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_transport.py", line 328, in perform_request
+    meta, raw_data = node.perform_request(
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_node/_http_urllib3.py", line 202, in perform_request
+    raise err from None
+elastic_transport.ConnectionError: Connection error caused by: NameResolutionError(<urllib3.connection.HTTPConnection object at 0x7f4135344490>: Failed to resolve 'es01' ([Errno -3] Temporary failure in name resolution))
+2026-01-07 18:16:50,152 INFO     78 GET http://es01:9200/ [status:N/A duration:0.002s]
+2026-01-07 18:16:50,152 WARNING  78 Node <Urllib3HttpNode(http://es01:9200)> has failed for 4 times in a row, putting on 8 second timeout
+2026-01-07 18:16:50,152 WARNING  78 Connection error caused by: ConnectionError(Connection error caused by: NameResolutionError(<urllib3.connection.HTTPConnection object at 0x7f4124bc0430>: Failed to resolve 'es01' ([Errno -3] Temporary failure in name resolution))). Waiting Elasticsearch http://es01:9200 to be healthy.
+2026-01-07 18:16:55,165 INFO     78 GET http://es01:9200/ [status:N/A duration:0.006s]
+2026-01-07 18:16:55,165 WARNING  78 Node <Urllib3HttpNode(http://es01:9200)> has failed for 1 times in a row, putting on 1 second timeout
+2026-01-07 18:16:55,165 WARNING  78 Retrying request after failure (attempt 0 of 3)
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_transport.py", line 328, in perform_request
+    meta, raw_data = node.perform_request(
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_node/_http_urllib3.py", line 202, in perform_request
+    raise err from None
+elastic_transport.ConnectionError: Connection error caused by: NameResolutionError(<urllib3.connection.HTTPConnection object at 0x7f4133321900>: Failed to resolve 'es01' ([Errno -3] Temporary failure in name resolution))
+2026-01-07 18:16:55,168 INFO     78 GET http://es01:9200/ [status:N/A duration:0.002s]
+2026-01-07 18:16:55,168 WARNING  78 Node <Urllib3HttpNode(http://es01:9200)> has failed for 2 times in a row, putting on 2 second timeout
+2026-01-07 18:16:55,168 WARNING  78 Retrying request after failure (attempt 1 of 3)
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_transport.py", line 328, in perform_request
+    meta, raw_data = node.perform_request(
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_node/_http_urllib3.py", line 202, in perform_request
+    raise err from None
+elastic_transport.ConnectionError: Connection error caused by: NameResolutionError(<urllib3.connection.HTTPConnection object at 0x7f41333218a0>: Failed to resolve 'es01' ([Errno -3] Temporary failure in name resolution))
+2026-01-07 18:16:55,171 INFO     78 GET http://es01:9200/ [status:N/A duration:0.002s]
+2026-01-07 18:16:55,171 WARNING  78 Node <Urllib3HttpNode(http://es01:9200)> has failed for 3 times in a row, putting on 4 second timeout
+2026-01-07 18:16:55,171 WARNING  78 Retrying request after failure (attempt 2 of 3)
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_transport.py", line 328, in perform_request
+    meta, raw_data = node.perform_request(
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_node/_http_urllib3.py", line 202, in perform_request
+    raise err from None
+elastic_transport.ConnectionError: Connection error caused by: NameResolutionError(<urllib3.connection.HTTPConnection object at 0x7f41333234c0>: Failed to resolve 'es01' ([Errno -3] Temporary failure in name resolution))
+2026-01-07 18:16:55,173 INFO     78 GET http://es01:9200/ [status:N/A duration:0.002s]
+2026-01-07 18:16:55,174 WARNING  78 Node <Urllib3HttpNode(http://es01:9200)> has failed for 4 times in a row, putting on 8 second timeout
+2026-01-07 18:16:55,174 WARNING  78 Connection error caused by: ConnectionError(Connection error caused by: NameResolutionError(<urllib3.connection.HTTPConnection object at 0x7f4133321900>: Failed to resolve 'es01' ([Errno -3] Temporary failure in name resolution))). Waiting Elasticsearch http://es01:9200 to be healthy.
+2026-01-07 18:17:00,179 INFO     78 Resurrected node <Urllib3HttpNode(http://es01:9200)> (force=False)
+2026-01-07 18:17:00,184 INFO     78 HEAD http://es01:9200/ [status:N/A duration:0.004s]
+2026-01-07 18:17:00,185 WARNING  78 Node <Urllib3HttpNode(http://es01:9200)> has failed for 5 times in a row, putting on 16 second timeout
+2026-01-07 18:17:00,185 WARNING  78 Retrying request after failure (attempt 0 of 3)
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_transport.py", line 328, in perform_request
+    meta, raw_data = node.perform_request(
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_node/_http_urllib3.py", line 202, in perform_request
+    raise err from None
+elastic_transport.ConnectionError: Connection error caused by: NameResolutionError(<urllib3.connection.HTTPConnection object at 0x7f4133322c80>: Failed to resolve 'es01' ([Errno -3] Temporary failure in name resolution))
+2026-01-07 18:17:00,185 INFO     78 Resurrected node <Urllib3HttpNode(http://es01:9200)> (force=False)
+2026-01-07 18:17:00,188 INFO     78 HEAD http://es01:9200/ [status:N/A duration:0.002s]
+2026-01-07 18:17:00,188 WARNING  78 Node <Urllib3HttpNode(http://es01:9200)> has failed for 6 times in a row, putting on 30 second timeout
+2026-01-07 18:17:00,188 WARNING  78 Retrying request after failure (attempt 1 of 3)
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_transport.py", line 328, in perform_request
+    meta, raw_data = node.perform_request(
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_node/_http_urllib3.py", line 202, in perform_request
+    raise err from None
+elastic_transport.ConnectionError: Connection error caused by: NameResolutionError(<urllib3.connection.HTTPConnection object at 0x7f4133323bb0>: Failed to resolve 'es01' ([Errno -3] Temporary failure in name resolution))
+2026-01-07 18:17:00,189 INFO     78 Resurrected node <Urllib3HttpNode(http://es01:9200)> (force=False)
+2026-01-07 18:17:00,191 INFO     78 HEAD http://es01:9200/ [status:N/A duration:0.002s]
+2026-01-07 18:17:00,192 WARNING  78 Node <Urllib3HttpNode(http://es01:9200)> has failed for 7 times in a row, putting on 30 second timeout
+2026-01-07 18:17:00,192 WARNING  78 Retrying request after failure (attempt 2 of 3)
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_transport.py", line 328, in perform_request
+    meta, raw_data = node.perform_request(
+  File "/ragflow/.venv/lib/python3.10/site-packages/elastic_transport/_node/_http_urllib3.py", line 202, in perform_request
+    raise err from None
+elastic_transport.ConnectionError: Connection error caused by: NameResolutionError(<urllib3.connection.HTTPConnection object at 0x7f4133321750>: Failed to resolve 'es01' ([Errno -3] Temporary failure in name resolution))
+2026-01-07 18:17:00,194 INFO     78 HEAD http://es01:9200/ [status:N/A duration:0.002s]
+2026-01-07 18:17:00,194 WARNING  78 Node <Urllib3HttpNode(http://es01:9200)> has failed for 8 times in a row, putting on 30 second timeout
+2026-01-07 18:17:00,194 ERROR    78 Elasticsearch http://es01:9200 is unhealthy in 120s.

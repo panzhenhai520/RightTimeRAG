@@ -1,0 +1,991 @@
+2025-06-18 16:04:31,082 INFO     38 task_executor_b708605aa896_0 log path: /ragflow/logs/task_executor_b708605aa896_0.log, log levels: {'peewee': 'WARNING', 'pdfminer': 'WARNING', 'root': 'INFO'}
+2025-06-18 16:04:31,082 INFO     38 
+  ______           __      ______                     __
+ /_  __/___ ______/ /__   / ____/  _____  _______  __/ /_____  _____
+  / / / __ `/ ___/ //_/  / __/ | |/_/ _ \/ ___/ / / / __/ __ \/ ___/
+ / / / /_/ (__  ) ,<    / /____>  </  __/ /__/ /_/ / /_/ /_/ / /
+/_/  \__,_/____/_/|_|  /_____/_/|_|\___/\___/\__,_/\__/\____/_/
+    
+2025-06-18 16:04:31,083 INFO     38 TaskExecutor: RAGFlow version: v0.19.0 slim
+2025-06-18 16:04:31,083 INFO     38 Use Elasticsearch http://es01:9200 as the doc engine.
+2025-06-18 16:04:31,101 INFO     38 GET http://es01:9200/ [status:200 duration:0.017s]
+2025-06-18 16:04:31,108 INFO     38 HEAD http://es01:9200/ [status:200 duration:0.006s]
+2025-06-18 16:04:31,109 INFO     38 Elasticsearch http://es01:9200 is healthy.
+2025-06-18 16:04:31,122 WARNING  38 Load term.freq FAIL!
+2025-06-18 16:04:31,131 WARNING  38 Realtime synonym is disabled, since no redis connection.
+2025-06-18 16:04:31,142 WARNING  38 Load term.freq FAIL!
+2025-06-18 16:04:31,149 WARNING  38 Realtime synonym is disabled, since no redis connection.
+2025-06-18 16:04:31,150 INFO     38 MAX_CONTENT_LENGTH: 134217728
+2025-06-18 16:04:31,150 INFO     38 MAX_FILE_COUNT_PER_USER: 0
+2025-06-18 16:04:31,158 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:04:31.157+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:04:31,159 INFO     38 task_executor_12bc4bcc2409_0 expired, removed
+2025-06-18 16:04:31,160 WARNING  38 RedisDB.get_unacked_iterator queue rag_flow_svr_queue_1 doesn't exist
+2025-06-18 16:05:01,162 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:05:01.161+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:05:31,168 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:05:31.166+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:06:01,173 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:06:01.170+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:06:31,179 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:06:31.177+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:07:01,184 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:07:01.182+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:07:31,189 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:07:31.187+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:08:01,194 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:08:01.192+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:08:31,198 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:08:31.196+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:09:01,202 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:09:01.201+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:09:31,207 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:09:31.205+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:10:01,211 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:10:01.209+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:10:31,216 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:10:31.214+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:11:01,221 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:11:01.219+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:11:31,227 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:11:31.225+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:12:01,232 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:12:01.230+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:12:31,236 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:12:31.234+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:13:01,240 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:13:01.239+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:13:31,245 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:13:31.243+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:14:01,250 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:14:01.248+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:14:31,255 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:14:31.253+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:15:01,259 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:15:01.257+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:15:31,264 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:15:31.262+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:16:01,268 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:16:01.266+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:16:31,272 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:16:31.270+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:17:01,277 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:17:01.275+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:17:31,282 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:17:31.280+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:18:01,286 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:18:01.285+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:18:31,293 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:18:31.290+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:19:01,323 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:19:01.321+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:19:31,327 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:19:31.325+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:20:01,333 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:20:01.331+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:20:31,337 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:20:31.335+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:21:01,342 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:21:01.341+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:21:31,347 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:21:31.345+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:22:01,353 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:22:01.351+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:22:31,357 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:22:31.355+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:23:01,362 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:23:01.360+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:23:31,367 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:23:31.365+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:24:01,372 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:24:01.370+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:24:31,377 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:24:31.375+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:25:01,381 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:25:01.380+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:25:31,384 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:25:31.383+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:26:01,387 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:26:01.386+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:26:31,391 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:26:31.390+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:27:01,395 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:27:01.393+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:27:31,398 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:27:31.397+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:28:01,400 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:28:01.399+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:28:31,403 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:28:31.402+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:29:01,406 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:29:01.405+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:29:31,409 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:29:31.408+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:30:01,412 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:30:01.411+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:30:31,415 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:30:31.414+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:31:01,419 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:31:01.418+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:31:31,422 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:31:31.421+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:32:01,424 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:32:01.423+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:32:31,428 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:32:31.427+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:33:01,431 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:33:01.430+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:33:31,435 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:33:31.434+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:34:01,438 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:34:01.437+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:34:31,441 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:34:31.440+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:35:01,445 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:35:01.444+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:35:31,465 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:35:31.464+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:36:01,469 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:36:01.468+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:36:31,472 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:36:31.471+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:37:01,475 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:37:01.474+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:37:31,479 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:37:31.478+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:38:01,483 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:38:01.482+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:38:31,487 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:38:31.486+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:39:01,491 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:39:01.489+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:39:31,494 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:39:31.493+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:40:01,497 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:40:01.496+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:40:31,500 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:40:31.499+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:41:01,504 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:41:01.503+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:41:31,507 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:41:31.506+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:42:01,510 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:42:01.509+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:42:31,514 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:42:31.513+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:43:01,517 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:43:01.516+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:43:31,521 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:43:31.520+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:44:01,525 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:44:01.524+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:44:31,529 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:44:31.527+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:45:01,532 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:45:01.531+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:45:31,536 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:45:31.535+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:46:01,540 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:46:01.539+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:46:31,543 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:46:31.542+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:47:01,546 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:47:01.545+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:47:31,549 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:47:31.548+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:48:01,553 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:48:01.552+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:48:31,556 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:48:31.555+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:49:01,559 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:49:01.558+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:49:31,562 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:49:31.561+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:50:01,565 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:50:01.564+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:50:31,569 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:50:31.567+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:51:01,571 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:51:01.570+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:51:31,575 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:51:31.574+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:52:01,579 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:52:01.578+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:52:31,582 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:52:31.581+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:53:01,586 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:53:01.585+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:53:31,589 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:53:31.588+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:54:01,592 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:54:01.591+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:54:31,596 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:54:31.595+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:55:01,600 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:55:01.599+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:55:31,603 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:55:31.602+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:56:01,607 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:56:01.606+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:56:31,610 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:56:31.609+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:57:01,614 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:57:01.613+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:57:31,617 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:57:31.616+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:58:01,621 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:58:01.620+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:58:31,625 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:58:31.624+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:59:01,628 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:59:01.627+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 16:59:31,632 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T16:59:31.631+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:00:01,634 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:00:01.633+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:00:31,638 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:00:31.637+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:01:01,642 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:01:01.640+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:01:31,645 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:01:31.644+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:02:01,648 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:02:01.647+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:02:31,652 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:02:31.651+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:03:01,655 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:03:01.654+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:03:31,659 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:03:31.658+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:04:01,662 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:04:01.661+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:04:31,666 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:04:31.665+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:05:01,669 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:05:01.668+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:05:31,673 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:05:31.672+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:06:01,676 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:06:01.675+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:06:31,679 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:06:31.678+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:07:01,682 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:07:01.681+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:07:31,685 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:07:31.684+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:08:01,689 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:08:01.688+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:08:31,692 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:08:31.691+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:09:01,696 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:09:01.695+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:09:31,699 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:09:31.698+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:10:01,702 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:10:01.701+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:10:31,705 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:10:31.704+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:11:01,709 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:11:01.708+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:11:31,736 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:11:31.735+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:12:01,738 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:12:01.738+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:12:31,742 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:12:31.741+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:13:01,745 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:13:01.744+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:13:31,749 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:13:31.748+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:14:01,752 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:14:01.751+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:14:31,755 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:14:31.754+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:15:01,757 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:15:01.756+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:15:31,761 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:15:31.760+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:16:01,765 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:16:01.764+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:16:31,769 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:16:31.768+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:17:01,772 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:17:01.771+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:17:31,775 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:17:31.774+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:18:01,779 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:18:01.778+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:18:31,782 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:18:31.781+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:19:01,786 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:19:01.785+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:19:31,790 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:19:31.789+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:20:01,793 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:20:01.792+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:20:31,797 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:20:31.796+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:21:01,801 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:21:01.800+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:21:31,804 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:21:31.803+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:22:01,808 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:22:01.807+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:22:31,812 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:22:31.811+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:23:01,815 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:23:01.814+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:23:31,819 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:23:31.818+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:24:01,823 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:24:01.822+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:24:31,826 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:24:31.825+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:25:01,829 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:25:01.828+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:25:31,833 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:25:31.832+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:26:01,836 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:26:01.835+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:26:31,839 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:26:31.838+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:27:01,842 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:27:01.841+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:27:31,845 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:27:31.844+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:28:01,848 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:28:01.847+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:28:31,852 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:28:31.851+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:29:01,855 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:29:01.854+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:29:31,858 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:29:31.857+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:30:01,862 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:30:01.861+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:30:31,866 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:30:31.865+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:31:01,869 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:31:01.868+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:31:31,873 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:31:31.872+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:32:01,877 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:32:01.876+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:32:31,881 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:32:31.880+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:33:01,884 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:33:01.882+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:33:31,887 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:33:31.887+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:34:01,891 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:34:01.889+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:34:31,894 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:34:31.893+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:35:01,898 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:35:01.897+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:35:31,901 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:35:31.900+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:36:01,905 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:36:01.904+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:36:31,908 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:36:31.907+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:37:01,912 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:37:01.911+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:37:31,915 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:37:31.914+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:38:01,918 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:38:01.917+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:38:31,921 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:38:31.920+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:39:01,925 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:39:01.923+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:39:31,928 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:39:31.927+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:40:01,932 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:40:01.931+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:40:31,935 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:40:31.934+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:41:01,939 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:41:01.938+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:41:31,942 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:41:31.941+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:42:01,945 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:42:01.944+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:42:31,948 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:42:31.947+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:43:01,951 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:43:01.950+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:43:31,954 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:43:31.953+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:44:01,958 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:44:01.957+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:44:31,961 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:44:31.960+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:45:01,964 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:45:01.963+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:45:31,968 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:45:31.967+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:46:01,971 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:46:01.970+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:46:31,978 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:46:31.977+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:47:01,981 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:47:01.980+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:47:31,987 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:47:31.986+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:48:01,990 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:48:01.989+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:48:31,993 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:48:31.992+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:49:01,997 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:49:01.996+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:49:32,001 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:49:32.000+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:50:02,004 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:50:02.003+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:50:32,008 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:50:32.007+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:51:02,011 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:51:02.011+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:51:32,015 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:51:32.014+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:52:02,018 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:52:02.017+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:52:32,021 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:52:32.020+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:53:02,024 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:53:02.023+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:53:32,028 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:53:32.027+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:54:02,031 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:54:02.030+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:54:32,035 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:54:32.034+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:55:02,039 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:55:02.038+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:55:32,042 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:55:32.041+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:56:02,044 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:56:02.044+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:56:32,048 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:56:32.047+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:57:02,052 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:57:02.051+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:57:32,056 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:57:32.055+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:58:02,059 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:58:02.058+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:58:32,062 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:58:32.061+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:59:02,066 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:59:02.065+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 17:59:32,069 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T17:59:32.068+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:00:02,072 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:00:02.071+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:00:32,076 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:00:32.075+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:01:02,079 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:01:02.078+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:01:32,083 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:01:32.082+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:02:02,085 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:02:02.084+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:02:32,089 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:02:32.088+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:03:02,093 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:03:02.091+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:03:32,096 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:03:32.095+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:04:02,099 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:04:02.098+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:04:32,102 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:04:32.101+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:05:02,122 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:05:02.121+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:05:32,125 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:05:32.124+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:06:02,128 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:06:02.127+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:06:32,131 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:06:32.130+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:07:02,134 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:07:02.133+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:07:32,137 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:07:32.136+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:08:02,141 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:08:02.140+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:08:32,144 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:08:32.143+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:09:02,148 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:09:02.147+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:09:32,152 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:09:32.151+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:10:02,155 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:10:02.154+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:10:32,159 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:10:32.158+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:11:02,162 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:11:02.161+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:11:32,166 INFO     38 task_executor_b708605aa896_0 reported heartbeat: {"name": "task_executor_b708605aa896_0", "now": "2025-06-18T18:11:32.165+08:00", "boot_at": "2025-06-18T16:04:31.081+08:00", "pending": 0, "lag": 0, "done": 0, "failed": 0, "current": {}}
+2025-06-18 18:11:54,023 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1116, in get_connection
+    if connection.can_read() and connection.client_cache is None:
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 524, in can_read
+    return self._parser.can_read(timeout)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/base.py", line 128, in can_read
+    return self._buffer and self._buffer.can_read(timeout)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/socket.py", line 95, in can_read
+    return bool(self.unread_bytes()) or self._read_from_socket(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/_parsers/socket.py", line 68, in _read_from_socket
+    raise ConnectionError(SERVER_CLOSED_CONNECTION_ERROR)
+valkey.exceptions.ConnectionError: Connection closed by server.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1120, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:54,043 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:54,120 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:54,125 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:54,223 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:54,228 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:54,322 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:54,332 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:54,422 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:54,426 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:59,051 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:59,055 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:59,131 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:59,135 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:59,235 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:59,238 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:59,339 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:59,342 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:59,433 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue_1 got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-06-18 18:11:59,437 ERROR    38 RedisDB.queue_consumer rag_flow_svr_queue got exception: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+Traceback (most recent call last):
+  File "/ragflow/rag/svr/task_executor.py", line 193, in collect
+    redis_msg = next(UNACKED_ITERATOR)
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 302, in connect
+    sock = self.retry.call_with_retry(
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/retry.py", line 62, in call_with_retry
+    return do()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 303, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 696, in _connect
+    for res in socket.getaddrinfo(
+  File "/usr/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/ragflow/rag/utils/redis_conn.py", line 228, in queue_consumer
+    group_info = self.REDIS.xinfo_groups(queue_name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/commands/core.py", line 3810, in xinfo_groups
+    return self.execute_command("XINFO GROUPS", name)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/client.py", line 564, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 1107, in get_connection
+    connection.connect()
+  File "/ragflow/.venv/lib/python3.10/site-packages/valkey/connection.py", line 308, in connect
+    raise ConnectionError(self._error_message(e))
+valkey.exceptions.ConnectionError: Error -3 connecting to redis:6379. Temporary failure in name resolution.

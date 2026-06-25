@@ -1,8 +1,9 @@
 import { MoreButton } from '@/components/more-button';
 import { RAGFlowAvatar } from '@/components/ragflow-avatar';
 import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
+import { cn } from '@/lib/utils';
 import { formatDate } from '@/utils/date';
-import { MemoryStick } from 'lucide-react';
+import { Globe, MemoryStick } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { IMemory } from './interface';
 import { MemoryDropdown } from './memory-dropdown';
@@ -44,11 +45,23 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
             name={displayName}
           />
           <div className="min-w-0">
-            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-accent-primary/10 px-2 py-1 text-xs font-medium text-accent-primary">
-              <MemoryStick className="size-3.5" />
-              {description}
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-primary/10 px-2 py-1 text-xs font-medium text-accent-primary">
+                <MemoryStick className="size-3.5" />
+                {description}
+              </span>
+              {data.permissions === 'team' && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-state-success/10 px-2 py-1 text-xs font-medium text-state-success">
+                  <Globe className="size-3" />
+                  公开
+                </span>
+              )}
             </div>
-            <h3 className="line-clamp-3 whitespace-normal break-words text-base font-semibold leading-6 text-text-primary">
+            <h3
+              className={cn(
+                'line-clamp-3 whitespace-normal break-words text-base font-semibold leading-6 text-text-primary',
+              )}
+            >
               {displayName}
             </h3>
           </div>

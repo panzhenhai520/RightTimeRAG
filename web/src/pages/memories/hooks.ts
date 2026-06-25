@@ -31,6 +31,7 @@ import {
   MemoryProfileResponse,
   MemoryTopicMergesResponse,
   MergeMemoryProfileTopicsPayload,
+  Permissions,
 } from './interface';
 
 export const useCreateMemory = () => {
@@ -337,6 +338,39 @@ export const useUpdateMemory = () => {
   );
 
   return { data, isError, updateMemory };
+};
+
+export const useToggleMemoryPermissions = () => {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const { mutateAsync, isPending } = useMutation<
+    any,
+    Error,
+    { id: string; permissions: Permissions }
+  >({
+    mutationKey: ['toggleMemoryPermissions'],
+    mutationFn: async ({ id, permissions }) => {
+      const { data: response } = await updateMemoryById(id, { permissions });
+      if (response.code !== 0)
+        throw new Error(response.message || 'Failed to update memory');
+      return response.data;
+    },
+    onSuccess: () => {
+      message.success(t('message.updated'));
+      queryClient.invalidateQueries({ queryKey: ['memoryList'] });
+    },
+    onError: (error) => {
+      message.error(t('message.error', { error: error.message }));
+    },
+  });
+
+  const togglePermissions = useCallback(
+    (id: string, current: Permissions) =>
+      mutateAsync({ id, permissions: current === 'me' ? 'team' : 'me' }),
+    [mutateAsync],
+  );
+
+  return { togglePermissions, isPending };
 };
 
 export const useRenameMemory = () => {

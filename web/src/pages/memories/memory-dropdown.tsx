@@ -10,12 +10,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Routes } from '@/routes';
-import { Copy, PenLine, Trash2 } from 'lucide-react';
+import { Copy, Globe, Lock, PenLine, Trash2 } from 'lucide-react';
 import { MouseEventHandler, PropsWithChildren, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { useDeleteMemory } from './hooks';
-import { IMemory } from './interface';
+import { useDeleteMemory, useToggleMemoryPermissions } from './hooks';
+import { IMemory, Permissions } from './interface';
 import { getMemoryDisplayName } from './utils';
 
 export function MemoryDropdown({
@@ -28,7 +28,10 @@ export function MemoryDropdown({
 }) {
   const { t } = useTranslation();
   const { deleteMemory } = useDeleteMemory();
+  const { togglePermissions, isPending } = useToggleMemoryPermissions();
   const displayName = getMemoryDisplayName(memory, t);
+  const isPublic = memory.permissions === 'team';
+
   const handleShowChatRenameModal: MouseEventHandler<HTMLDivElement> =
     useCallback(
       (e) => {
@@ -53,6 +56,14 @@ export function MemoryDropdown({
     },
     [memory.id, t],
   );
+  const handleTogglePermissions: MouseEventHandler<HTMLDivElement> =
+    useCallback(
+      (e) => {
+        e.stopPropagation();
+        togglePermissions(memory.id, memory.permissions as Permissions);
+      },
+      [memory.id, memory.permissions, togglePermissions],
+    );
 
   return (
     <DropdownMenu>
@@ -63,6 +74,13 @@ export function MemoryDropdown({
         </DropdownMenuItem>
         <DropdownMenuItem onClick={handleCopyLink}>
           {t('common.copy')} <Copy />
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={handleTogglePermissions}
+          disabled={isPending}
+        >
+          {isPublic ? '取消公开' : '设为公共备忘录'}
+          {isPublic ? <Lock /> : <Globe />}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <ConfirmDeleteDialog

@@ -1969,16 +1969,76 @@ def _framework_synthesis_guidance(question: str) -> str:
 
 
 def _classify_retrieval_scope(question: str) -> str:
+    """Map a retrieval query to one of 12 intent scopes.
+
+    Priority order matters: earlier, more specific checks win over broader ones.
+    """
     normalized = _normalize_route_text(question)
-    if any(word in normalized for word in ("比较", "对比", "区别", "总结", "汇总", "compare", "summary", "summarize")):
-        return "summary"
-    if any(word in normalized for word in ("研究", "分析", "报告", "趋势", "影响", "research", "analysis", "report")):
-        return "research"
-    if any(word in normalized for word in ("法律", "条文", "条例", "责任", "保障", "契诺", "租金", "liability", "covenant", "rent")):
+
+    # 1. Explicit comparison / contrast (highest specificity)
+    if any(w in normalized for w in ("区别", "对比", "比较", "vs", "versus", "对照", "difference between", "compared to", "compare")):
+        return "comparison"
+
+    # 2. Enumeration — "list all", "what are the"
+    if any(w in normalized for w in ("有哪些", "包含哪些", "列举", "枚举", "哪些方式", "哪些类型", "哪些情况", "what are the", "list all", "enumerate")):
+        return "enumeration"
+
+    # 3. Version difference — explicit version vocabulary
+    if any(w in normalized for w in ("版本", "新版", "旧版", "修订", "修正", "新旧", "amendment", "revised", "version")):
+        return "version_diff"
+
+    # 4. Temporal range — year/month or explicit time range words
+    if re.search(r"\d{4}\s*[年到\-–]\s*\d{4}|\d{4}\s*年.*\d{4}\s*年", normalized):
+        return "temporal_range"
+    if any(w in normalized for w in ("时间段", "时期", "近.*年", "去年", "今年", "before", "after", "during", "between", "期间")):
+        return "temporal_range"
+
+    # 5. Process / procedure — how-to, step-by-step
+    if any(w in normalized for w in ("流程", "步骤", "如何", "怎么", "怎样", "操作", "procedure", "how to", "process", "step")):
+        return "process_flow"
+
+    # 6. Causal — why / because
+    if any(w in normalized for w in ("为什么", "原因", "导致", "因为", "起因", "why", "cause", "reason", "because")):
+        return "causal"
+
+    # 7. Spatial scope — geographic location qualifier
+    if any(w in normalized for w in ("地区", "香港", "广东", "境内", "境外", "内地", "省", "市", "within", "region", "zone")):
+        return "spatial_scope"
+
+    # 8. Legal — regulations, statutes, obligations
+    if any(w in normalized for w in ("法律", "条文", "条例", "责任", "保障", "契诺", "租金", "法规", "合规", "liability", "covenant", "rent", "statute", "regulation")):
         return "legal"
-    if len(normalized) <= 40 or any(word in normalized for word in ("是什么", "是谁", "定义", "what is", "define")):
+
+    # 9. Summary — synthesize multiple sources (check before research: "总结这份报告" is summary, not research)
+    if any(w in normalized for w in ("总结", "汇总", "概括", "综述", "summary", "summarize", "overview")):
+        return "summary"
+
+    # 10. Research / analysis — broad study questions
+    if any(w in normalized for w in ("研究", "分析", "报告", "趋势", "影响", "research", "analysis", "report", "trend")):
+        return "research"
+
+    # 11. Definition — short "what is X" questions
+    if len(normalized) <= 40 or any(w in normalized for w in ("是什么", "是谁", "定义", "what is", "define", "meaning")):
         return "definition"
+
     return "default"
+
+
+# Retrieval parameters per scope: (top_n, top_k)
+_SCOPE_RETRIEVAL_PARAMS: dict[str, tuple[int, int]] = {
+    "definition":     (5,  512),
+    "enumeration":    (15, 2048),
+    "comparison":     (20, 2048),
+    "temporal_range": (10, 1024),
+    "version_diff":   (10, 1024),
+    "process_flow":   (10, 1024),
+    "legal":          (8,  1024),
+    "summary":        (12, 1536),
+    "research":       (12, 2048),
+    "causal":         (8,  1024),
+    "spatial_scope":  (8,  1024),
+    "default":        (8,  1024),
+}
 
 
 def _resolve_dynamic_retrieval_limits(dialog, question: str, deep_research_enabled: bool) -> tuple[int, int, str]:
@@ -1988,18 +2048,53 @@ def _resolve_dynamic_retrieval_limits(dialog, question: str, deep_research_enabl
         return configured_top_n, configured_top_k, "deep_research"
 
     scope = _classify_retrieval_scope(question)
-    if scope == "definition":
-        target_top_n, target_top_k = 5, 512
-    elif scope == "legal":
-        target_top_n, target_top_k = 8, 1024
-    elif scope == "summary":
-        target_top_n, target_top_k = 12, 1536
-    elif scope == "research":
-        target_top_n, target_top_k = 12, 2048
-    else:
-        target_top_n, target_top_k = 8, 1024
+    target_top_n, target_top_k = _SCOPE_RETRIEVAL_PARAMS.get(scope, (8, 1024))
 
     return max(1, min(configured_top_n, target_top_n)), max(1, min(configured_top_k, target_top_k)), scope
+
+
+def _extract_comparison_entities(question: str) -> tuple[str, str] | None:
+    """Extract two entities from a comparison question.
+    Returns (entity_a, entity_b) if identifiable, else None.
+    Falls back to None so callers can gracefully use single-path retrieval.
+    """
+    patterns = [
+        r"^(.+?)\s*(?:和|与|vs\.?|versus)\s*(.+?)\s*(?:的|之)?(?:区别|对比|差异|不同)",
+        r"(?:比较|对比)\s*(.+?)\s*(?:和|与|vs\.?)\s*(.+)",
+        r"(.+?)\s*(?:和|与|vs\.?|versus)\s*(.+?)\s*(?:有什么|哪些|如何)(?:不同|区别|差异)",
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, question, re.IGNORECASE)
+        if m:
+            a, b = m.group(1).strip(), m.group(2).strip()
+            if a and b and a != b and 2 <= len(a) <= 60 and 2 <= len(b) <= 60:
+                return a, b
+    return None
+
+
+def _interleave_kbinfos(results_a: dict, results_b: dict) -> dict:
+    """Interleave chunks from two retrieval results so both entities are represented."""
+    chunks_a = results_a.get("chunks", [])
+    chunks_b = results_b.get("chunks", [])
+    interleaved = []
+    for i in range(max(len(chunks_a), len(chunks_b))):
+        if i < len(chunks_a):
+            interleaved.append(chunks_a[i])
+        if i < len(chunks_b):
+            interleaved.append(chunks_b[i])
+    # Merge doc_aggs deduplicating by doc_id
+    doc_agg_map: dict = {}
+    for doc in results_a.get("doc_aggs", []) + results_b.get("doc_aggs", []):
+        doc_id = doc.get("doc_id") or doc.get("id") or ""
+        if doc_id not in doc_agg_map:
+            doc_agg_map[doc_id] = doc
+    return {
+        "chunks": interleaved,
+        "doc_aggs": list(doc_agg_map.values()),
+        "total": results_a.get("total", 0) + results_b.get("total", 0),
+        "tenant_ids": results_a.get("tenant_ids", []),
+        "kb_ids": results_a.get("kb_ids", []),
+    }
 
 
 def _chunk_text_for_hash(chunk: dict) -> str:
@@ -3234,21 +3329,45 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
 
         else:
             if embd_mdl:
-                kbinfos = await retriever.retrieval(
-                    retrieval_query,
-                    embd_mdl,
-                    tenant_ids,
-                    dialog.kb_ids,
-                    1,
-                    retrieval_top_n,
-                    dialog.similarity_threshold,
-                    dialog.vector_similarity_weight,
+                _retrieval_kwargs = dict(
+                    embd_mdl=embd_mdl,
+                    tenant_ids=tenant_ids,
+                    kb_ids=dialog.kb_ids,
+                    page=1,
+                    page_size=retrieval_top_n,
+                    similarity_threshold=dialog.similarity_threshold,
+                    vector_similarity_weight=dialog.vector_similarity_weight,
                     doc_ids=attachments,
                     top=retrieval_top_k,
                     aggs=True,
                     rerank_mdl=rerank_mdl,
                     rank_feature=label_question(retrieval_query, kbs),
                 )
+                # Step 2.2: comparison scope → dual-path parallel retrieval
+                if retrieval_scope == "comparison":
+                    _comparison_entities = _extract_comparison_entities(retrieval_query)
+                else:
+                    _comparison_entities = None
+
+                if _comparison_entities:
+                    entity_a, entity_b = _comparison_entities
+                    per_n = max(1, retrieval_top_n // 2)
+                    query_a = f"{entity_a} {retrieval_query}"
+                    query_b = f"{entity_b} {retrieval_query}"
+                    logging.info(
+                        "ComparisonDualRetrieval entity_a=%s entity_b=%s per_n=%s query=%s",
+                        entity_a[:40], entity_b[:40], per_n, retrieval_query[:120],
+                    )
+                    results_a, results_b = await asyncio.gather(
+                        retriever.retrieval(query_a, **{**_retrieval_kwargs, "page_size": per_n}),
+                        retriever.retrieval(query_b, **{**_retrieval_kwargs, "page_size": per_n}),
+                    )
+                    kbinfos = _interleave_kbinfos(results_a, results_b)
+                    kbinfos["tenant_ids"] = tenant_ids
+                    kbinfos["kb_ids"] = dialog.kb_ids
+                else:
+                    kbinfos = await retriever.retrieval(retrieval_query, **_retrieval_kwargs)
+
                 if prompt_config.get("toc_enhance"):
                     cks = await retriever.retrieval_by_toc(retrieval_query, kbinfos["chunks"], tenant_ids, chat_mdl, retrieval_top_n)
                     if cks:

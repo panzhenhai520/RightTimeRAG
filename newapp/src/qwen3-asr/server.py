@@ -111,15 +111,44 @@ app = FastAPI(title="Qwen3-ASR", lifespan=lifespan)
 
 
 def _read_audio(data: bytes) -> tuple[np.ndarray, int]:
-    """Decode uploaded audio bytes → (float32 array, sample_rate)."""
+    """Decode uploaded audio bytes → (float32 array, sample_rate).
+
+    soundfile handles WAV/FLAC/OGG/MP3 etc.; PyAV is the fallback for
+    WebM/Opus and other container formats that libsndfile cannot open.
+    """
     buf = io.BytesIO(data)
     try:
         audio, sr = sf.read(buf, dtype="float32", always_2d=False)
+        if audio.ndim == 2:
+            audio = audio.mean(axis=1)
+        return audio, sr
+    except Exception:
+        pass  # fall through to PyAV
+
+    try:
+        import av  # noqa: PLC0415
+        buf2 = io.BytesIO(data)
+        container = av.open(buf2)
+        audio_stream = next((s for s in container.streams if s.type == "audio"), None)
+        if audio_stream is None:
+            raise ValueError("No audio stream found in file")
+        detected_sr = audio_stream.sample_rate
+        frames = []
+        for frame in container.decode(audio_stream):
+            frames.append(frame.to_ndarray())
+        container.close()
+        if not frames:
+            raise ValueError("No audio frames decoded")
+        merged = np.concatenate(frames, axis=-1)
+        if merged.ndim == 2:
+            merged = merged.mean(axis=0)
+        audio = merged.astype(np.float32)
+        # Normalise from integer PCM range if needed
+        if audio.max() > 1.0 or audio.min() < -1.0:
+            audio = audio / 32768.0
+        return audio, detected_sr
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Cannot decode audio: {exc}") from exc
-    if audio.ndim == 2:
-        audio = audio.mean(axis=1)
-    return audio, sr
 
 
 def _resample(audio: np.ndarray, src_sr: int, tgt_sr: int = 16000) -> np.ndarray:
@@ -194,6 +223,12 @@ def _transcribe(
 ) -> str:
     if vad:
         audio = _apply_vad(audio, sr)
+
+    # Qwen3-ASR expects 16 kHz; browser WebM/Opus is typically 48 kHz
+    if sr != 16000:
+        log.info("Resampling %d Hz → 16000 Hz", sr)
+        audio = _resample(audio, sr, 16000)
+        sr = 16000
 
     lang_map = {
         "zh": "Chinese", "yue": "Cantonese", "en": "English",

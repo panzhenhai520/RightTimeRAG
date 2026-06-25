@@ -1,10 +1,51 @@
 import ListFilterBar from '@/components/list-filter-bar';
+import { Button } from '@/components/ui/button';
 import { formatDate } from '@/utils/date';
 import { t } from 'i18next';
+import { Download } from 'lucide-react';
+import { useCallback } from 'react';
 import { getMemoryDisplayName } from '../../memories/utils';
 import { useFetchMemoryBaseConfiguration } from '../hooks/use-memory-setting';
 import { useFetchMemoryMessageList, useSelectFilters } from './hook';
+import { IMessageInfo } from './interface';
 import { MemoryTable } from './message-table';
+
+function stripProcessBlocks(text: string): string {
+  return (text || '')
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<retrieving>[\s\S]*?<\/retrieving>/gi, '')
+    .trim();
+}
+
+function exportAsMarkdown(messages: IMessageInfo[], memoryName: string): void {
+  const lines: string[] = [`# ${memoryName}`, ''];
+  for (const msg of messages) {
+    const content = stripProcessBlocks(msg.content || '');
+    if (!content) continue;
+    const ts = msg.valid_at || '';
+    const typeLabel =
+      msg.message_type === 'raw'
+        ? '用户/原始'
+        : msg.message_type === 'semantic'
+          ? '语义记忆'
+          : msg.message_type === 'procedural'
+            ? '流程摘要'
+            : msg.message_type;
+    lines.push(`## [${typeLabel}] ${ts}`);
+    lines.push('');
+    lines.push(content);
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${memoryName || 'memory'}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 function formatMemoPreview(content?: string) {
   return (content || '')
@@ -26,6 +67,10 @@ export default function MemoryMessage() {
   } = useFetchMemoryMessageList();
   const { data: memory } = useFetchMemoryBaseConfiguration();
   const { filters } = useSelectFilters();
+  const memoryDisplayName = getMemoryDisplayName(memory || {}, t);
+  const handleExport = useCallback(() => {
+    exportAsMarkdown(data?.messages?.message_list ?? [], memoryDisplayName);
+  }, [data?.messages?.message_list, memoryDisplayName]);
   const memoryTypes = Array.isArray(memory?.memory_type)
     ? memory.memory_type
         .map((type) => t(`memories.${type}`, { defaultValue: type }))
@@ -47,7 +92,7 @@ export default function MemoryMessage() {
             {t('memories.name')}
           </div>
           <div className="mt-2 whitespace-normal break-words text-base font-semibold leading-6 text-text-primary">
-            {getMemoryDisplayName(memory || {}, t)}
+            {memoryDisplayName}
           </div>
         </div>
         <div className="rounded-xl bg-bg-card/60 p-4">
@@ -116,20 +161,26 @@ export default function MemoryMessage() {
         title={t('header.dataset')}
         onSearchChange={handleInputChange}
         searchString={searchString}
-        // showFilter={false}
-        // value={filterValue}
-        // onChange={handleFilterSubmit}
-        // onOpenChange={onOpenChange}
-        // filters={filters}
         filters={filters}
         onChange={handleFilterSubmit}
         value={filterValue}
         leftPanel={
-          <div className="items-start">
-            <div className="pb-1">{t('memory.sideBar.messages')}</div>
-            <div className="text-text-secondary text-sm font-normal">
-              {t('memory.messages.messageDescription')}
+          <div className="flex items-center justify-between gap-4 w-full">
+            <div className="items-start">
+              <div className="pb-1">{t('memory.sideBar.messages')}</div>
+              <div className="text-text-secondary text-sm font-normal">
+                {t('memory.messages.messageDescription')}
+              </div>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              className="shrink-0"
+            >
+              <Download className="size-3.5" />
+              导出 Markdown
+            </Button>
           </div>
         }
       ></ListFilterBar>

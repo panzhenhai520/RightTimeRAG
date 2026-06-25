@@ -44,6 +44,8 @@ import dayjs from 'dayjs';
 import { t } from 'i18next';
 import { pick } from 'lodash';
 import {
+  ChevronDown,
+  ChevronUp,
   Eraser,
   ListChevronsDownUp,
   ListChevronsUpDown,
@@ -53,6 +55,26 @@ import * as React from 'react';
 import { useMemo, useState } from 'react';
 import { useMessageAction } from './hook';
 import { IMessageInfo } from './interface';
+
+function stripProcessBlocks(text: string): string {
+  return (text || '')
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<retrieving>[\s\S]*?<\/retrieving>/gi, '')
+    .trim();
+}
+
+function isLongContent(text: string): boolean {
+  const lines = text.split('\n').length;
+  return lines > 3 || text.length > 240;
+}
+
+function typeRowClass(messageType: string, isSubRow: boolean): string {
+  if (isSubRow) return '';
+  if (messageType === 'raw') return 'bg-accent-primary/[.04]';
+  if (messageType === 'semantic') return 'bg-state-success/[.04]';
+  if (messageType === 'procedural') return 'bg-bg-list/30';
+  return '';
+}
 
 export type MemoryTableProps = {
   messages: Array<IMessageInfo>;
@@ -89,6 +111,17 @@ export function MemoryTable({
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
+  const [expandedContent, setExpandedContent] = useState<Set<number>>(
+    new Set(),
+  );
+  const toggleContentExpand = (id: number) => {
+    setExpandedContent((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   const {
     showDeleteDialog,
     setShowDeleteDialog,
@@ -211,13 +244,48 @@ export function MemoryTable({
           </div>
         ),
       },
-      // {
-      //   accessorKey: 'source_id',
-      //   header: () => <span>{t('memory.messages.source')}</span>,
-      //   cell: ({ row }) => (
-      //     <div className="text-sm ">{row.getValue('source_id')}</div>
-      //   ),
-      // },
+      {
+        accessorKey: 'content',
+        header: () => <span>{t('memory.messages.content')}</span>,
+        cell: ({ row }) => {
+          const raw = row.original.content || '';
+          const cleaned = stripProcessBlocks(raw);
+          if (!cleaned) return null;
+          const isExpanded = expandedContent.has(row.original.message_id);
+          const long = isLongContent(cleaned);
+          return (
+            <div className="max-w-[400px] text-xs leading-5 text-text-primary">
+              <div
+                className={cn('whitespace-pre-line break-words', {
+                  'line-clamp-3': long && !isExpanded,
+                })}
+              >
+                {cleaned}
+              </div>
+              {long && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleContentExpand(row.original.message_id);
+                  }}
+                  className="mt-0.5 inline-flex items-center gap-0.5 text-[11px] text-accent-primary hover:underline"
+                >
+                  {isExpanded ? (
+                    <>
+                      收起 <ChevronUp className="size-3" />
+                    </>
+                  ) : (
+                    <>
+                      展开 <ChevronDown className="size-3" />
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          );
+        },
+      },
       {
         accessorKey: 'status',
         header: () => <span>{t('memory.messages.enable')}</span>,
@@ -299,7 +367,7 @@ export function MemoryTable({
         ),
       },
     ],
-    [handleClickDeleteMessage],
+    [handleClickDeleteMessage, expandedContent, toggleContentExpand],
   );
 
   const currentPagination = useMemo(() => {
@@ -358,9 +426,10 @@ export function MemoryTable({
               <TableRow
                 key={row.id}
                 data-state={row.getIsSelected() && 'selected'}
-                className={cn('group', {
-                  'bg-bg-list/5': !row.getCanExpand(),
-                })}
+                className={cn(
+                  'group',
+                  typeRowClass(row.original.message_type, !row.getCanExpand()),
+                )}
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>

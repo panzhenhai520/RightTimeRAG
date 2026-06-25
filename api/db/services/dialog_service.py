@@ -18,6 +18,7 @@ import hashlib
 import json
 import logging
 import os
+import threading
 import re
 import time
 import uuid
@@ -1124,6 +1125,43 @@ MAX_PROMPT_CONTEXT_RATIO = 0.95
 MAX_RAG_HISTORY_TOKENS = 4096
 DEFAULT_RETRIEVAL_TOP_N = 8
 DEFAULT_RETRIEVAL_TOP_K = 1024
+
+# ---------------------------------------------------------------------------
+# Query-result KV cache (Step 4.1)
+# ---------------------------------------------------------------------------
+try:
+    from cachetools import TTLCache as _TTLCache
+    _RETRIEVAL_CACHE: "_TTLCache[str, dict]" = _TTLCache(maxsize=200, ttl=300)
+except ImportError:
+    _RETRIEVAL_CACHE = {}  # type: ignore[assignment]
+_RETRIEVAL_CACHE_LOCK = threading.Lock()
+
+
+def _make_retrieval_cache_key(
+    tenant_id: str,
+    retrieval_query: str,
+    kb_ids: list,
+    kbs: list,
+) -> str:
+    kb_sig = ",".join(
+        f"{getattr(kb, 'id', '')}:{getattr(kb, 'update_time', 0)}"
+        for kb in sorted(kbs, key=lambda k: getattr(k, "id", ""))
+    )
+    raw = f"{tenant_id}|{retrieval_query}|{','.join(sorted(kb_ids))}|{kb_sig}"
+    return hashlib.md5(raw.encode()).hexdigest()
+
+
+def _cache_get(key: str) -> "dict | None":
+    with _RETRIEVAL_CACHE_LOCK:
+        return _RETRIEVAL_CACHE.get(key)
+
+
+def _cache_set(key: str, value: dict) -> None:
+    with _RETRIEVAL_CACHE_LOCK:
+        try:
+            _RETRIEVAL_CACHE[key] = value
+        except Exception:  # noqa: BLE001 — cache eviction race, harmless
+            pass
 try:
     DS4_MAX_CONCURRENT_GENERATIONS = max(1, int(os.environ.get("DS4_MAX_CONCURRENT_GENERATIONS", "2")))
 except ValueError:
@@ -2095,6 +2133,33 @@ def _interleave_kbinfos(results_a: dict, results_b: dict) -> dict:
         "tenant_ids": results_a.get("tenant_ids", []),
         "kb_ids": results_a.get("kb_ids", []),
     }
+
+
+def _extract_temporal_filter(question: str) -> frozenset:
+    """Return frozenset of 4-digit years mentioned in the question (1980–2040), else empty set."""
+    years = re.findall(r'\b(19\d{2}|20\d{2})\b', question)
+    return frozenset(int(y) for y in years if 1980 <= int(y) <= 2040)
+
+
+def _apply_temporal_rerank(chunks: list, year_filter: frozenset) -> list:
+    """Soft re-rank: chunks mentioning any target year float to top; original order preserved within groups.
+
+    Graceful fallback: if no chunks contain any target year, original order is kept unchanged.
+    """
+    if not year_filter or not chunks:
+        return chunks
+    year_strs = [str(y) for y in year_filter]
+
+    def _score(chunk: dict) -> int:
+        text = str(chunk.get("content_with_weight") or chunk.get("content") or "")
+        return sum(text.count(y) for y in year_strs)
+
+    scored = [(_score(c), i, c) for i, c in enumerate(chunks)]
+    matched = [(i, c) for s, i, c in scored if s > 0]
+    unmatched = [(i, c) for s, i, c in scored if s == 0]
+    if not matched:
+        return chunks  # graceful fallback
+    return [c for _, c in matched] + [c for _, c in unmatched]
 
 
 def _chunk_text_for_hash(chunk: dict) -> str:
@@ -3226,20 +3291,41 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         questions[0],
         prompt_config.get("cross_languages") or [],
     )
-    if auto_cross_languages:
+    _keyword_enabled = bool(prompt_config.get("keyword", False))
+    _base_question = questions[0]
+
+    # Step 4.2: parallelize cross_languages and keyword_extraction when both are enabled.
+    # Both calls use the same base question text and have no inter-dependency.
+    if auto_cross_languages and _keyword_enabled:
+        logging.info(
+            "PreprocessParallel cross_languages+keyword_extraction languages=%s question=%s",
+            auto_cross_languages, _base_question[:120],
+        )
+        _cross_lang_result, _kw_result = await asyncio.gather(
+            cross_languages(dialog.tenant_id, dialog.llm_id, _base_question, auto_cross_languages),
+            keyword_extraction(chat_mdl, _base_question),
+        )
+        if _cross_lang_result and _cross_lang_result.strip() != _base_question.strip():
+            _merged = _base_question + "\n" + _cross_lang_result
+        else:
+            _merged = _cross_lang_result or _base_question
+        if _kw_result:
+            _merged = _merged + "," + _kw_result
+        questions = [_merged]
+    elif auto_cross_languages:
         logging.info(
             "CrossLanguage retrieval expansion languages=%s kb_count=%s question=%s",
             auto_cross_languages,
             len(dialog.kb_ids or []),
-            questions[0][:120],
+            _base_question[:120],
         )
-        _cross_lang_result = await cross_languages(dialog.tenant_id, dialog.llm_id, questions[0], auto_cross_languages)
-        # Keep original query alongside the translation so Chinese terms can still match Chinese content
-        # even when the KB is labelled with a different language.
-        if _cross_lang_result and _cross_lang_result.strip() != questions[0].strip():
-            questions = [questions[0] + "\n" + _cross_lang_result]
+        _cross_lang_result = await cross_languages(dialog.tenant_id, dialog.llm_id, _base_question, auto_cross_languages)
+        if _cross_lang_result and _cross_lang_result.strip() != _base_question.strip():
+            questions = [_base_question + "\n" + _cross_lang_result]
         else:
-            questions = [_cross_lang_result]
+            questions = [_cross_lang_result or _base_question]
+    elif _keyword_enabled:
+        questions[-1] = questions[-1] + "," + await keyword_extraction(chat_mdl, questions[-1])
 
     if dialog.meta_data_filter:
         attachments = await apply_meta_data_filter(
@@ -3251,9 +3337,6 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
             kb_ids=dialog.kb_ids,
             metas_loader=lambda: DocMetadataService.get_flatted_meta_by_kbs(dialog.kb_ids),
         )
-
-    if prompt_config.get("keyword", False):
-        questions[-1] = questions[-1] + "," + await keyword_extraction(chat_mdl, questions[-1])
     retrieval_query = _build_retrieval_query(questions[-1], latest_user_question)
     refine_question_ts = timer()
 
@@ -3293,6 +3376,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     retrieval_top_n = _safe_positive_int(getattr(dialog, "top_n", None), DEFAULT_RETRIEVAL_TOP_N)
     retrieval_top_k = _safe_positive_int(getattr(dialog, "top_k", None), DEFAULT_RETRIEVAL_TOP_K)
     retrieval_scope = "not_retrieved"
+    _cache_hit = False  # Step 4.1: set True when retrieval result is served from cache
 
     if "knowledge" in param_keys:
         logging.debug("Proceeding with retrieval")
@@ -3378,33 +3462,69 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 else:
                     _comparison_entities = None
 
-                if _comparison_entities:
-                    entity_a, entity_b = _comparison_entities
-                    per_n = max(1, retrieval_top_n // 2)
-                    query_a = f"{entity_a} {retrieval_query}"
-                    query_b = f"{entity_b} {retrieval_query}"
-                    logging.info(
-                        "ComparisonDualRetrieval entity_a=%s entity_b=%s per_n=%s query=%s",
-                        entity_a[:40], entity_b[:40], per_n, retrieval_query[:120],
+                # Step 4.1: Query KV cache — skip ES for repeated queries within TTL window.
+                # Cache is bypassed when file attachments are present (doc_ids changes result).
+                _cache_key: str | None = None
+                _cache_hit = False
+                _cacheable = not attachments and not _comparison_entities
+                if _cacheable:
+                    _cache_key = _make_retrieval_cache_key(
+                        dialog.tenant_id, retrieval_query, dialog.kb_ids or [], kbs
                     )
-                    results_a, results_b = await asyncio.gather(
-                        retriever.retrieval(query_a, **{**_retrieval_kwargs, "page_size": per_n}),
-                        retriever.retrieval(query_b, **{**_retrieval_kwargs, "page_size": per_n}),
-                    )
-                    kbinfos = _interleave_kbinfos(results_a, results_b)
-                    kbinfos["tenant_ids"] = tenant_ids
-                    kbinfos["kb_ids"] = dialog.kb_ids
-                else:
-                    kbinfos = await retriever.retrieval(retrieval_query, **_retrieval_kwargs)
+                    _cached_kbinfos = _cache_get(_cache_key)
+                    if _cached_kbinfos is not None:
+                        kbinfos = _cached_kbinfos
+                        kbinfos["tenant_ids"] = tenant_ids
+                        kbinfos["kb_ids"] = dialog.kb_ids
+                        _cache_hit = True
+                        logging.info(
+                            "CacheHit retrieval key=%s chunks=%d query=%s",
+                            _cache_key[:16], len(kbinfos.get("chunks", [])), retrieval_query[:120],
+                        )
 
-                if prompt_config.get("toc_enhance"):
-                    cks = await retriever.retrieval_by_toc(retrieval_query, kbinfos["chunks"], tenant_ids, chat_mdl, retrieval_top_n)
-                    if cks:
-                        kbinfos["chunks"] = cks
-                kbinfos["chunks"] = retriever.retrieval_by_children(kbinfos["chunks"], tenant_ids)
-                before_dedup, after_dedup = _deduplicate_retrieved_chunks(kbinfos)
-                if before_dedup != after_dedup:
-                    logging.info("RetrievalDedup chunks=%s->%s query=%s", before_dedup, after_dedup, retrieval_query[:160])
+                if not _cache_hit:
+                    if _comparison_entities:
+                        entity_a, entity_b = _comparison_entities
+                        per_n = max(1, retrieval_top_n // 2)
+                        query_a = f"{entity_a} {retrieval_query}"
+                        query_b = f"{entity_b} {retrieval_query}"
+                        logging.info(
+                            "ComparisonDualRetrieval entity_a=%s entity_b=%s per_n=%s query=%s",
+                            entity_a[:40], entity_b[:40], per_n, retrieval_query[:120],
+                        )
+                        results_a, results_b = await asyncio.gather(
+                            retriever.retrieval(query_a, **{**_retrieval_kwargs, "page_size": per_n}),
+                            retriever.retrieval(query_b, **{**_retrieval_kwargs, "page_size": per_n}),
+                        )
+                        kbinfos = _interleave_kbinfos(results_a, results_b)
+                        kbinfos["tenant_ids"] = tenant_ids
+                        kbinfos["kb_ids"] = dialog.kb_ids
+                    else:
+                        kbinfos = await retriever.retrieval(retrieval_query, **_retrieval_kwargs)
+
+                    if prompt_config.get("toc_enhance"):
+                        cks = await retriever.retrieval_by_toc(retrieval_query, kbinfos["chunks"], tenant_ids, chat_mdl, retrieval_top_n)
+                        if cks:
+                            kbinfos["chunks"] = cks
+                    kbinfos["chunks"] = retriever.retrieval_by_children(kbinfos["chunks"], tenant_ids)
+                    before_dedup, after_dedup = _deduplicate_retrieved_chunks(kbinfos)
+                    if before_dedup != after_dedup:
+                        logging.info("RetrievalDedup chunks=%s->%s query=%s", before_dedup, after_dedup, retrieval_query[:160])
+
+                    # Store in cache (only cacheable single-path queries)
+                    if _cache_key is not None and kbinfos.get("chunks"):
+                        _cache_set(_cache_key, kbinfos)
+
+                # Step 2.3: temporal soft re-rank for temporal_range / version_diff intent
+                if retrieval_scope in ("temporal_range", "version_diff") and kbinfos.get("chunks"):
+                    _year_filter = _extract_temporal_filter(retrieval_query)
+                    if _year_filter:
+                        _before_rerank = len(kbinfos["chunks"])
+                        kbinfos["chunks"] = _apply_temporal_rerank(kbinfos["chunks"], _year_filter)
+                        logging.info(
+                            "TemporalRerank scope=%s years=%s chunks=%d query=%s",
+                            retrieval_scope, sorted(_year_filter), _before_rerank, retrieval_query[:120],
+                        )
                 yield {
                     "answer": (
                         f"Found {len(kbinfos.get('chunks', []))} relevant passages"
@@ -3715,14 +3835,23 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
             langfuse_tracer = None
             langfuse_generation = None
 
-    async def run_model_stream(current_prompt, current_msg, current_gen_conf):
-        async with _generation_slot(llm_model_config, dialog):
+    async def run_model_stream(current_prompt, current_msg, current_gen_conf, skip_slot: bool = False):
+        # skip_slot=True when the caller already holds DS4_GENERATION_SEMAPHORE (Step 4.3)
+        if skip_slot:
             if llm_type == "chat":
                 current_stream_iter = chat_mdl.async_chat_streamly_delta(current_prompt, current_msg[1:], current_gen_conf)
             else:
                 current_stream_iter = chat_mdl.async_chat_streamly_delta(current_prompt, current_msg[1:], current_gen_conf, images=image_files)
             async for item in _stream_with_think_delta(current_stream_iter):
                 yield item
+        else:
+            async with _generation_slot(llm_model_config, dialog):
+                if llm_type == "chat":
+                    current_stream_iter = chat_mdl.async_chat_streamly_delta(current_prompt, current_msg[1:], current_gen_conf)
+                else:
+                    current_stream_iter = chat_mdl.async_chat_streamly_delta(current_prompt, current_msg[1:], current_gen_conf, images=image_files)
+                async for item in _stream_with_think_delta(current_stream_iter):
+                    yield item
 
     async def run_model_once(current_prompt, current_msg, current_gen_conf):
         async with _generation_slot(llm_model_config, dialog):
@@ -3779,62 +3908,77 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         return retry_prompt, retry_msg, retry_gen_conf
 
     if stream:
-        async for event in _ds4_pre_generation_status_events(llm_model_config, dialog):
-            yield event
-        if "knowledge" in param_keys and not deep_research_enabled:
-            # Evidence-first: push retrieved chunks to the frontend before LLM begins generating.
-            # The frontend preserves this reference through subsequent empty-reference token events.
-            if kbinfos.get("chunks"):
-                logging.info(
-                    "EvidencePreview chunks=%d docs=%d before LLM generation",
-                    len(kbinfos["chunks"]),
-                    len(kbinfos.get("doc_aggs", [])),
-                )
+        # Step 4.3: pre-acquire DS4 generation slot so queueing starts during retrieval,
+        # not after the user sees "Reviewing…". Slot is held until generation completes.
+        _slot_pre_acquired = False
+        if _is_deepseek_v4_model(llm_model_config, dialog):
+            logging.debug("DS4GenerationSlot pre-acquiring before evidence preview llm_id=%s", dialog.llm_id)
+            await DS4_GENERATION_SEMAPHORE.acquire()
+            _slot_pre_acquired = True
+
+        try:
+            async for event in _ds4_pre_generation_status_events(llm_model_config, dialog):
+                yield event
+            if "knowledge" in param_keys and not deep_research_enabled:
+                # Evidence-first: push retrieved chunks to the frontend before LLM begins generating.
+                # The frontend preserves this reference through subsequent empty-reference token events.
+                if kbinfos.get("chunks"):
+                    logging.info(
+                        "EvidencePreview chunks=%d docs=%d cache_hit=%s before LLM generation",
+                        len(kbinfos["chunks"]),
+                        len(kbinfos.get("doc_aggs", [])),
+                        _cache_hit,
+                    )
+                    yield {
+                        "answer": "",
+                        "reference": kbinfos,
+                        "audio_binary": None,
+                        "final": False,
+                        "evidence_preview": True,
+                        "cache_hit": _cache_hit,
+                    }
                 yield {
-                    "answer": "",
-                    "reference": kbinfos,
+                    "answer": "<think>Reviewing retrieved evidence and composing the answer.\n</think>",
+                    "reference": {},
                     "audio_binary": None,
                     "final": False,
-                    "evidence_preview": True,
                 }
-            yield {
-                "answer": "<think>Reviewing retrieved evidence and composing the answer.\n</think>",
-                "reference": {},
-                "audio_binary": None,
-                "final": False,
-            }
-        last_state = None
-        try:
-            async for kind, value, state in _sentence_tts_pipeline(tts_mdl, tts_config, run_model_stream(prompt, msg, gen_conf)):
-                if kind == "marker":
-                    flags = {"start_to_think": True} if value == "<think>" else {"end_to_think": True}
-                    yield {"answer": "", "reference": {}, "audio_binary": None, "final": False, **flags}
-                elif kind == "audio":
-                    yield {"answer": "", "reference": {}, "audio_binary": value, "final": False}
-                else:
-                    last_state = state
-                    yield {"answer": value, "reference": {}, "audio_binary": None, "final": False}
-        except Exception as exc:
-            if not _is_context_span_error(exc):
-                raise
-            logging.warning("Context span error from LLM; retrying with reduced prompt budget: %s", exc)
-            retry_prompt, retry_msg, retry_gen_conf = build_context_retry_payload()
             last_state = None
-            async for kind, value, state in _sentence_tts_pipeline(tts_mdl, tts_config, run_model_stream(retry_prompt, retry_msg, retry_gen_conf)):
-                if kind == "marker":
-                    flags = {"start_to_think": True} if value == "<think>" else {"end_to_think": True}
-                    yield {"answer": "", "reference": {}, "audio_binary": None, "final": False, **flags}
-                elif kind == "audio":
-                    yield {"answer": "", "reference": {}, "audio_binary": value, "final": False}
-                else:
-                    last_state = state
-                    yield {"answer": value, "reference": {}, "audio_binary": None, "final": False}
-        full_answer = last_state.full_text if last_state else ""
-        if full_answer:
-            final = await decorate_answer(_extract_visible_answer(thought + full_answer), include_think=False)
-            final["final"] = True
-            final["audio_binary"] = None
-            yield final
+            try:
+                async for kind, value, state in _sentence_tts_pipeline(tts_mdl, tts_config, run_model_stream(prompt, msg, gen_conf, skip_slot=_slot_pre_acquired)):
+                    if kind == "marker":
+                        flags = {"start_to_think": True} if value == "<think>" else {"end_to_think": True}
+                        yield {"answer": "", "reference": {}, "audio_binary": None, "final": False, **flags}
+                    elif kind == "audio":
+                        yield {"answer": "", "reference": {}, "audio_binary": value, "final": False}
+                    else:
+                        last_state = state
+                        yield {"answer": value, "reference": {}, "audio_binary": None, "final": False}
+            except Exception as exc:
+                if not _is_context_span_error(exc):
+                    raise
+                logging.warning("Context span error from LLM; retrying with reduced prompt budget: %s", exc)
+                retry_prompt, retry_msg, retry_gen_conf = build_context_retry_payload()
+                last_state = None
+                async for kind, value, state in _sentence_tts_pipeline(tts_mdl, tts_config, run_model_stream(retry_prompt, retry_msg, retry_gen_conf, skip_slot=_slot_pre_acquired)):
+                    if kind == "marker":
+                        flags = {"start_to_think": True} if value == "<think>" else {"end_to_think": True}
+                        yield {"answer": "", "reference": {}, "audio_binary": None, "final": False, **flags}
+                    elif kind == "audio":
+                        yield {"answer": "", "reference": {}, "audio_binary": value, "final": False}
+                    else:
+                        last_state = state
+                        yield {"answer": value, "reference": {}, "audio_binary": None, "final": False}
+            full_answer = last_state.full_text if last_state else ""
+            if full_answer:
+                final = await decorate_answer(_extract_visible_answer(thought + full_answer), include_think=False)
+                final["final"] = True
+                final["audio_binary"] = None
+                yield final
+        finally:
+            if _slot_pre_acquired:
+                DS4_GENERATION_SEMAPHORE.release()
+                logging.debug("DS4GenerationSlot released after generation llm_id=%s", dialog.llm_id)
     else:
         try:
             answer = await run_model_once(prompt, msg, gen_conf)

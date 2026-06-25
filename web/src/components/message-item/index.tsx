@@ -283,7 +283,11 @@ const MessageItem = ({
                   ) : (
                     <CheckCircle2 className={styles.thinkingIcon} />
                   )}
-                  <span>
+                  <span
+                    className={cn({
+                      [styles.thinkingHeaderRunning]: isRetrievingRunning,
+                    })}
+                  >
                     {isRetrievingRunning
                       ? t('chat.retrieving')
                       : t('chat.retrieved')}
@@ -338,7 +342,11 @@ const MessageItem = ({
                   ) : (
                     <CheckCircle2 className={styles.thinkingIcon} />
                   )}
-                  <span>
+                  <span
+                    className={cn({
+                      [styles.thinkingHeaderRunning]: isThinkingRunning,
+                    })}
+                  >
                     {isThinkingRunning ? t('chat.thinking') : t('chat.thought')}
                   </span>
                   {parsedContent.thinking &&

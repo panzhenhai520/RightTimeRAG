@@ -20,7 +20,10 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslate } from '@/hooks/common-hooks';
 import { useFetchKnowledgeMetadataKeys } from '@/hooks/use-knowledge-request';
-import { usePanythonTtsEngineSettings } from '@/hooks/use-panython-tts-settings';
+import {
+  usePanythonTtsEngineSettings,
+  useTtsVoiceOptions,
+} from '@/hooks/use-panython-tts-settings';
 import { getDirAttribute } from '@/utils/text-direction';
 import { useEffect, useMemo } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
@@ -29,6 +32,7 @@ export default function ChatBasicSetting() {
   const { t } = useTranslate('chat');
   const form = useFormContext();
   const { settings: ttsEngineSettings } = usePanythonTtsEngineSettings();
+  const { options: ttsVoiceOptions } = useTtsVoiceOptions();
   const emptyResponseValue = form.watch('prompt_config.empty_response');
   const prologueValue = form.watch('prompt_config.prologue');
   const ttsEnabled = useWatch({
@@ -216,9 +220,12 @@ export default function ChatBasicSetting() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('ttsVoiceProfile')}</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
+                      <RAGFlowSelect
+                        {...field}
+                        FormControlComponent={FormControl}
+                        options={ttsVoiceOptions}
+                        placeholder={t('ttsVoiceProfile')}
+                      />
                       <FormMessage />
                     </FormItem>
                   )}

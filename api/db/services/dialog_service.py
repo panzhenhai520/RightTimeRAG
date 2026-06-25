@@ -45,6 +45,7 @@ from api.db.services.langfuse_service import TenantLangfuseService
 from api.db.services.llm_service import LLMBundle
 from api.db.services.memory_service import MemoryService
 from api.db.services.panython_tts_settings_service import PanythonTTSSettingsService, build_tts_kwargs
+from api.db.services.panython_identity_service import PanythonIdentityService
 from common.metadata_utils import apply_meta_data_filter
 from api.utils.reference_metadata_utils import (
     enrich_chunks_with_document_metadata,
@@ -348,6 +349,9 @@ async def async_chat_solo(dialog, messages, stream=True, **kwargs):
         prompt_config["system"] = PURE_LLM_SYSTEM_PROMPT
         prompt_config["quote"] = False
         prompt_config["reasoning"] = False
+    _global_identity = PanythonIdentityService.get_prompt()
+    if _global_identity:
+        prompt_config["system"] = _global_identity + "\n\n" + prompt_config.get("system", "")
     tts_config = prompt_config.get("tts_config") or {}
     tts_mdl = None
     if _should_enable_tts(prompt_config):
@@ -2953,6 +2957,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         return
 
     chat_start_ts = timer()
+    _global_identity = PanythonIdentityService.get_prompt()
     llm_type = TenantLLMService.llm_id2llm_type(dialog.llm_id)
     if llm_type == "image2text":
         llm_model_config = TenantLLMService.get_model_config(dialog.tenant_id, LLMType.IMAGE2TEXT, dialog.llm_id)
@@ -3097,7 +3102,13 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
             len(dialog.kb_ids or []),
             questions[0][:120],
         )
-        questions = [await cross_languages(dialog.tenant_id, dialog.llm_id, questions[0], auto_cross_languages)]
+        _cross_lang_result = await cross_languages(dialog.tenant_id, dialog.llm_id, questions[0], auto_cross_languages)
+        # Keep original query alongside the translation so Chinese terms can still match Chinese content
+        # even when the KB is labelled with a different language.
+        if _cross_lang_result and _cross_lang_result.strip() != questions[0].strip():
+            questions = [questions[0] + "\n" + _cross_lang_result]
+        else:
+            questions = [_cross_lang_result]
 
     if dialog.meta_data_filter:
         attachments = await apply_meta_data_filter(
@@ -3341,7 +3352,16 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     prompt4citation = ""
     if knowledges and (prompt_config.get("quote", True) and kwargs.get("quote", True)):
         prompt4citation = COMPACT_CITATION_PROMPT
-    system_prompt = prompt_config["system"].format(**kwargs) + evidence_guidance_text + conversation_summary_text + memory_context_text + attachments_ + prompt4citation
+
+    # Quick-answer brevity hint: when retrieval is high-confidence, instruct LLM to be concise
+    _top_sim = (kbinfos.get("chunks") or [{}])[0].get("similarity") if kbinfos.get("chunks") else None
+    _brevity_hint = (
+        "\n\n如无特殊要求，直接给出核心答案（1-3句），不要重复背景信息。"
+        if (_top_sim is not None and _top_sim >= 0.75 and knowledges)
+        else ""
+    )
+
+    system_prompt = (_global_identity + "\n\n" if _global_identity else "") + prompt_config["system"].format(**kwargs) + evidence_guidance_text + conversation_summary_text + memory_context_text + attachments_ + prompt4citation + _brevity_hint
     msg = [{"role": "system", "content": system_prompt}]
     generation_history = _rag_generation_messages(
         messages,
@@ -3528,7 +3548,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         if retry_knowledges and (prompt_config.get("quote", True) and kwargs.get("quote", True)):
             retry_prompt4citation = COMPACT_CITATION_PROMPT
         retry_evidence_guidance_text = _format_evidence_guidance_for_prompt(kbinfos) if retry_knowledges else ""
-        retry_system_prompt = prompt_config["system"].format(**retry_kwargs) + retry_evidence_guidance_text + conversation_summary_text + memory_context_text + attachments_ + retry_prompt4citation
+        retry_system_prompt = (_global_identity + "\n\n" if _global_identity else "") + prompt_config["system"].format(**retry_kwargs) + retry_evidence_guidance_text + conversation_summary_text + memory_context_text + attachments_ + retry_prompt4citation
         retry_msg = [{"role": "system", "content": retry_system_prompt}]
         retry_msg.extend([{"role": m["role"], "content": re.sub(r"##\d+\$\$", "", m["content"])} for m in generation_history if m["role"] != "system"])
         retry_gen_conf = deepcopy(gen_conf)

@@ -7,7 +7,6 @@ import {
 } from '@/hooks/use-chat-request';
 import { IClientConversation } from '@/interfaces/database/chat';
 import { RootLayoutContainer } from '@/layouts/root-layout';
-import { cn } from '@/lib/utils';
 import { useMount } from 'ahooks';
 import { isEmpty } from 'lodash';
 import { LucideArrowBigLeft, LucideArrowUpRight } from 'lucide-react';
@@ -122,11 +121,7 @@ export default function Chat() {
           <Card className="flex-1 min-w-0 bg-transparent border-none shadow-none h-full">
             <CardContent className="flex p-0 h-full">
               <Card className="flex flex-col flex-1 bg-transparent min-w-0">
-                <CardHeader
-                  className={cn('p-5', {
-                    'border-b-0.5 border-border-button': hasSingleChatBox,
-                  })}
-                >
+                <CardHeader className="p-5">
                   <CardTitle className="flex justify-between items-center text-base gap-2">
                     <div className="truncate">{currentConversationName}</div>
 

@@ -518,7 +518,11 @@ function MessageItem({
                   ) : (
                     <CheckCircle2 className={styles.thinkingIcon} />
                   )}
-                  <span>
+                  <span
+                    className={cn({
+                      [styles.thinkingHeaderRunning]: isRetrievingRunning,
+                    })}
+                  >
                     {isRetrievingRunning
                       ? t('chat.retrieving')
                       : t('chat.retrieved')}
@@ -574,7 +578,13 @@ function MessageItem({
                   ) : (
                     <CheckCircle2 className={styles.thinkingIcon} />
                   )}
-                  <span>{reasoningPanelTitle}</span>
+                  <span
+                    className={cn({
+                      [styles.thinkingHeaderRunning]: isThinkingRunning,
+                    })}
+                  >
+                    {reasoningPanelTitle}
+                  </span>
                   {parsedContent.thinking &&
                     (showReasoning ? (
                       <ChevronUp className={styles.thinkingChevron} />

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { fontFamily } = require('tailwindcss/defaultTheme');
 
 /** @type {import('tailwindcss').Config} */
@@ -227,6 +228,10 @@ module.exports = {
           '15.625%': { transform: 'rotate(-9.5deg)' },
           '21.875%': { transform: 'rotate(7.5deg)' },
         },
+        'compacting-slide': {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(300%)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -235,6 +240,7 @@ module.exports = {
         'spin-reverse': 'spin-reverse 1s linear infinite',
         'bell-shake':
           'bell-shake 2s 1s cubic-bezier(0.33, 1, 0.68, 1) infinite',
+        'compacting-slide': 'compacting-slide 1.4s ease-in-out infinite',
       },
     },
   },

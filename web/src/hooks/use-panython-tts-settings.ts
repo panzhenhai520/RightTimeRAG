@@ -59,3 +59,31 @@ export function usePanythonTtsEngineSettings() {
     loading,
   };
 }
+
+export type TtsVoiceOption = {
+  value: string;
+  label: string;
+  is_custom: boolean;
+};
+
+export function useTtsVoiceOptions() {
+  const { data, isFetching: loading } = useQuery({
+    queryKey: ['fetchTtsVoices'],
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      const { data } = await request.get('/api/v1/dev/tts-voices');
+      const voices: Array<{
+        id: string;
+        display_name: string;
+        is_custom: boolean;
+      }> = data?.data?.voices ?? [];
+      return voices.map((v) => ({
+        value: v.id,
+        label: v.display_name || v.id,
+        is_custom: v.is_custom,
+      })) as TtsVoiceOption[];
+    },
+  });
+
+  return { options: data ?? [], loading };
+}

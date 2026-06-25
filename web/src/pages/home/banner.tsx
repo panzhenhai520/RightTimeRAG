@@ -44,16 +44,36 @@ export function Banner() {
 export function NextBanner() {
   const { i18n, t } = useTranslation();
   return (
-    <h1
-      className="text-5xl leading-normal text-left text-[#163f5d] dark:text-white"
-      dir={i18n.language?.startsWith('ar') ? 'rtl' : 'ltr'}
-    >
-      <span className="font-semibold text-current">
-        {t('homeBanner.welcomePrefix')}
-      </span>
-      <span className="font-bold text-current">
-        {t('homeBanner.productName')}
-      </span>
-    </h1>
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <h1
+        className="text-5xl leading-normal text-left text-[#163f5d] dark:text-white"
+        dir={i18n.language?.startsWith('ar') ? 'rtl' : 'ltr'}
+      >
+        <span className="font-semibold text-current">
+          {t('homeBanner.welcomePrefix')}
+        </span>
+        <span className="font-bold text-current">
+          {t('homeBanner.productName')}
+        </span>
+      </h1>
+      <div className="flex flex-wrap gap-2 pb-1">
+        <a
+          href="/download/righttime-setup.bat"
+          download="righttime-setup.bat"
+          className="inline-flex items-center gap-1.5 rounded-md bg-[#6f3f2f]/90 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-[#6f3f2f] dark:bg-[#2d5f80]/90 dark:hover:bg-[#2d5f80]"
+          title={t('homeBanner.setupScriptHint')}
+        >
+          ⬇ {t('homeBanner.setupScriptBtn')}
+        </a>
+        <a
+          href="/download/righttime-ca.crt"
+          download="righttime-ca.crt"
+          className="inline-flex items-center gap-1.5 rounded-md border border-[#6f3f2f]/40 px-3 py-1.5 text-xs font-medium text-[#6f3f2f] hover:bg-[#6f3f2f]/10 dark:border-[#9bc7dd]/40 dark:text-[#9bc7dd] dark:hover:bg-[#9bc7dd]/10"
+          title={t('homeBanner.certOnlyHint')}
+        >
+          🔒 {t('homeBanner.certOnlyBtn')}
+        </a>
+      </div>
+    </div>
   );
 }

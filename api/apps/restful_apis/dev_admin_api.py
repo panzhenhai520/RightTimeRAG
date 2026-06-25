@@ -47,6 +47,8 @@ from api.utils.api_utils import (
 )
 from api.utils.tenant_utils import ensure_tenant_model_id_for_params
 from api.db.services.panython_tts_settings_service import PanythonTTSSettingsService
+from api.db.services.panython_identity_service import PanythonIdentityService
+from api.db.services.panython_asr_settings_service import PanythonASRSettingsService
 from common.constants import LLMType, RetCode, StatusEnum
 from common.misc_utils import get_uuid
 from common.time_utils import current_timestamp, datetime_format
@@ -125,6 +127,32 @@ async def save_tts_engine_settings():
     try:
         req = await get_request_json()
         return get_json_result(data=PanythonTTSSettingsService.save_settings(req or {}))
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+# ---------------------------------------------------------------------------
+# ASR routing settings
+# ---------------------------------------------------------------------------
+
+@manager.route("/dev/asr-settings", methods=["GET"])  # noqa: F821
+@login_required
+def get_asr_settings():
+    try:
+        return get_json_result(data=PanythonASRSettingsService.get_settings())
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+@manager.route("/dev/asr-settings", methods=["PUT"])  # noqa: F821
+@login_required
+async def save_asr_settings():
+    denied = _require_superuser()
+    if denied:
+        return denied
+    try:
+        req = await get_request_json()
+        return get_json_result(data=PanythonASRSettingsService.save_settings(req or {}))
     except Exception as exc:
         return server_error_response(exc)
 
@@ -225,6 +253,40 @@ async def delete_tts_voice(voice_id: str):
                 error_detail = resp.json().get("detail", resp.text) if resp.content else resp.text
                 return get_data_error_result(message=f"CosyVoice3 error: {error_detail}")
         return get_json_result(data=resp.json())
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+@manager.route("/dev/ds4-health", methods=["GET"])  # noqa: F821
+@login_required
+def get_ds4_health():
+    try:
+        import json as _json
+        from pathlib import Path as _Path
+        health_file = _Path("/home/xsuper/app/newapp/runtime/ds4/ds4-health.json")
+        if health_file.exists():
+            return get_json_result(data=_json.loads(health_file.read_text(encoding="utf-8")))
+        return get_json_result(data={"state": "unknown", "ready": False, "usage_percent": None})
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+@manager.route("/dev/identity", methods=["GET"])  # noqa: F821
+@login_required
+def get_identity():
+    try:
+        return get_json_result(data={"text": PanythonIdentityService.get_prompt()})
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+@manager.route("/dev/identity", methods=["POST"])  # noqa: F821
+@login_required
+def save_identity():
+    try:
+        body = request.json or {}
+        text = PanythonIdentityService.save_prompt(body.get("text", ""))
+        return get_json_result(data={"text": text})
     except Exception as exc:
         return server_error_response(exc)
 

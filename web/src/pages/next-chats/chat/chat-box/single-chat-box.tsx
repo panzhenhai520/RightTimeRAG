@@ -1,3 +1,4 @@
+import { DS4CompactingBanner } from '@/components/ds4-compacting-banner';
 import { NextMessageInput } from '@/components/message-input/next';
 import MessageItem from '@/components/message-item';
 import PdfSheet from '@/components/pdf-drawer';
@@ -202,6 +203,8 @@ export function SingleChatBox({
               sendLoading={sendLoading}
             />
           ))}
+          {/* DS4 KV compacting status — appears as a chat row below the last message */}
+          {!sendLoading && <DS4CompactingBanner />}
         </div>
         <div ref={scrollRef} />
       </div>

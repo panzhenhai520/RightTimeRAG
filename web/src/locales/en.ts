@@ -118,6 +118,11 @@ export default {
       welcomeFull: 'Welcome to RhightTime Professional AI Consultant',
       welcomePrefix: 'Welcome to ',
       productName: 'RhightTime Professional AI Consultant',
+      setupScriptBtn: 'Install right.time certificate',
+      setupScriptHint:
+        'Double-click to auto-install certificate and configure domain (requires Windows admin — a UAC prompt will appear)',
+      certOnlyBtn: 'Download cert only',
+      certOnlyHint: 'Download the CA root certificate for manual installation',
     },
     header: {
       knowledgeBase: 'Dataset',
@@ -159,7 +164,16 @@ export default {
       pageDescription:
         'These functions are for back-office configuration and are hidden from the regular user workspace.',
       tabMenus: 'Entrances',
+      tabAssistant: 'Assistant',
       tabTts: 'TTS',
+      tabAsr: 'ASR',
+      identityTitle: 'Global assistant identity',
+      identityDescription:
+        'This text is prepended to every assistant system prompt automatically. All conversations inherit it unconditionally. Changes take effect immediately without restarting.',
+      identityPlaceholder:
+        'Enter the assistant identity and self-description...',
+      identitySaveBtn: 'Save',
+      identitySaved: 'Identity saved',
       tabUsers: 'User registration',
       tabTenants: 'User groups',
       tabLogs: 'Logs',
@@ -311,6 +325,32 @@ export default {
       userName: 'User name',
       email: 'Email',
       password: 'Password',
+      asrTitle: 'ASR speech recognition routing',
+      asrDescription:
+        'Configure the speech input model and routing strategy. Supports dual-route switching between Qwen3-ASR (high accuracy, Cantonese/mixed) and SenseVoice (low latency, multi-task).',
+      asrSaved: 'ASR settings saved',
+      asrMode: 'Routing mode',
+      asrModeDual: 'Dual route in parallel (recommended)',
+      asrModeSingle: 'Single route',
+      asrSingleModel: 'Model',
+      asrModelQwen3: 'Qwen3-ASR-1.7B (GPU1)',
+      asrModelSenseVoice: 'SenseVoice (xinference)',
+      asrDualMerge: 'Merge strategy',
+      asrMergeQwen3Primary: 'Qwen3 primary (SenseVoice fallback)',
+      asrMergeSVPrimary: 'SenseVoice primary (Qwen3 fallback)',
+      asrMergeLongest: 'Longest result wins',
+      asrLanguage: 'Default language',
+      asrLangAuto: 'Auto-detect',
+      asrLangCantonese: 'Cantonese',
+      asrLangMandarin: 'Mandarin',
+      asrLangEnglish: 'English',
+      asrShortThreshold: 'Short audio threshold',
+      asrPunctuation: 'Punctuation (FunASR)',
+      asrPunctuationHelp:
+        'FunASR ct-punc model adds punctuation to the transcript automatically. Works best for Chinese.',
+      asrVad: 'Voice activity detection (VAD)',
+      asrVadHelp:
+        'FunASR fsmn-vad detects voice endpoints and trims leading/trailing silence, reducing hallucinations.',
       ttsEngineTitle: 'TTS engine',
       ttsEngineDescription:
         'Chat assistants and agents show voice parameters only when TTS is enabled here and the engine capabilities are declared.',
@@ -408,8 +448,14 @@ export default {
       ttsAddVoiceSaving: 'Cloning voice…',
       ttsAddVoiceSaved: 'Voice profile "{{name}}" created',
       ttsAddVoiceError: 'Save failed: {{error}}',
-      ttsAddVoiceNoAudio: 'Please record your voice first',
-      ttsAddVoiceTooShort: 'Recording is too short (min 3 s), please re-record',
+      ttsAddVoiceOrUpload: 'Or upload an audio file',
+      ttsAddVoiceUploadHint:
+        'WAV / MP3 / M4A / OGG — 5-15 s of single-speaker speech recommended',
+      ttsAddVoiceNoAudio: 'Please record or upload an audio file first',
+      ttsAddVoiceTooShort:
+        'Audio is too short (min 3 s) — re-record or upload a longer file',
+      ttsAddVoiceMicError:
+        'Microphone unavailable (requires HTTPS or localhost). Please upload an audio file instead.',
     },
     skills: {
       title: 'Skills',

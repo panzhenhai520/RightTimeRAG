@@ -42,6 +42,7 @@ from api.db.services.knowledgebase_service import KnowledgebaseService
 from api.db.services.llm_service import LLMBundle
 from api.db.services.memory_service import MemoryService
 from api.db.services.panython_tts_settings_service import PanythonTTSSettingsService, build_tts_kwargs
+from api.db.services.panython_asr_settings_service import PanythonASRSettingsService
 from api.db.services.search_service import SearchService
 from api.db.services.tenant_llm_service import TenantLLMService
 from api.db.joint_services.memory_message_service import queue_save_to_memory_task
@@ -148,7 +149,12 @@ _LONG_MARKDOWN_SECTION_TOKENS = int(os.environ.get("RAGFLOW_LONG_MARKDOWN_SECTIO
 _TTS_PCM_SAMPLE_RATE = int(os.environ.get("RAGFLOW_TTS_PCM_SAMPLE_RATE", "24000"))
 _TTS_PCM_CHANNELS = int(os.environ.get("RAGFLOW_TTS_PCM_CHANNELS", "1"))
 _TTS_PCM_SAMPLE_WIDTH = int(os.environ.get("RAGFLOW_TTS_PCM_SAMPLE_WIDTH", "2"))
-_TTS_SPLIT_PATTERN = re.compile(r"[，。/《》？；：！\n\r:;]+")
+# Structural breaks (markdown / code symbols, newlines) — replace with space.
+# Do NOT include sentence-terminal punctuation here; those are speech cues for CosyVoice.
+_TTS_STRUCTURAL_BREAK_PATTERN = re.compile(r"[/《》\n\r:;]+")
+# Split AFTER sentence-terminal punctuation so the mark stays attached to the preceding chunk.
+# CosyVoice uses trailing ，。？！；： to determine pause duration and intonation.
+_TTS_SENTENCE_SPLIT_PATTERN = re.compile(r"(?<=[，。？！；：])\s*")
 _TTS_PROCESS_BLOCK_PATTERN = re.compile(r"<(?:retrieving|think)>[\s\S]*?</(?:retrieving|think)>", re.I)
 _TTS_PROCESS_TAG_PATTERN = re.compile(r"</?(?:retrieving|think)>", re.I)
 _TTS_SYNC_JOB_PREFIX = "panython:tts:sync:"
@@ -165,6 +171,7 @@ _CHAT_MEMO_ERROR_MARKERS = (
     "layer-slice token span exceeds context",
     "kv payload staging failed",
 )
+_tts_route_log = logging.getLogger("panython.tts.route")
 
 
 def _is_context_span_error(exc: Exception | str) -> bool:
@@ -175,6 +182,19 @@ def _is_context_span_error(exc: Exception | str) -> bool:
 def _strip_tts_process_text(text: str) -> str:
     text = _TTS_PROCESS_BLOCK_PATTERN.sub("", text or "")
     return _TTS_PROCESS_TAG_PATTERN.sub("", text).strip()
+
+
+def _split_tts_text(text: str) -> list[str]:
+    """Split TTS text into phrase chunks, keeping terminal punctuation with each chunk.
+
+    CosyVoice uses trailing punctuation (，。？！) to determine pause duration and intonation.
+    Stripping punctuation before synthesis causes flat, pause-free speech.
+    """
+    # Replace structural/non-speech marks with a space (they're not speech cues)
+    text = _TTS_STRUCTURAL_BREAK_PATTERN.sub(" ", text or "")
+    # Split AFTER sentence-terminal punctuation — the mark stays in the preceding chunk
+    parts = _TTS_SENTENCE_SPLIT_PATTERN.split(text)
+    return [p.strip() for p in parts if p.strip()]
 
 
 def _build_wav_from_pcm(pcm: bytes) -> bytes:
@@ -207,7 +227,7 @@ def _load_tts_sync_job(job_id: str) -> dict | None:
 def _split_tts_sync_segments(text: str, engine_settings: dict) -> list[str]:
     max_zh = int(engine_settings.get("segment_max_chars_zh") or 45)
     max_en = int(engine_settings.get("segment_max_words_en") or 18)
-    raw_parts = [part.strip() for part in _TTS_SPLIT_PATTERN.split(text or "") if part.strip()]
+    raw_parts = _split_tts_text(text)
     if not raw_parts:
         return []
 
@@ -221,7 +241,10 @@ def _split_tts_sync_segments(text: str, engine_settings: dict) -> list[str]:
         return len(candidate.split()) > max_en
 
     for part in raw_parts:
-        candidate = f"{current} {part}".strip() if current else part
+        # Chinese chunks: concatenate directly (punctuation already in chunk, no space needed)
+        has_chinese = any("\u4e00" <= char <= "\u9fff" for char in current + part)
+        joiner = "" if has_chinese else " "
+        candidate = (current + joiner + part).strip() if current else part
         if current and over_limit(candidate):
             segments.append(current)
             current = part
@@ -233,9 +256,23 @@ def _split_tts_sync_segments(text: str, engine_settings: dict) -> list[str]:
 
 
 def _synthesize_tts_audio(tenant_id: str, segments: list[str], tts_kwargs: dict) -> tuple[bytes, str]:
+    t0 = datetime.now()
+    voice = tts_kwargs.get("voice", "default")
+    speed = float(tts_kwargs.get("speed", 1.0))
+    n_chars = sum(len(s) for s in segments)
+    n_segs = len(segments)
+
     default_tts_model_config = get_tenant_default_model_by_type(tenant_id, LLMType.TTS)
+    model_name = "unknown"
+    if default_tts_model_config:
+        model_name = (
+            getattr(default_tts_model_config, "llm_name", None)
+            or getattr(default_tts_model_config, "model_name", None)
+            or "unknown"
+        )
     tts_mdl = LLMBundle(tenant_id, default_tts_model_config)
     mdl = getattr(tts_mdl, "mdl", None)
+
     if hasattr(mdl, "tts_pcm"):
         pcm_chunks = []
         for txt in segments:
@@ -244,7 +281,16 @@ def _synthesize_tts_audio(tenant_id: str, segments: list[str], tts_kwargs: dict)
                     pcm_chunks.append(bytes(chunk))
         if not pcm_chunks:
             raise RuntimeError("TTS returned no audio.")
-        return _build_wav_from_pcm(b"".join(pcm_chunks)), "audio/wav"
+        pcm_raw = b"".join(pcm_chunks)
+        audio = _build_wav_from_pcm(pcm_raw)
+        elapsed = (datetime.now() - t0).total_seconds()
+        audio_dur_s = len(pcm_raw) / (_TTS_PCM_SAMPLE_RATE * _TTS_PCM_CHANNELS * _TTS_PCM_SAMPLE_WIDTH)
+        _tts_route_log.info(
+            "ROUTE=pcm→wav | model=%s | voice=%s | speed=%.2f | segments=%d | chars=%d"
+            " | audio_bytes=%d | audio_dur=%.2fs | elapsed=%.2fs",
+            model_name, voice, speed, n_segs, n_chars, len(audio), audio_dur_s, elapsed,
+        )
+        return audio, "audio/wav"
 
     audio_chunks = []
     for txt in segments:
@@ -253,7 +299,14 @@ def _synthesize_tts_audio(tenant_id: str, segments: list[str], tts_kwargs: dict)
                 audio_chunks.append(bytes(chunk))
     if not audio_chunks:
         raise RuntimeError("TTS returned no audio.")
-    return b"".join(audio_chunks), "audio/mpeg"
+    audio = b"".join(audio_chunks)
+    elapsed = (datetime.now() - t0).total_seconds()
+    _tts_route_log.info(
+        "ROUTE=mp3 | model=%s | voice=%s | speed=%.2f | segments=%d | chars=%d"
+        " | audio_bytes=%d | elapsed=%.2fs",
+        model_name, voice, speed, n_segs, n_chars, len(audio), elapsed,
+    )
+    return audio, "audio/mpeg"
 
 
 def _build_chat_response(chat):
@@ -1312,12 +1365,16 @@ async def tts():
     if not engine_settings.get("tts_enabled"):
         return get_data_error_result(message="TTS engine is disabled.")
     text = _strip_tts_process_text(str(req.get("text") or ""))
-    segments = [txt.strip() for txt in _TTS_SPLIT_PATTERN.split(text) if txt.strip()]
+    segments = _split_tts_text(text)
     if not segments:
         return get_data_error_result(message="No text to synthesize.")
     tts_config = req.get("tts_config") if isinstance(req.get("tts_config"), dict) else req
     tts_kwargs = build_tts_kwargs(tts_config, text, engine_settings)
     tenant_id = current_user.id
+    _tts_route_log.info(
+        "REQUEST | engine=%s | voice_kwargs=%s | segments=%d | chars=%d",
+        engine_settings.get("engine"), tts_kwargs, len(segments), sum(len(s) for s in segments),
+    )
 
     def synthesize_audio():
         try:
@@ -1412,6 +1469,64 @@ def get_tts_sync_job(job_id):
     return get_json_result(data=job)
 
 
+_QWEN3_ASR_URL = "http://127.0.0.1:9900/v1/audio/transcriptions"
+_QWEN3_ASR_TIMEOUT = 60.0
+
+_asr_log = logging.getLogger("panython.asr")
+
+
+async def _call_qwen3_asr(
+    audio_bytes: bytes, suffix: str, language: str | None,
+    vad: bool = False, punctuation: bool = False,
+) -> str:
+    """Call Qwen3-ASR-1.7B at port 9900 and return transcript text."""
+    import httpx
+
+    data: dict = {"model": "qwen3-asr"}
+    if language and language != "auto":
+        data["language"] = language
+    if vad:
+        data["vad"] = "true"
+    if punctuation:
+        data["punctuation"] = "true"
+
+    try:
+        async with httpx.AsyncClient(timeout=_QWEN3_ASR_TIMEOUT) as client:
+            resp = await client.post(
+                _QWEN3_ASR_URL,
+                files={"file": (f"audio{suffix}", audio_bytes, "audio/octet-stream")},
+                data=data,
+            )
+            resp.raise_for_status()
+            return resp.json().get("text", "")
+    except Exception as exc:
+        _asr_log.warning("Qwen3-ASR call failed: %s", exc)
+        return ""
+
+
+def _call_sensevoice_asr(audio_path: str, user_id: str) -> str:
+    """Call SenseVoice via the tenant's default SPEECH2TEXT model."""
+    try:
+        default_asr_model_config = get_tenant_default_model_by_type(user_id, LLMType.SPEECH2TEXT)
+        asr_mdl = LLMBundle(user_id, default_asr_model_config)
+        return asr_mdl.transcription(audio_path) or ""
+    except Exception as exc:
+        _asr_log.warning("SenseVoice ASR call failed: %s", exc)
+        return ""
+
+
+def _merge_asr_results(text_a: str, text_b: str, strategy: str) -> str:
+    """Merge two ASR results according to the configured merge strategy."""
+    a = text_a.strip()
+    b = text_b.strip()
+    if strategy == "qwen3_primary":
+        return a if a else b
+    if strategy == "sensevoice_primary":
+        return b if b else a
+    # "longest" — pick the result with more characters
+    return a if len(a) >= len(b) else b
+
+
 @manager.route("/chat/audio/transcription", methods=["POST"])  # noqa: F821
 @login_required
 async def transcription():
@@ -1441,33 +1556,67 @@ async def transcription():
     await uploaded.save(temp_audio_path)
 
     try:
-        default_asr_model_config = get_tenant_default_model_by_type(current_user.id, LLMType.SPEECH2TEXT)
-    except Exception as e:
-        return get_data_error_result(message=str(e))
+        asr_cfg = PanythonASRSettingsService.get_settings()
+        mode = asr_cfg.get("mode", "dual")
+        single_model = asr_cfg.get("single_model", "qwen3")
+        dual_merge = asr_cfg.get("dual_merge", "qwen3_primary")
+        language = asr_cfg.get("language", "auto")
+        lang_hint = language if language != "auto" else None
+        use_vad = bool(asr_cfg.get("vad", False))
+        use_punc = bool(asr_cfg.get("punctuation", False))
 
-    asr_mdl = LLMBundle(current_user.id, default_asr_model_config)
-    if not stream_mode:
-        text = asr_mdl.transcription(temp_audio_path)
+        audio_bytes = open(temp_audio_path, "rb").read()
+
+        if mode == "single":
+            if single_model == "qwen3":
+                text = await _call_qwen3_asr(audio_bytes, suffix, lang_hint, vad=use_vad, punctuation=use_punc)
+                if not text:
+                    # Fallback to SenseVoice if Qwen3-ASR fails
+                    text = await asyncio.get_event_loop().run_in_executor(
+                        None, _call_sensevoice_asr, temp_audio_path, current_user.id
+                    )
+            else:
+                text = await asyncio.get_event_loop().run_in_executor(
+                    None, _call_sensevoice_asr, temp_audio_path, current_user.id
+                )
+        else:
+            # Dual mode: both in parallel; VAD+punc applied inside Qwen3-ASR server
+            qwen3_task = asyncio.create_task(
+                _call_qwen3_asr(audio_bytes, suffix, lang_hint, vad=use_vad, punctuation=use_punc)
+            )
+            sv_task = asyncio.get_event_loop().run_in_executor(
+                None, _call_sensevoice_asr, temp_audio_path, current_user.id
+            )
+            qwen3_text, sv_text = await asyncio.gather(qwen3_task, sv_task, return_exceptions=True)
+            if isinstance(qwen3_text, Exception):
+                qwen3_text = ""
+            if isinstance(sv_text, Exception):
+                sv_text = ""
+            text = _merge_asr_results(str(qwen3_text), str(sv_text), dual_merge)
+            _asr_log.info(
+                "Dual ASR — qwen3=%d chars, sv=%d chars, merged=%d chars, strategy=%s",
+                len(str(qwen3_text)), len(str(sv_text)), len(text), dual_merge,
+            )
+
+        _asr_log.info("ASR done — mode=%s, chars=%d", mode, len(text))
+    except Exception as exc:
+        _asr_log.error("ASR routing failed, falling back to default: %s", exc)
+        text = ""
+    finally:
         try:
             os.remove(temp_audio_path)
         except Exception as e:
             logging.error(f"Failed to remove temp audio file: {str(e)}")
-        return get_json_result(data={"text": text})
 
-    async def event_stream():
-        try:
-            for evt in asr_mdl.stream_transcription(temp_audio_path):
-                yield f"data: {json.dumps(evt, ensure_ascii=False)}\n\n"
-        except Exception as e:
-            err = {"event": "error", "text": str(e)}
-            yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n"
-        finally:
-            try:
-                os.remove(temp_audio_path)
-            except Exception as e:
-                logging.error(f"Failed to remove temp audio file: {str(e)}")
+    if stream_mode:
+        result_text = text
 
-    return Response(event_stream(), content_type="text/event-stream")
+        async def event_stream():
+            yield f"data: {json.dumps({'event': 'text', 'text': result_text}, ensure_ascii=False)}\n\n"
+
+        return Response(event_stream(), content_type="text/event-stream")
+
+    return get_json_result(data={"text": text})
 
 
 @manager.route("/chat/mindmap", methods=["POST"])  # noqa: F821

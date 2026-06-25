@@ -132,6 +132,24 @@
     }
   }
 
+  .thinkingHeaderRunning {
+    background: linear-gradient(
+      110deg,
+      rgb(var(--text-secondary)) 0%,
+      rgb(var(--text-secondary)) 30%,
+      rgb(255, 255, 255) 42%,
+      rgb(25, 140, 110) 50%,
+      rgb(var(--text-secondary)) 62%,
+      rgb(var(--text-secondary)) 100%
+    );
+    background-clip: text;
+    background-size: 260% 100%;
+    color: transparent;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: reasoningLineShimmer 1.4s ease-in-out infinite;
+  }
+
   .thinkingIcon {
     width: 15px;
     height: 15px;

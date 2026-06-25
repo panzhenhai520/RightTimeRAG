@@ -63,6 +63,27 @@ const devEntries = [
 const tenantRelationsApi = '/api/v1/dev/tenant-relations';
 const tenantRelationLogsApi = '/api/v1/dev/tenant-relations/logs';
 const ttsEngineSettingsApi = '/api/v1/dev/tts-engine-settings';
+const asrSettingsApi = '/api/v1/dev/asr-settings';
+
+type AsrSettings = {
+  mode: 'single' | 'dual';
+  single_model: 'qwen3' | 'sensevoice';
+  dual_merge: 'qwen3_primary' | 'sensevoice_primary' | 'longest';
+  language: 'auto' | 'zh' | 'yue' | 'en';
+  short_audio_threshold_ms: number;
+  punctuation: boolean;
+  vad: boolean;
+};
+
+const defaultAsrSettings: AsrSettings = {
+  mode: 'dual',
+  single_model: 'qwen3',
+  dual_merge: 'qwen3_primary',
+  language: 'auto',
+  short_audio_threshold_ms: 3000,
+  punctuation: false,
+  vad: false,
+};
 
 type TtsEngineSettings = {
   tts_enabled: boolean;
@@ -359,7 +380,7 @@ function TenantRelationsCard() {
     });
   }, [data?.dialogs]);
 
-  const users = data?.users ?? [];
+  const users = useMemo(() => data?.users ?? [], [data?.users]);
   const memberships = (data?.memberships ?? []).filter(
     (item) => item.status === '1',
   );
@@ -1247,6 +1268,310 @@ function RegisterUserCard() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// IdentityCard — global assistant identity maintained by admin
+// ---------------------------------------------------------------------------
+
+function IdentityCard() {
+  const { t } = useTranslation();
+  const [text, setText] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    request
+      .get('/api/v1/dev/identity')
+      .then((res) => {
+        if (res.data?.code === 0) setText(res.data.data?.text ?? '');
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      const res = await request.post('/api/v1/dev/identity', { text });
+      if (res.data?.code === 0) {
+        message.success(t('devSettingPanython.identitySaved'));
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [text, t]);
+
+  return (
+    <article className="mt-4 rounded-lg border border-border bg-bg-card p-5 md:col-span-2">
+      <h2 className="text-lg font-medium text-text-primary">
+        {t('devSettingPanython.identityTitle')}
+      </h2>
+      <p className="mt-1 text-sm text-text-secondary">
+        {t('devSettingPanython.identityDescription')}
+      </p>
+      <textarea
+        className="mt-4 w-full min-h-[120px] rounded-md border border-border-button bg-bg-input px-3 py-2 text-sm text-text-primary outline-none focus:border-[#6f3f2f] dark:focus:border-[#9bc7dd]"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder={t('devSettingPanython.identityPlaceholder')}
+      />
+      <div className="mt-3 flex justify-end">
+        <ButtonLoading
+          type="button"
+          loading={saving}
+          className="bg-[#6f3f2f] text-white dark:bg-[#2d5f80]"
+          onClick={handleSave}
+        >
+          {t('devSettingPanython.identitySaveBtn')}
+        </ButtonLoading>
+      </div>
+    </article>
+  );
+}
+
+function AsrSettingsCard() {
+  const { t } = useTranslation();
+  const [settings, setSettings] = useState<AsrSettings>(defaultAsrSettings);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const loadSettings = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await request.get(asrSettingsApi);
+      if (res.data?.code === 0) {
+        setSettings({ ...defaultAsrSettings, ...res.data.data });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  const update = <K extends keyof AsrSettings>(
+    key: K,
+    value: AsrSettings[K],
+  ) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await request.put(asrSettingsApi, settings);
+      if (res.data?.code === 0) {
+        setSettings({ ...defaultAsrSettings, ...res.data.data });
+        message.success(t('devSettingPanython.asrSaved'));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fieldRow =
+    'grid grid-cols-[max-content_minmax(200px,280px)] items-center justify-start gap-2 text-sm';
+  const fieldLabel =
+    'inline-flex items-center gap-1 whitespace-nowrap text-text-secondary';
+  const sel =
+    'h-9 w-full border-0 border-b border-border-button bg-transparent px-0 pr-8 text-sm text-text-primary outline-none disabled:cursor-not-allowed disabled:opacity-50';
+
+  return (
+    <article className="rounded-lg border border-border bg-bg-card p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-medium text-text-primary">
+            {t('devSettingPanython.asrTitle')}
+          </h2>
+          <p className="mt-2 text-sm text-text-secondary">
+            {t('devSettingPanython.asrDescription')}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          loading={loading}
+          onClick={loadSettings}
+        >
+          {t('devSettingPanython.refresh')}
+        </Button>
+      </div>
+
+      <div className="mt-5 grid gap-x-8 gap-y-3 md:grid-cols-2">
+        {/* Mode */}
+        <label className={fieldRow}>
+          <span className={fieldLabel}>{t('devSettingPanython.asrMode')}:</span>
+          <select
+            className={sel}
+            value={settings.mode}
+            onChange={(e) =>
+              update('mode', e.target.value as AsrSettings['mode'])
+            }
+          >
+            <option value="dual">{t('devSettingPanython.asrModeDual')}</option>
+            <option value="single">
+              {t('devSettingPanython.asrModeSingle')}
+            </option>
+          </select>
+        </label>
+
+        {/* Single model — only visible in single mode */}
+        {settings.mode === 'single' && (
+          <label className={fieldRow}>
+            <span className={fieldLabel}>
+              {t('devSettingPanython.asrSingleModel')}:
+            </span>
+            <select
+              className={sel}
+              value={settings.single_model}
+              onChange={(e) =>
+                update(
+                  'single_model',
+                  e.target.value as AsrSettings['single_model'],
+                )
+              }
+            >
+              <option value="qwen3">
+                {t('devSettingPanython.asrModelQwen3')}
+              </option>
+              <option value="sensevoice">
+                {t('devSettingPanython.asrModelSenseVoice')}
+              </option>
+            </select>
+          </label>
+        )}
+
+        {/* Dual merge strategy — only visible in dual mode */}
+        {settings.mode === 'dual' && (
+          <label className={fieldRow}>
+            <span className={fieldLabel}>
+              {t('devSettingPanython.asrDualMerge')}:
+            </span>
+            <select
+              className={sel}
+              value={settings.dual_merge}
+              onChange={(e) =>
+                update(
+                  'dual_merge',
+                  e.target.value as AsrSettings['dual_merge'],
+                )
+              }
+            >
+              <option value="qwen3_primary">
+                {t('devSettingPanython.asrMergeQwen3Primary')}
+              </option>
+              <option value="sensevoice_primary">
+                {t('devSettingPanython.asrMergeSVPrimary')}
+              </option>
+              <option value="longest">
+                {t('devSettingPanython.asrMergeLongest')}
+              </option>
+            </select>
+          </label>
+        )}
+
+        {/* Language */}
+        <label className={fieldRow}>
+          <span className={fieldLabel}>
+            {t('devSettingPanython.asrLanguage')}:
+          </span>
+          <select
+            className={sel}
+            value={settings.language}
+            onChange={(e) =>
+              update('language', e.target.value as AsrSettings['language'])
+            }
+          >
+            <option value="auto">{t('devSettingPanython.asrLangAuto')}</option>
+            <option value="yue">
+              {t('devSettingPanython.asrLangCantonese')}
+            </option>
+            <option value="zh">
+              {t('devSettingPanython.asrLangMandarin')}
+            </option>
+            <option value="en">{t('devSettingPanython.asrLangEnglish')}</option>
+          </select>
+        </label>
+
+        {/* Short audio threshold */}
+        <label className={fieldRow}>
+          <span className={fieldLabel}>
+            {t('devSettingPanython.asrShortThreshold')}:
+          </span>
+          <select
+            className={sel}
+            value={settings.short_audio_threshold_ms}
+            onChange={(e) =>
+              update('short_audio_threshold_ms', Number(e.target.value))
+            }
+          >
+            {[1000, 2000, 3000, 5000, 8000].map((ms) => (
+              <option key={ms} value={ms}>
+                {ms / 1000}s
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {/* Punctuation */}
+        <label className={fieldRow}>
+          <span className={fieldLabel}>
+            {t('devSettingPanython.asrPunctuation')}:
+            <TtsHelpButton text={t('devSettingPanython.asrPunctuationHelp')} />
+          </span>
+          <select
+            className={sel}
+            value={String(settings.punctuation)}
+            onChange={(e) => update('punctuation', e.target.value === 'true')}
+          >
+            <option value="false">
+              {t('devSettingPanython.optionDisabled')}
+            </option>
+            <option value="true">
+              {t('devSettingPanython.optionEnabled')}
+            </option>
+          </select>
+        </label>
+
+        {/* VAD */}
+        <label className={fieldRow}>
+          <span className={fieldLabel}>
+            {t('devSettingPanython.asrVad')}:
+            <TtsHelpButton text={t('devSettingPanython.asrVadHelp')} />
+          </span>
+          <select
+            className={sel}
+            value={String(settings.vad)}
+            onChange={(e) => update('vad', e.target.value === 'true')}
+          >
+            <option value="false">
+              {t('devSettingPanython.optionDisabled')}
+            </option>
+            <option value="true">
+              {t('devSettingPanython.optionEnabled')}
+            </option>
+          </select>
+        </label>
+      </div>
+
+      {/* Status badges */}
+      <div className="mt-4 flex flex-wrap gap-2 text-xs">
+        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
+          Qwen3-ASR-1.7B · port 9900 · GPU1
+        </span>
+        <span className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-700 dark:bg-sky-950/30 dark:text-sky-300">
+          SenseVoice · xinference port 9997 · GPU0
+        </span>
+      </div>
+
+      <div className="mt-5 flex gap-3">
+        <ButtonLoading loading={saving} onClick={handleSave}>
+          {t('devSettingPanython.identitySaveBtn')}
+        </ButtonLoading>
+      </div>
+    </article>
+  );
+}
+
 function TtsEngineSettingsCard() {
   const { t } = useTranslation();
   const [settings, setSettings] = useState<TtsEngineSettings>(
@@ -1754,6 +2079,11 @@ async function blobToWav16k(blob: Blob): Promise<Blob> {
 // TtsVoiceProfilesCard — recording + custom voice management
 // ---------------------------------------------------------------------------
 
+// Phonetically curated Chinese sentence: covers all 4 tones, retroflex/non-retroflex
+// initials, nasal finals, and diverse vowels — ideal for voice cloning reference audio.
+const DEFAULT_VOICE_PROMPT =
+  '家族信托能帮助高净值家庭实现跨代财富传承与资产保护。投资者应理性评估市场风险，根据自身财务状况，与专业顾问共同制定长期的资产配置方案。';
+
 function TtsVoiceProfilesCard() {
   const { t } = useTranslation();
   const [voices, setVoices] = useState<VoiceProfile[]>([]);
@@ -1761,7 +2091,7 @@ function TtsVoiceProfilesCard() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [voiceId, setVoiceId] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [promptText, setPromptText] = useState('');
+  const [promptText, setPromptText] = useState(DEFAULT_VOICE_PROMPT);
   const [recordingState, setRecordingState] = useState<
     'idle' | 'recording' | 'recorded'
   >('idle');
@@ -1774,6 +2104,7 @@ function TtsVoiceProfilesCard() {
   const chunksRef = useRef<BlobPart[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playingRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadVoices = useCallback(async () => {
     setLoading(true);
@@ -1830,10 +2161,17 @@ function TtsVoiceProfilesCard() {
         setRecordingSeconds(secs);
       }, 1000);
       setRecordingState('recording');
-    } catch {
-      message.error('Microphone access denied.');
+    } catch (err) {
+      const isBlocked =
+        err instanceof DOMException &&
+        (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+      message.error(
+        isBlocked
+          ? t('devSettingPanython.ttsAddVoiceMicError')
+          : 'Microphone error — please check browser permissions.',
+      );
     }
-  }, [audioUrl]);
+  }, [audioUrl, t]);
 
   const stopRecording = useCallback(() => {
     if (timerRef.current) {
@@ -1871,10 +2209,35 @@ function TtsVoiceProfilesCard() {
     a.play();
   }, [audioUrl]);
 
+  const handleFileUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      e.target.value = '';
+      try {
+        // measure original duration before resampling
+        const ctx = new AudioContext();
+        const decoded = await ctx.decodeAudioData(await file.arrayBuffer());
+        const secs = Math.round(decoded.duration);
+        await ctx.close();
+        // convert to 16 kHz mono WAV for CosyVoice3
+        const wav = await blobToWav16k(file);
+        if (audioUrl) URL.revokeObjectURL(audioUrl);
+        setAudioUrl(URL.createObjectURL(wav));
+        setWavBlob(wav);
+        setRecordingSeconds(secs);
+        setRecordingState('recorded');
+      } catch {
+        message.error('Cannot decode audio file — please try WAV or MP3.');
+      }
+    },
+    [audioUrl],
+  );
+
   const resetForm = useCallback(() => {
     setVoiceId('');
     setDisplayName('');
-    setPromptText('');
+    setPromptText(DEFAULT_VOICE_PROMPT);
     resetRecording();
   }, [resetRecording]);
 
@@ -2052,14 +2415,29 @@ function TtsVoiceProfilesCard() {
           {/* Recording controls */}
           <div className="mt-4 flex flex-wrap items-center gap-3">
             {recordingState === 'idle' && (
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-                onClick={startRecording}
-              >
-                <span className="text-base">●</span>
-                {t('devSettingPanython.ttsAddVoiceRecord')}
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                  onClick={startRecording}
+                >
+                  <span className="text-base">●</span>
+                  {t('devSettingPanython.ttsAddVoiceRecord')}
+                </button>
+                <span className="text-sm text-text-secondary">
+                  {t('devSettingPanython.ttsAddVoiceOrUpload')}
+                </span>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border-button px-4 py-2 text-sm font-medium text-text-primary hover:bg-bg-hover">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="audio/*"
+                    className="sr-only"
+                    onChange={handleFileUpload}
+                  />
+                  ↑ {t('devSettingPanython.ttsAddVoiceUploadHint')}
+                </label>
+              </>
             )}
             {recordingState === 'recording' && (
               <button
@@ -2223,12 +2601,18 @@ export default function DevSettingPanython() {
         </header>
 
         <Tabs defaultValue="menus" className="w-full">
-          <TabsList className="mb-4 grid w-full grid-cols-5 lg:w-[760px]">
+          <TabsList className="mb-4 grid w-full grid-cols-7 lg:w-[1050px]">
             <TabsTrigger value="menus">
               {t('devSettingPanython.tabMenus')}
             </TabsTrigger>
+            <TabsTrigger value="assistant">
+              {t('devSettingPanython.tabAssistant')}
+            </TabsTrigger>
             <TabsTrigger value="tts">
               {t('devSettingPanython.tabTts')}
+            </TabsTrigger>
+            <TabsTrigger value="asr">
+              {t('devSettingPanython.tabAsr')}
             </TabsTrigger>
             <TabsTrigger value="users">
               {t('devSettingPanython.tabUsers')}
@@ -2249,9 +2633,17 @@ export default function DevSettingPanython() {
             </div>
           </TabsContent>
 
+          <TabsContent value="assistant">
+            <IdentityCard />
+          </TabsContent>
+
           <TabsContent value="tts">
             <TtsEngineSettingsCard />
             <TtsVoiceProfilesCard />
+          </TabsContent>
+
+          <TabsContent value="asr">
+            <AsrSettingsCard />
           </TabsContent>
 
           <TabsContent value="users">

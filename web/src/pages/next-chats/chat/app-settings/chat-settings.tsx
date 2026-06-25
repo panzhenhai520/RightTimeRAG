@@ -78,6 +78,7 @@ export function ChatSettings({ hasSingleChatBox }: ChatSettingsProps) {
       similarity_threshold: 0.2,
       vector_similarity_weight: 0.2,
       top_k: 1024,
+      memory_mode: 'kb_first',
       meta_data_filter: {
         method: DatasetMetadata.Disabled,
         manual: [],

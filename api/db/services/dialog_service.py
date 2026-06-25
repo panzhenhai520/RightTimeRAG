@@ -3257,6 +3257,35 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     retrieval_query = _build_retrieval_query(questions[-1], latest_user_question)
     refine_question_ts = timer()
 
+    _memory_mode = getattr(dialog, "memory_mode", "kb_first") or "kb_first"
+
+    # memory_first: check memory before KB retrieval; skip KB on any hit
+    if _memory_mode == "memory_first" and "knowledge" in param_keys and dialog.kb_ids:
+        _early_mem = await _retrieve_memory_context(dialog.tenant_id, retrieval_query)
+        if _early_mem:
+            logging.info(
+                "MemoryFirst pre-KB hit %d snippets, skipping KB question=%s",
+                len(_early_mem), retrieval_query[:120],
+            )
+            _mem_text = "\n\n".join(_early_mem)
+            _mem_msgs = [m for m in messages if m.get("role") != "system"]
+            if _mem_msgs and _mem_msgs[-1]["role"] == "user":
+                _mem_msgs = list(_mem_msgs)
+                _mem_msgs[-1] = {
+                    **_mem_msgs[-1],
+                    "content": (
+                        f"[以下是从备忘录中检索到的相关内容]\n{_mem_text}\n\n"
+                        f"[用户问题]\n{retrieval_query}"
+                    ),
+                }
+            async for ans in async_chat_solo(dialog, _mem_msgs, stream, _pure_llm_route=True, **kwargs):
+                yield ans
+            return
+        logging.info(
+            "MemoryFirst pre-KB: no results, falling through to KB question=%s",
+            retrieval_query[:120],
+        )
+
     thought = ""
     kbinfos = {"total": 0, "chunks": [], "doc_aggs": []}
     knowledges = []
@@ -3431,13 +3460,20 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     knowledges = _kb_prompt_dynamic(kbinfos, context_budget["knowledge"], retrieval_query)
     logging.debug("{}->{}".format(" ".join(questions), "\n->".join(knowledges)))
     evidence_guidance_text = _format_evidence_guidance_for_prompt(kbinfos) if knowledges else ""
-    memory_context = await _retrieve_memory_context(
-        dialog.tenant_id,
-        retrieval_query,
-        min(MEMORY_CONTEXT_TOKENS, max(MIN_OUTPUT_TOKENS, context_budget["prompt"] // 10)),
-    )
-    if memory_context:
-        logging.debug("MemoryContext injected %d snippets for tenant=%s", len(memory_context), dialog.tenant_id)
+    _memory_token_budget = min(MEMORY_CONTEXT_TOKENS, max(MIN_OUTPUT_TOKENS, context_budget["prompt"] // 10))
+
+    if _memory_mode == "ignore_memory":
+        memory_context = []
+        logging.info("MemoryContext skipped memory_mode=ignore_memory")
+    elif _memory_mode == "memory_first":
+        # Pre-KB check already ran with the same query and returned empty (otherwise we'd have returned early).
+        # Skip the redundant second call to avoid double work.
+        memory_context = []
+    else:
+        # kb_first (default): memory as supplemental context alongside KB results
+        memory_context = await _retrieve_memory_context(dialog.tenant_id, retrieval_query, _memory_token_budget)
+        if memory_context:
+            logging.debug("MemoryContext injected %d snippets for tenant=%s", len(memory_context), dialog.tenant_id)
 
     retrieval_ts = timer()
     framework_synthesis_mode = (

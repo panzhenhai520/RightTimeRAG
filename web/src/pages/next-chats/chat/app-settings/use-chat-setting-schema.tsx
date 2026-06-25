@@ -71,6 +71,9 @@ export function useChatSettingSchema() {
     ...similarityThresholdSchema,
     ...topnSchema,
     ...MetadataFilterSchema,
+    memory_mode: z
+      .enum(['kb_first', 'memory_first', 'ignore_memory'])
+      .optional(),
   });
 
   return formSchema;

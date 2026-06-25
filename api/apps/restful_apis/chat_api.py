@@ -741,6 +741,7 @@ async def create():
         req.setdefault("similarity_threshold", 0.1)
         req.setdefault("vector_similarity_weight", 0.3)
         req.setdefault("icon", "")
+        req.setdefault("memory_mode", "kb_first")
         _apply_prompt_defaults(req)
         # err = _validate_prompt_config(req["prompt_config"])
         # if err:

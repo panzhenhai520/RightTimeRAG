@@ -548,12 +548,20 @@ export const useSelectDerivedMessages = () => {
           ? mergeFinalAnswerWithProcess(previousContent, incomingContent)
           : answer.answer;
 
+      // Preserve a non-empty reference (evidence_preview) through subsequent token events
+      // that carry reference:{}.  Only overwrite when the incoming event is final or has chunks.
+      const incomingRef = answer.reference as any;
+      const resolvedReference =
+        (answer as any).final === true || incomingRef?.chunks?.length > 0
+          ? answer.reference
+          : previousMessage?.reference;
+
       const assistantMessage = {
         ...omit(answer, ['reference', 'content']),
         role: MessageType.Assistant,
         content,
         answer: content,
-        reference: answer.reference,
+        reference: resolvedReference,
         id: buildMessageUuid({
           id: answer.id,
           role: MessageType.Assistant,
@@ -586,10 +594,15 @@ export const useSelectDerivedMessages = () => {
               (answer as any).final === true ||
               (/<(?:retrieving|think)>/i.test(previousContent) &&
                 !/<(?:retrieving|think)>/i.test(incomingContent));
+            const incomingRef = answer.reference as any;
+            const resolvedReference =
+              (answer as any).final === true || incomingRef?.chunks?.length > 0
+                ? answer.reference
+                : x.reference;
             return {
               ...x,
               ...omit(answer, ['reference', 'content']),
-              reference: answer.reference,
+              reference: resolvedReference,
               content: shouldPreserveProcess
                 ? mergeFinalAnswerWithProcess(previousContent, incomingContent)
                 : answer.answer,

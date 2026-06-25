@@ -2956,6 +2956,42 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
             yield ans
         return
 
+    # memo_search early-exit: if the router is confident the user is searching their own notes,
+    # try memory first and skip KB retrieval entirely.
+    if (
+        dialog.kb_ids
+        and semantic_route.get("route") == "memo_search"
+        and float(semantic_route.get("score") or 0) > 0.7
+    ):
+        early_memory = await _retrieve_memory_context(dialog.tenant_id, latest_question)
+        if early_memory:
+            logging.info(
+                "MemoryContext matched %d snippets, skipped KB retrieval question=%s",
+                len(early_memory),
+                latest_question[:120],
+            )
+            memory_text = "\n\n".join(early_memory)
+            memo_messages = [
+                m for m in messages if m.get("role") != "system"
+            ]
+            if memo_messages and memo_messages[-1]["role"] == "user":
+                memo_messages = list(memo_messages)
+                memo_messages[-1] = {
+                    **memo_messages[-1],
+                    "content": (
+                        f"[以下是从备忘录中检索到的相关内容]\n{memory_text}\n\n"
+                        f"[用户问题]\n{latest_question}"
+                    ),
+                }
+            async for ans in async_chat_solo(dialog, memo_messages, stream, _pure_llm_route=True, **kwargs):
+                yield ans
+            return
+        logging.info(
+            "MemoryContext memo_search score=%.3f but no results, falling through to KB path question=%s",
+            float(semantic_route.get("score") or 0),
+            latest_question[:120],
+        )
+
     chat_start_ts = timer()
     _global_identity = PanythonIdentityService.get_prompt()
     llm_type = TenantLLMService.llm_id2llm_type(dialog.llm_id)
@@ -3591,6 +3627,21 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         async for event in _ds4_pre_generation_status_events(llm_model_config, dialog):
             yield event
         if "knowledge" in param_keys and not deep_research_enabled:
+            # Evidence-first: push retrieved chunks to the frontend before LLM begins generating.
+            # The frontend preserves this reference through subsequent empty-reference token events.
+            if kbinfos.get("chunks"):
+                logging.info(
+                    "EvidencePreview chunks=%d docs=%d before LLM generation",
+                    len(kbinfos["chunks"]),
+                    len(kbinfos.get("doc_aggs", [])),
+                )
+                yield {
+                    "answer": "",
+                    "reference": kbinfos,
+                    "audio_binary": None,
+                    "final": False,
+                    "evidence_preview": True,
+                }
             yield {
                 "answer": "<think>Reviewing retrieved evidence and composing the answer.\n</think>",
                 "reference": {},

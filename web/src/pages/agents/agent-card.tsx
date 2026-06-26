@@ -65,7 +65,14 @@ export function AgentCard({ data, showAgentRenameModal }: DatasetCardProps) {
       }
       extra={
         <div className="flex flex-wrap items-center gap-1 mt-1">
-          {!data.release && (
+          {data.release_time ? (
+            <Badge
+              variant="outline"
+              className="text-[10px] font-normal border-green-500 text-green-600 dark:border-green-400 dark:text-green-400"
+            >
+              已发布
+            </Badge>
+          ) : (
             <Badge
               variant="outline"
               className={cn(

@@ -49,15 +49,17 @@ export function AgentDropdown({
     setTagEditorOpen(true);
   }, []);
 
+  const isPublished = Boolean(agent.release_time);
+
   const handleTogglePublish: MouseEventHandler<HTMLDivElement> = useCallback(
     async (e) => {
       e.stopPropagation();
       await setAgent({
         id: agent.id,
-        release: agent.release ? 'false' : 'true',
+        release: isPublished ? 'false' : 'true',
       });
     },
-    [agent.id, agent.release, setAgent],
+    [agent.id, isPublished, setAgent],
   );
 
   const handleDelete: MouseEventHandler<HTMLDivElement> = useCallback(() => {
@@ -79,7 +81,7 @@ export function AgentDropdown({
             onClick={handleTogglePublish}
             disabled={publishLoading}
           >
-            {agent.release ? (
+            {isPublished ? (
               <>
                 {t('flow.unpublish') || '取消发布'} <Lock />
               </>

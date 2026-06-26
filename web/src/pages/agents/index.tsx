@@ -1,9 +1,7 @@
-import { CardContainer } from '@/components/card-container';
 import { EmptyCardType } from '@/components/empty/constant';
 import { EmptyAppCard } from '@/components/empty/empty';
 import ListFilterBar from '@/components/list-filter-bar';
 import { RenameDialog } from '@/components/rename-dialog';
-import { Button } from '@/components/ui/button';
 import { RAGFlowPagination } from '@/components/ui/ragflow-pagination';
 import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { useFetchAgentListByPage } from '@/hooks/use-agent-request';
@@ -12,8 +10,8 @@ import { pick } from 'lodash';
 import { LayoutTemplate, Plus } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router';
-import { AgentCard } from './agent-card';
 import { CreateAgentDialog } from './create-agent-dialog';
+import { HexAgentCard, HexCreateButton } from './hex-agent-card';
 import { useCreateAgentOrPipeline } from './hooks/use-create-agent';
 import { useSelectFilters } from './hooks/use-selelct-filters';
 import { useRenameAgent } from './use-rename-agent';
@@ -55,6 +53,7 @@ export default function Agents() {
     },
     [setPagination],
   );
+
   const [searchUrl, setSearchUrl] = useSearchParams();
   const isCreate = searchUrl.get('isCreate') === 'true';
 
@@ -65,60 +64,56 @@ export default function Agents() {
     }
   }, [isCreate, searchUrl, setSearchUrl]);
 
-  const createButtons = (
-    <div className="flex items-center gap-2 shrink-0">
-      <Button variant="outline" size="sm" onClick={navigateToAgentTemplates}>
-        <LayoutTemplate className="size-4" />
-        从模板创建
-      </Button>
-      <Button size="sm" onClick={showCreatingModal}>
-        <Plus className="size-4" />
-        手动编排
-      </Button>
-    </div>
-  );
+  const hasAgents = Boolean(data?.length);
 
   return (
     <>
-      {data?.length || searchString ? (
-        <article className="size-full flex flex-col" data-testid="agents-list">
-          <header className="px-5 pt-8 mb-4">
-            <ListFilterBar
-              title={t('flow.agents')}
-              searchString={searchString}
-              onSearchChange={handleInputChange}
-              icon="agents"
-              filters={filters}
-              onChange={handleFilterSubmit}
-              value={filterValue}
-              leftPanel={createButtons}
-            />
-          </header>
+      <article className="size-full flex flex-col" data-testid="agents-list">
+        <header className="px-5 pt-8 mb-6">
+          <ListFilterBar
+            title={t('flow.agents')}
+            searchString={searchString}
+            onSearchChange={handleInputChange}
+            icon="agents"
+            filters={filters}
+            onChange={handleFilterSubmit}
+            value={filterValue}
+          />
+        </header>
 
-          {data.length ? (
-            <>
-              <CardContainer className="flex-1 overflow-auto px-5">
-                {data.map((x) => {
-                  return (
-                    <AgentCard
-                      key={x.id}
-                      data={x}
-                      showAgentRenameModal={showAgentRenameModal}
-                    />
-                  );
-                })}
-              </CardContainer>
+        <div className="flex-1 overflow-auto px-5 pb-8 space-y-8">
+          {/* Row 1 — create-action buttons (hidden when searching) */}
+          {!searchString && (
+            <div className="flex gap-6">
+              <HexCreateButton
+                icon={<LayoutTemplate className="size-9" />}
+                label="从模板创建"
+                onClick={navigateToAgentTemplates}
+              />
+              <HexCreateButton
+                icon={<Plus className="size-9" />}
+                label="手动编排"
+                onClick={showCreatingModal}
+              />
+            </div>
+          )}
 
-              <footer className="mt-4 px-5 pb-5">
-                <RAGFlowPagination
-                  {...pick(pagination, 'current', 'pageSize')}
-                  total={pagination.total}
-                  onChange={handlePageChange}
+          {/* Row 2 — agent hex cards */}
+          {hasAgents && (
+            <div className="flex flex-wrap gap-6">
+              {data.map((x) => (
+                <HexAgentCard
+                  key={x.id}
+                  data={x}
+                  showAgentRenameModal={showAgentRenameModal}
                 />
-              </footer>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
+              ))}
+            </div>
+          )}
+
+          {/* search empty */}
+          {searchString && !hasAgents && (
+            <div className="flex items-center justify-center h-64">
               <EmptyAppCard
                 showIcon
                 size="large"
@@ -128,32 +123,17 @@ export default function Agents() {
               />
             </div>
           )}
-        </article>
-      ) : (
-        <article className="size-full flex flex-col" data-testid="agents-list">
-          <header className="px-5 pt-8 mb-4">
-            <ListFilterBar
-              title={t('flow.agents')}
-              searchString={searchString}
-              onSearchChange={handleInputChange}
-              icon="agents"
-              filters={filters}
-              onChange={handleFilterSubmit}
-              value={filterValue}
-              leftPanel={createButtons}
+
+          {/* pagination */}
+          {hasAgents && (
+            <RAGFlowPagination
+              {...pick(pagination, 'current', 'pageSize')}
+              total={pagination.total}
+              onChange={handlePageChange}
             />
-          </header>
-          <div className="flex-1 flex items-center justify-center">
-            <EmptyAppCard
-              showIcon
-              size="large"
-              className="w-[480px] p-14 !cursor-default"
-              type={EmptyCardType.Agent}
-              tabIndex={-1}
-            />
-          </div>
-        </article>
-      )}
+          )}
+        </div>
+      </article>
 
       {agentRenameVisible && (
         <RenameDialog
@@ -161,7 +141,7 @@ export default function Agents() {
           onOk={onAgentRenameOk}
           initialName={initialAgentName}
           loading={agentRenameLoading}
-        ></RenameDialog>
+        />
       )}
 
       {creatingVisible && (

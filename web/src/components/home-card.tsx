@@ -19,6 +19,7 @@ interface IProps {
   testId?: string;
   showReleaseTime?: boolean;
   extra?: ReactNode;
+  className?: string;
 }
 
 function Time({ time }: { time: string | number | undefined }) {
@@ -33,6 +34,7 @@ export function HomeCard({
   testId,
   showReleaseTime = false,
   extra,
+  className,
 }: IProps) {
   const { t } = useTranslation();
 
@@ -46,7 +48,7 @@ export function HomeCard({
         onClick?.();
       }}
       tabIndex={0}
-      className="px-3.5 py-4 flex gap-3 items-start group h-full w-full cursor-pointer hover:shadow-md"
+      className={`px-3.5 py-4 flex gap-3 items-start group h-full w-full cursor-pointer hover:shadow-md ${className ?? ''}`}
     >
       <div className="shrink-0">
         <RAGFlowAvatar

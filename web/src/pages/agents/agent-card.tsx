@@ -34,10 +34,16 @@ function AgentTags({ tags }: { tags?: string }) {
 
 export function AgentCard({ data, showAgentRenameModal }: DatasetCardProps) {
   const { navigateToAgent } = useNavigatePage();
+  const isPublished = Boolean(data.release_time);
 
   return (
     <HomeCard
       testId="agent-card"
+      className={
+        isPublished
+          ? 'border border-green-500/40 dark:border-green-500/30'
+          : 'border border-dashed border-border/60'
+      }
       data={{
         ...data,
         name: data.title,

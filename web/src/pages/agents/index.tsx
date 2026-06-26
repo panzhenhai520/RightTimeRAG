@@ -3,13 +3,18 @@ import { EmptyCardType } from '@/components/empty/constant';
 import { EmptyAppCard } from '@/components/empty/empty';
 import ListFilterBar from '@/components/list-filter-bar';
 import { RenameDialog } from '@/components/rename-dialog';
+import { Button } from '@/components/ui/button';
 import { RAGFlowPagination } from '@/components/ui/ragflow-pagination';
+import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { useFetchAgentListByPage } from '@/hooks/use-agent-request';
 import { t } from 'i18next';
 import { pick } from 'lodash';
+import { LayoutTemplate, Plus } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router';
 import { AgentCard } from './agent-card';
+import { CreateAgentDialog } from './create-agent-dialog';
+import { useCreateAgentOrPipeline } from './hooks/use-create-agent';
 import { useSelectFilters } from './hooks/use-selelct-filters';
 import { useRenameAgent } from './use-rename-agent';
 
@@ -33,6 +38,15 @@ export default function Agents() {
     showAgentRenameModal,
   } = useRenameAgent();
 
+  const {
+    loading: createLoading,
+    creatingVisible,
+    hideCreatingModal,
+    showCreatingModal,
+    handleCreateAgentOrPipeline,
+  } = useCreateAgentOrPipeline();
+
+  const { navigateToAgentTemplates } = useNavigatePage();
   const filters = useSelectFilters();
 
   const handlePageChange = useCallback(
@@ -51,6 +65,19 @@ export default function Agents() {
     }
   }, [isCreate, searchUrl, setSearchUrl]);
 
+  const createButtons = (
+    <div className="flex items-center gap-2 shrink-0">
+      <Button variant="outline" size="sm" onClick={navigateToAgentTemplates}>
+        <LayoutTemplate className="size-4" />
+        从模板创建
+      </Button>
+      <Button size="sm" onClick={showCreatingModal}>
+        <Plus className="size-4" />
+        手动编排
+      </Button>
+    </div>
+  );
+
   return (
     <>
       {data?.length || searchString ? (
@@ -64,6 +91,7 @@ export default function Agents() {
               filters={filters}
               onChange={handleFilterSubmit}
               value={filterValue}
+              leftPanel={createButtons}
             />
           </header>
 
@@ -102,17 +130,28 @@ export default function Agents() {
           )}
         </article>
       ) : (
-        <article
-          className="size-full flex items-center justify-center"
-          data-testid="agents-list"
-        >
-          <EmptyAppCard
-            showIcon
-            size="large"
-            className="w-[480px] p-14 !cursor-default"
-            type={EmptyCardType.Agent}
-            tabIndex={-1}
-          />
+        <article className="size-full flex flex-col" data-testid="agents-list">
+          <header className="px-5 pt-8 mb-4">
+            <ListFilterBar
+              title={t('flow.agents')}
+              searchString={searchString}
+              onSearchChange={handleInputChange}
+              icon="agents"
+              filters={filters}
+              onChange={handleFilterSubmit}
+              value={filterValue}
+              leftPanel={createButtons}
+            />
+          </header>
+          <div className="flex-1 flex items-center justify-center">
+            <EmptyAppCard
+              showIcon
+              size="large"
+              className="w-[480px] p-14 !cursor-default"
+              type={EmptyCardType.Agent}
+              tabIndex={-1}
+            />
+          </div>
         </article>
       )}
 
@@ -123,6 +162,15 @@ export default function Agents() {
           initialName={initialAgentName}
           loading={agentRenameLoading}
         ></RenameDialog>
+      )}
+
+      {creatingVisible && (
+        <CreateAgentDialog
+          hideModal={hideCreatingModal}
+          onOk={handleCreateAgentOrPipeline}
+          loading={createLoading}
+          shouldChooseAgent
+        />
       )}
     </>
   );

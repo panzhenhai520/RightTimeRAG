@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { AgentCategory } from '@/constants/agent';
 import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { IFlow } from '@/interfaces/database/agent';
+import { cn } from '@/lib/utils';
 import { Route } from 'lucide-react';
 import { AgentDropdown } from './agent-dropdown';
 import { useRenameAgent } from './use-rename-agent';
@@ -62,7 +63,21 @@ export function AgentCard({ data, showAgentRenameModal }: DatasetCardProps) {
           </Button>
         )
       }
-      extra={<AgentTags tags={data.tags} />}
+      extra={
+        <div className="flex flex-wrap items-center gap-1 mt-1">
+          {!data.release && (
+            <Badge
+              variant="outline"
+              className={cn(
+                'text-[10px] font-normal border-orange-400 text-orange-500 dark:border-orange-500 dark:text-orange-400',
+              )}
+            >
+              未发布
+            </Badge>
+          )}
+          <AgentTags tags={data.tags} />
+        </div>
+      }
       showReleaseTime
     />
   );

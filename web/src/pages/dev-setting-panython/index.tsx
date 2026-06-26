@@ -36,7 +36,7 @@ const devEntries = [
   {
     titleKey: 'devSettingPanython.createAgent',
     descriptionKey: 'devSettingPanython.createAgentDescription',
-    path: Routes.AgentTemplates,
+    path: Routes.Agents,
   },
   {
     titleKey: 'devSettingPanython.memory',

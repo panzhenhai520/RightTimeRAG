@@ -135,9 +135,12 @@ const MessageItem = ({
     [referenceChunks],
   );
   const referenceDocumentList = useMemo(() => {
-    return (reference?.doc_aggs ?? []).filter((doc) =>
-      citedDocumentIds.has(doc.doc_id),
-    );
+    const docAggs = reference?.doc_aggs ?? [];
+    // When no chunks carry a document_id (e.g. KG or web-search chunks that
+    // lack a KB doc_id), fall back to showing every retrieved document rather
+    // than hiding the panel entirely.
+    if (citedDocumentIds.size === 0) return docAggs;
+    return docAggs.filter((doc) => citedDocumentIds.has(doc.doc_id));
   }, [citedDocumentIds, reference?.doc_aggs]);
   const hasReferenceChunks = referenceChunks.length > 0;
 
@@ -168,8 +171,7 @@ const MessageItem = ({
   const answerContent = stripProcessBlocks(parsedContent.answer);
   const shouldShowRetrieving =
     isAssistant && (loading || parsedRetrievingContent.hasThinking);
-  const isRetrievingRunning =
-    loading && !parsedRetrievingContent.thinkingComplete;
+  const isRetrievingRunning = loading;
   const displayedRetrieving = loading
     ? retrievingPreview
     : showRetrieving
@@ -183,7 +185,7 @@ const MessageItem = ({
     !!parsedRetrievingContent.thinking && (loading || showRetrieving);
   const shouldShowThinking =
     isAssistant && (loading || parsedContent.hasThinking);
-  const isThinkingRunning = loading && !parsedContent.thinkingComplete;
+  const isThinkingRunning = loading;
   const displayedThinking = loading
     ? thinkingPreview
     : showThinking

@@ -324,16 +324,6 @@ export function NextMessageInput({
               </Tooltip>
             )}
 
-            <RAGFlowSelect
-              value={selectedKnowledgeBaseId}
-              onChange={setSelectedKnowledgeBaseId}
-              options={knowledgeBaseOptions}
-              triggerClassName="h-7 w-44 border-0 bg-[#8b4c36]/8 text-xs text-[#6f3f2f] hover:bg-[#8b4c36]/14 dark:bg-[#dceef8]/10 dark:text-[#d6eefb] dark:hover:bg-[#dceef8]/16"
-              contentProps={{ className: 'max-w-80' }}
-              triggerTestId="chat-detail-kb-select"
-              optionTestIdPrefix="chat-detail-kb-option"
-            />
-
             {showInternet && (
               <Button
                 type="button"
@@ -387,6 +377,16 @@ export function NextMessageInput({
                 testId="chat-detail-audio-toggle"
               />
               <Ds4HealthBar />
+
+              <RAGFlowSelect
+                value={selectedKnowledgeBaseId}
+                onChange={setSelectedKnowledgeBaseId}
+                options={knowledgeBaseOptions}
+                triggerClassName="h-7 w-44 border-0 bg-[#8b4c36]/8 text-xs text-[#6f3f2f] hover:bg-[#8b4c36]/14 dark:bg-[#dceef8]/10 dark:text-[#d6eefb] dark:hover:bg-[#dceef8]/16"
+                contentProps={{ className: 'max-w-80' }}
+                triggerTestId="chat-detail-kb-select"
+                optionTestIdPrefix="chat-detail-kb-option"
+              />
 
               <Button
                 size="icon"

@@ -15,7 +15,7 @@ import {
 } from '@/utils/chat';
 import request from '@/utils/next-request';
 import { t } from 'i18next';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   useGetSendButtonDisabled,
@@ -76,6 +76,26 @@ export function SingleChatBox({
   useEffect(() => {
     onLoadingChange?.(sendLoading);
   }, [onLoadingChange, sendLoading]);
+
+  // When streaming ends the thinking panel expands from preview to full content,
+  // pushing the answer below the viewport. Scroll back to the bottom so the
+  // answer remains visible without requiring a manual drag.
+  const prevSendLoadingRef = useRef(false);
+  useEffect(() => {
+    if (prevSendLoadingRef.current && !sendLoading) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (messageContainerRef.current) {
+            messageContainerRef.current.scrollTo({
+              top: messageContainerRef.current.scrollHeight,
+              behavior: 'auto',
+            });
+          }
+        });
+      });
+    }
+    prevSendLoadingRef.current = sendLoading;
+  }, [sendLoading, messageContainerRef]);
 
   useEffect(() => {
     const messages = conversation?.messages;

@@ -185,6 +185,7 @@ class Base(ABC):
             "top_logprobs",
             "extra_headers",
             "_ds4_no_checkpoint",
+            "reasoning_effort",
         }
 
         gen_conf = {k: v for k, v in gen_conf.items() if k in allowed_conf}

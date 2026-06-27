@@ -656,7 +656,15 @@ def build_compact_reference(answer: str, kbinfos: dict, idx: set):
         kb_id = chunk.get("kb_id")
         chunk["dataset_id"] = chunk.get("dataset_id") or ((kb_id or [""])[0] if isinstance(kb_id, list) else kb_id or "")
 
-    cited_doc_ids = {chunk.get("doc_id") for chunk in compact_chunks if chunk.get("doc_id")}
+    cited_doc_ids = {
+        chunk.get("doc_id") or chunk.get("document_id")
+        for chunk in compact_chunks
+        if chunk.get("doc_id") or chunk.get("document_id")
+    }
+    if not cited_doc_ids:
+        # No cited chunk carries any document id — fall back to the full doc_aggs
+        # so the document list is still shown to the user.
+        cited_doc_ids = {d.get("doc_id") for d in kbinfos.get("doc_aggs", []) if d.get("doc_id")}
     refs = {
         "chunks": compact_chunks,
         "doc_aggs": [d for d in kbinfos.get("doc_aggs", []) if d.get("doc_id") in cited_doc_ids],
@@ -864,8 +872,13 @@ def append_fallback_citations(answer: str, kbinfos: dict, max_refs: int = 3):
     if not answer or not chunks:
         return answer, set()
 
-    citation_count = min(max_refs, len(chunks))
-    markers = " ".join(f"[ID:{i}]" for i in range(citation_count))
+    # Prefer chunks that have a proper doc_id so doc_aggs can be matched downstream.
+    # Accept document_id too in case chunks arrive in frontend-formatted schema.
+    preferred = [i for i, c in enumerate(chunks) if c.get("doc_id") or c.get("document_id")]
+    no_doc_id = [i for i, c in enumerate(chunks) if not (c.get("doc_id") or c.get("document_id"))]
+    candidate_indices = (preferred + no_doc_id)[:max_refs]
+
+    markers = " ".join(f"[ID:{i}]" for i in candidate_indices)
     stripped_answer = answer.rstrip()
     trailing = answer[len(stripped_answer):]
     punctuation = re.search(r"([。！？.!?])$", stripped_answer)
@@ -874,7 +887,7 @@ def append_fallback_citations(answer: str, kbinfos: dict, max_refs: int = 3):
         cited_answer = f"{stripped_answer[:pos]} {markers}{stripped_answer[pos:]}"
     else:
         cited_answer = f"{stripped_answer} {markers}"
-    return cited_answer + trailing, set(range(citation_count))
+    return cited_answer + trailing, set(candidate_indices)
 
 
 ERROR_HISTORY_PATTERNS = (
@@ -3730,8 +3743,8 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 await _hydrate_chunk_vectors(retriever, kbinfos.get("chunks", []), tenant_ids, dialog.kb_ids)
                 answer, idx = retriever.insert_citations(
                     answer,
-                    [ck["content_ltks"] for ck in kbinfos["chunks"]],
-                    [ck["vector"] for ck in kbinfos["chunks"]],
+                    [ck.get("content_ltks", "") for ck in kbinfos["chunks"]],
+                    [ck.get("vector") or [] for ck in kbinfos["chunks"]],
                     embd_mdl,
                     tkweight=1 - dialog.vector_similarity_weight,
                     vtweight=dialog.vector_similarity_weight,
@@ -3931,7 +3944,10 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                     )
                     yield {
                         "answer": "",
-                        "reference": kbinfos,
+                        # Shallow copy so downstream structure_answer() (which does
+                        # reference["chunks"] = chunks_format(...)) cannot mutate the
+                        # cached kbinfos object in place and strip doc_id from chunks.
+                        "reference": {**kbinfos},
                         "audio_binary": None,
                         "final": False,
                         "evidence_preview": True,
@@ -4976,7 +4992,7 @@ async def async_ask(question, kb_ids, tenant_id, chat_llm_name=None, search_conf
         # Main retrieval no longer ships chunk vectors back from ES. Pull
         # them on demand for the chunks we are about to cite.
         await _hydrate_chunk_vectors(retriever, kbinfos.get("chunks", []), tenant_ids, kb_ids)
-        answer, idx = retriever.insert_citations(answer, [ck["content_ltks"] for ck in kbinfos["chunks"]], [ck["vector"] for ck in kbinfos["chunks"]], embd_mdl, tkweight=0.7, vtweight=0.3)
+        answer, idx = retriever.insert_citations(answer, [ck.get("content_ltks", "") for ck in kbinfos["chunks"]], [ck.get("vector") or [] for ck in kbinfos["chunks"]], embd_mdl, tkweight=0.7, vtweight=0.3)
         idx = set([kbinfos["chunks"][int(i)]["doc_id"] for i in idx])
         recall_docs = [d for d in kbinfos["doc_aggs"] if d["doc_id"] in idx]
         if not recall_docs:

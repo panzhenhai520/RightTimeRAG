@@ -419,11 +419,8 @@ export const useScrollToBottom = (
 ) => {
   const ref = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
-  const isAtBottomRef = useRef(true);
-
-  useEffect(() => {
-    isAtBottomRef.current = isAtBottom;
-  }, [isAtBottom]);
+  // true = user intentionally scrolled up; false = follow the stream
+  const userPausedRef = useRef(false);
 
   const checkIfUserAtBottom = useCallback(() => {
     if (!containerRef?.current) return true;
@@ -431,21 +428,44 @@ export const useScrollToBottom = (
     return Math.abs(scrollTop + clientHeight - scrollHeight) < 25;
   }, [containerRef]);
 
+  // Track scroll to detect when user returns to the bottom
   useEffect(() => {
     if (!containerRef?.current) return;
     const container = containerRef.current;
 
     const handleScroll = () => {
-      setIsAtBottom(checkIfUserAtBottom());
+      const atBottom = checkIfUserAtBottom();
+      setIsAtBottom(atBottom);
+      if (atBottom) {
+        userPausedRef.current = false; // user scrolled back to bottom — resume
+      }
     };
 
-    container.addEventListener('scroll', handleScroll);
+    container.addEventListener('scroll', handleScroll, { passive: true });
     handleScroll();
     return () => container.removeEventListener('scroll', handleScroll);
   }, [containerRef, checkIfUserAtBottom]);
 
-  // Imperative scroll function
+  // Detect intentional upward scroll via mouse wheel.
+  // Only pause when NOT already at the bottom to avoid macOS momentum-bounce
+  // events (which emit deltaY < 0 while the user is at the very bottom).
+  useEffect(() => {
+    if (!containerRef?.current) return;
+    const container = containerRef.current;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.deltaY < 0 && !checkIfUserAtBottom()) {
+        userPausedRef.current = true;
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: true });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [containerRef, checkIfUserAtBottom]);
+
+  // Imperative scroll function — also resets the paused flag
   const scrollToBottom = useCallback(() => {
+    userPausedRef.current = false;
     if (containerRef?.current) {
       const container = containerRef.current;
       container.scrollTo({
@@ -455,17 +475,17 @@ export const useScrollToBottom = (
     }
   }, [containerRef]);
 
+  // Auto-scroll on new content. Use scrollIntoView on the sentinel element
+  // rather than manually computing scrollHeight so the browser always reads
+  // the latest layout state (avoids race with async markdown rendering).
   useEffect(() => {
     if (!messages) return;
-    if (!containerRef?.current) return;
+    if (userPausedRef.current) return;
     requestAnimationFrame(() => {
-      setTimeout(() => {
-        if (isAtBottomRef.current) {
-          scrollToBottom();
-        }
-      }, 100);
+      if (userPausedRef.current) return;
+      ref.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
     });
-  }, [messages, containerRef, scrollToBottom]);
+  }, [messages]);
 
   return { scrollRef: ref, isAtBottom, scrollToBottom };
 };

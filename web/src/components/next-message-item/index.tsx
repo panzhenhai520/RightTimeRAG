@@ -225,7 +225,7 @@ function MessageItem({
     !!parsedRetrievingContent.thinking && (loading || showRetrieving);
   const shouldShowThinking =
     isAssistant && (loading || parsedContent.hasThinking);
-  const isThinkingRunning = loading && !parsedContent.thinkingComplete;
+  const isThinkingRunning = loading;
   const shouldShowReasoningBody =
     !!parsedContent.thinking && (loading || showReasoning);
   const displayedReasoning = loading

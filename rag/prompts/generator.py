@@ -220,7 +220,7 @@ async def keyword_extraction(chat_mdl, content, topn=3):
 
     msg = [{"role": "system", "content": rendered_prompt}, {"role": "user", "content": "Output: "}]
     _, msg = message_fit_in(msg, chat_mdl.max_length)
-    kwd = await chat_mdl.async_chat(rendered_prompt, msg[1:], {"temperature": 0.2, "_ds4_no_checkpoint": True})
+    kwd = await chat_mdl.async_chat(rendered_prompt, msg[1:], {"temperature": 0.2, "_ds4_no_checkpoint": True, "reasoning_effort": "none"})
     if isinstance(kwd, tuple):
         kwd = kwd[0]
     kwd = re.sub(r"^.*</think>", "", kwd, flags=re.DOTALL)
@@ -235,7 +235,7 @@ async def question_proposal(chat_mdl, content, topn=3):
 
     msg = [{"role": "system", "content": rendered_prompt}, {"role": "user", "content": "Output: "}]
     _, msg = message_fit_in(msg, chat_mdl.max_length)
-    kwd = await chat_mdl.async_chat(rendered_prompt, msg[1:], {"temperature": 0.2, "_ds4_no_checkpoint": True})
+    kwd = await chat_mdl.async_chat(rendered_prompt, msg[1:], {"temperature": 0.2, "_ds4_no_checkpoint": True, "reasoning_effort": "none"})
     if isinstance(kwd, tuple):
         kwd = kwd[0]
     kwd = re.sub(r"^.*</think>", "", kwd, flags=re.DOTALL)

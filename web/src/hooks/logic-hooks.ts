@@ -8,6 +8,7 @@ import {
   IAnswer,
   IClientConversation,
   IMessage,
+  IReference,
   Message,
 } from '@/interfaces/database/chat';
 import { IKnowledgeFile } from '@/interfaces/database/dataset';
@@ -413,6 +414,56 @@ export const useSpeechSyncJob = () => {
 
 //#region chat hooks
 
+const hasReferenceItems = (value: unknown) => {
+  if (Array.isArray(value)) return value.length > 0;
+  if (value && typeof value === 'object') return Object.keys(value).length > 0;
+  return false;
+};
+
+const hasReferencePayload = (reference?: Partial<IReference>) => {
+  return Boolean(
+    reference &&
+    (hasReferenceItems(reference.chunks) ||
+      hasReferenceItems(reference.doc_aggs) ||
+      reference.evidence_audit),
+  );
+};
+
+export const hasAnswerPayload = (answer?: Partial<IAnswer>) => {
+  return Boolean(answer?.answer || hasReferencePayload(answer?.reference));
+};
+
+export const mergeAnswerReference = (
+  previousReference?: IReference,
+  incomingReference?: IReference,
+) => {
+  if (!hasReferencePayload(incomingReference)) {
+    return previousReference;
+  }
+  if (!previousReference) {
+    return incomingReference;
+  }
+  const hasIncomingChunks = hasReferenceItems(incomingReference?.chunks);
+  const hasIncomingDocAggs = hasReferenceItems(incomingReference?.doc_aggs);
+
+  return {
+    ...previousReference,
+    ...incomingReference,
+    chunks: hasIncomingChunks
+      ? incomingReference?.chunks
+      : previousReference.chunks,
+    doc_aggs: hasIncomingDocAggs
+      ? incomingReference?.doc_aggs
+      : previousReference.doc_aggs,
+    evidence_audit:
+      incomingReference?.evidence_audit ?? previousReference.evidence_audit,
+    total:
+      hasIncomingChunks || hasIncomingDocAggs
+        ? (incomingReference?.total ?? previousReference.total)
+        : previousReference.total,
+  } as IReference;
+};
+
 export const useScrollToBottom = (
   messages?: unknown,
   containerRef?: React.RefObject<HTMLDivElement>,
@@ -475,17 +526,23 @@ export const useScrollToBottom = (
     }
   }, [containerRef]);
 
-  // Auto-scroll on new content. Use scrollIntoView on the sentinel element
-  // rather than manually computing scrollHeight so the browser always reads
-  // the latest layout state (avoids race with async markdown rendering).
+  // Auto-scroll on new content. Scroll the tracked container directly (rather
+  // than scrollIntoView, which can scroll the wrong ancestor now that a sibling
+  // recall panel is also scrollable). A double rAF lets async markdown layout
+  // settle before we read scrollHeight.
   useEffect(() => {
     if (!messages) return;
     if (userPausedRef.current) return;
+    const scroll = () => {
+      const container = containerRef?.current;
+      if (!container || userPausedRef.current) return;
+      container.scrollTop = container.scrollHeight;
+    };
     requestAnimationFrame(() => {
-      if (userPausedRef.current) return;
-      ref.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+      scroll();
+      requestAnimationFrame(scroll);
     });
-  }, [messages]);
+  }, [messages, containerRef]);
 
   return { scrollRef: ref, isAtBottom, scrollToBottom };
 };
@@ -559,22 +616,28 @@ export const useSelectDerivedMessages = () => {
       const previousMessage = pre?.at(-1);
       const previousContent = String(previousMessage?.content ?? '');
       const incomingContent = answer.answer ?? '';
+      const isReferenceOnlyPatch =
+        previousMessage?.role === MessageType.Assistant &&
+        incomingContent === '' &&
+        hasReferencePayload(answer.reference);
       const shouldPreserveProcess =
+        isReferenceOnlyPatch ||
         (answer as any).final === true ||
         (/<(?:retrieving|think)>/i.test(previousContent) &&
           !/<(?:retrieving|think)>/i.test(incomingContent));
-      const content =
-        previousMessage?.role === MessageType.Assistant && shouldPreserveProcess
+      const content = isReferenceOnlyPatch
+        ? previousContent
+        : previousMessage?.role === MessageType.Assistant &&
+            shouldPreserveProcess
           ? mergeFinalAnswerWithProcess(previousContent, incomingContent)
           : answer.answer;
 
-      // Preserve a non-empty reference (evidence_preview) through subsequent token events
-      // that carry reference:{}.  Only overwrite when the incoming event is final or has chunks.
-      const incomingRef = answer.reference as any;
-      const resolvedReference =
-        (answer as any).final === true || incomingRef?.chunks?.length > 0
-          ? answer.reference
-          : previousMessage?.reference;
+      // Preserve early references through later events that only patch in
+      // evidence_audit or carry an empty reference object.
+      const resolvedReference = mergeAnswerReference(
+        previousMessage?.reference,
+        answer.reference,
+      );
 
       const assistantMessage = {
         ...omit(answer, ['reference', 'content']),
@@ -610,25 +673,37 @@ export const useSelectDerivedMessages = () => {
           if (x.id === answer.id && x.role === MessageType.Assistant) {
             const previousContent = String(x.content ?? '');
             const incomingContent = answer.answer ?? '';
+            const isReferenceOnlyPatch =
+              incomingContent === '' && hasReferencePayload(answer.reference);
             const shouldPreserveProcess =
+              isReferenceOnlyPatch ||
               (answer as any).final === true ||
               (/<(?:retrieving|think)>/i.test(previousContent) &&
                 !/<(?:retrieving|think)>/i.test(incomingContent));
-            const incomingRef = answer.reference as any;
-            const resolvedReference =
-              (answer as any).final === true || incomingRef?.chunks?.length > 0
-                ? answer.reference
-                : x.reference;
+            const resolvedReference = mergeAnswerReference(
+              x.reference,
+              answer.reference,
+            );
             return {
               ...x,
               ...omit(answer, ['reference', 'content']),
               reference: resolvedReference,
-              content: shouldPreserveProcess
-                ? mergeFinalAnswerWithProcess(previousContent, incomingContent)
-                : answer.answer,
-              answer: shouldPreserveProcess
-                ? mergeFinalAnswerWithProcess(previousContent, incomingContent)
-                : answer.answer,
+              content: isReferenceOnlyPatch
+                ? previousContent
+                : shouldPreserveProcess
+                  ? mergeFinalAnswerWithProcess(
+                      previousContent,
+                      incomingContent,
+                    )
+                  : answer.answer,
+              answer: isReferenceOnlyPatch
+                ? previousContent
+                : shouldPreserveProcess
+                  ? mergeFinalAnswerWithProcess(
+                      previousContent,
+                      incomingContent,
+                    )
+                  : answer.answer,
             };
           }
           return x;

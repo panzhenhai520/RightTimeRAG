@@ -55,6 +55,9 @@ interface IProps extends Partial<IRemoveMessageById>, IRegenerateMessage {
   showLikeButton?: boolean;
   showLoudspeaker?: boolean;
   continueMessage?: (item: IMessage) => void;
+  /** Hide the inline recalled-document list when it is rendered elsewhere
+   * (e.g. the right-side RecallPanel in single chat). */
+  hideInlineReferences?: boolean;
 }
 
 class InlineRenderBoundary extends Component<
@@ -109,6 +112,7 @@ const MessageItem = ({
   showLoudspeaker = true,
   visibleAvatar = true,
   continueMessage,
+  hideInlineReferences = false,
 }: IProps) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -124,7 +128,7 @@ const MessageItem = ({
   }, [item?.files]);
 
   const referenceChunks = useMemo(
-    () => reference?.chunks ?? [],
+    () => Object.values(reference?.chunks ?? {}),
     [reference?.chunks],
   );
   const citedDocumentIds = useMemo(
@@ -386,6 +390,19 @@ const MessageItem = ({
                 )}
               </div>
             )}
+            {/* Gap between the end of thinking and the first answer token:
+                signal that the model is composing the final summary. */}
+            {isAssistant &&
+              loading &&
+              parsedContent.thinkingComplete &&
+              !answerContent && (
+                <div className="flex items-center gap-2 text-sm text-text-secondary">
+                  <Loader2 className="size-4 animate-spin" />
+                  <span className={styles.thinkingHeaderRunning}>
+                    {t('chat.generatingSummary')}
+                  </span>
+                </div>
+              )}
             {/* Show message content if there's any text besides the download */}
             {answerContent && (
               <div
@@ -416,6 +433,7 @@ const MessageItem = ({
               </div>
             )}
             {isAssistant &&
+              !hideInlineReferences &&
               evidenceAuditEnabled &&
               reference?.evidence_audit && (
                 <InlineRenderBoundary
@@ -431,12 +449,13 @@ const MessageItem = ({
                 boundaryKey={`${item.id}-reference-images-${answerContent.length}`}
               >
                 <ReferenceImageList
-                  referenceChunks={reference.chunks}
+                  referenceChunks={referenceChunks}
                   messageContent={answerContent}
                 ></ReferenceImageList>
               </InlineRenderBoundary>
             )}
             {isAssistant &&
+              !hideInlineReferences &&
               hasReferenceChunks &&
               referenceDocumentList.length > 0 && (
                 <InlineRenderBoundary

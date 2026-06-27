@@ -538,14 +538,19 @@ def convert_last_user_msg_to_multimodal(msg: list[dict], image_data_uris: list[s
 
 
 BAD_CITATION_PATTERNS = [
-    re.compile(r"\(\s*ID\s*[: ]*\s*(\d+)\s*\)"),  # (ID: 12)
-    re.compile(r"\[\s*ID\s*[: ]*\s*(\d+)\s*\]"),  # [ID: 12]
-    re.compile(r"【\s*ID\s*[: ]*\s*(\d+)\s*】"),  # 【ID: 12】
+    re.compile(r"[(（]\s*ID\s*[:： ]*\s*(\d+)\s*[)）]"),  # (ID: 12), （ID12）
+    re.compile(r"\[\s*ID\s*[:： ]*\s*(\d+)\s*\]"),  # [ID: 12]
+    re.compile(r"【\s*ID\s*[:： ]*\s*(\d+)\s*】"),  # 【ID: 12】
+    re.compile(r"(?<![\[【(（])\bID\s*[:： ]*\s*(\d+)", flags=re.IGNORECASE),  # ID12, ID 12
     re.compile(r"ref\s*(\d+)", flags=re.IGNORECASE),  # ref12、REF 12
 ]
+FIG_CITATION_PATTERN = re.compile(
+    r"\b(?:fig(?:ure)?|图|圖)\.?\s*([0-9\u0660-\u0669\u06F0-\u06F9]+)\b",
+    flags=re.IGNORECASE,
+)
 MULTI_ID_CITATION_PATTERN = re.compile(
-    r"[（(]\s*ID\s*[:：]\s*"
-    r"([0-9\u0660-\u0669\u06F0-\u06F9]+(?:\s*[,，、]\s*(?:ID\s*[:：]\s*)?[0-9\u0660-\u0669\u06F0-\u06F9]+)+)"
+    r"[（(]\s*ID\s*[:： ]*\s*"
+    r"([0-9\u0660-\u0669\u06F0-\u06F9]+(?:\s*[,，、]\s*(?:ID\s*[:： ]*\s*)?[0-9\u0660-\u0669\u06F0-\u06F9]+)+)"
     r"\s*[)）]",
     flags=re.IGNORECASE,
 )
@@ -863,6 +868,23 @@ def repair_bad_citation_formats(answer: str, kbinfos: dict, idx: set):
 
     for pattern in BAD_CITATION_PATTERNS:
         find_and_replace(pattern)
+
+    def replace_fig(match: re.Match):
+        raw_digit = match.group(1)
+        try:
+            normalized_digit = normalize_arabic_digits(raw_digit) or raw_digit
+            # UI labels are one-based (Fig.1), while backend citation IDs are
+            # zero-based ([ID:0]).
+            chunk_index = int(normalized_digit) - 1
+        except Exception:
+            return match.group(0)
+        if safe_add(chunk_index):
+            return f"[ID:{chunk_index}]"
+        return match.group(0)
+
+    if FIG_CITATION_PATTERN.search(normalized_answer):
+        answer = FIG_CITATION_PATTERN.sub(replace_fig, answer)
+        normalized_answer = normalize_arabic_digits(answer) or ""
 
     return answer, idx
 
@@ -1211,6 +1233,7 @@ COMPACT_CITATION_PROMPT = """
 
 ### Citation rules
 Use retrieved knowledge only when it supports the answer. When a sentence uses a retrieved passage, append its source marker as [ID:n], where n is the passage ID shown in the knowledge context. Do not invent IDs. If multiple passages support one sentence, append multiple markers such as [ID:1] [ID:3].
+Do not write Fig., Figure, ref, or bare ID labels in the final answer; use [ID:n] markers only. The UI will render [ID:n] as Fig. n+1 for users.
 Keep any reasoning brief and make sure the final answer is completed before reaching the token limit.
 """
 
@@ -3717,7 +3740,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         attachments_,
     )
 
-    async def decorate_answer(answer, include_think=True):
+    async def decorate_answer(answer, include_think=True, defer_audit=False):
         nonlocal embd_mdl, prompt_config, knowledges, kwargs, kbinfos, prompt, retrieval_ts, questions, langfuse_generation
 
         refs = []
@@ -3764,7 +3787,10 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 answer, idx = append_fallback_citations(answer, kbinfos)
             answer = normalize_markdown_table_citations(answer)
             answer, refs, citation_id_map = build_compact_reference(answer, kbinfos, idx)
-            if feature_enabled("evidence_audit"):
+            # When defer_audit is set, the streaming caller emits the answer +
+            # documents first (fast) and computes the evidence audit afterwards in
+            # a follow-up event, so the heavy audit work does not delay the answer.
+            if feature_enabled("evidence_audit") and not defer_audit:
                 refs["evidence_audit"] = build_compact_evidence_audit(
                     refs,
                     " ".join(questions),
@@ -3987,10 +4013,36 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                         yield {"answer": value, "reference": {}, "audio_binary": None, "final": False}
             full_answer = last_state.full_text if last_state else ""
             if full_answer:
-                final = await decorate_answer(_extract_visible_answer(thought + full_answer), include_think=False)
+                final = await decorate_answer(_extract_visible_answer(thought + full_answer), include_think=False, defer_audit=True)
                 final["final"] = True
                 final["audio_binary"] = None
+                # Snapshot the backend-format reference before yielding: the SSE
+                # wrapper applies structure_answer() on yield, rewriting chunks into
+                # frontend format in place. The audit needs the original chunks.
+                audit_ref = None
+                if (
+                    feature_enabled("evidence_audit")
+                    and isinstance(final.get("reference"), dict)
+                    and final["reference"].get("chunks")
+                ):
+                    audit_ref = deepcopy(final["reference"])
                 yield final
+                # Follow-up: compute the (heavy) evidence audit after the answer +
+                # documents are already on screen, then patch it into the reference.
+                if audit_ref is not None:
+                    audit = build_compact_evidence_audit(
+                        audit_ref,
+                        " ".join(questions),
+                        retrieval_query,
+                        final.get("answer", ""),
+                    )
+                    audit_ref["evidence_audit"] = audit
+                    yield {
+                        "answer": "",
+                        "reference": audit_ref,
+                        "audio_binary": None,
+                        "final": True,
+                    }
         finally:
             if _slot_pre_acquired:
                 DS4_GENERATION_SEMAPHORE.release()

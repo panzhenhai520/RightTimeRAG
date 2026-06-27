@@ -101,6 +101,61 @@ def test_repair_bad_citation_formats_expands_multi_id_parentheses():
 
 
 @pytest.mark.p2
+def test_repair_bad_citation_formats_accepts_bare_id_list_used_by_llm():
+    answer = "税务优惠（ID0、ID1、ID7），资本入境计划（ID1、ID3、ID7） Fig. 2。"
+    kbinfos = {
+        "chunks": [
+            {"doc_id": f"doc-{i}", "docnm_kwd": f"Doc {i}.pdf", "content_with_weight": f"content {i}"}
+            for i in range(8)
+        ],
+        "doc_aggs": [{"doc_id": f"doc-{i}", "doc_name": f"Doc {i}.pdf", "count": 1} for i in range(8)],
+    }
+
+    repaired, idx = repair_bad_citation_formats(answer, kbinfos, set())
+    compact_answer, refs, old_to_new = build_compact_reference(repaired, kbinfos, idx)
+
+    assert "[ID:0] [ID:1] [ID:7]" in repaired
+    assert idx == {0, 1, 3, 7}
+    assert old_to_new == {0: 0, 1: 1, 3: 2, 7: 3}
+    assert "[ID:3]" in compact_answer
+    assert len(refs["chunks"]) == 4
+    assert [doc["doc_id"] for doc in refs["doc_aggs"]] == ["doc-0", "doc-1", "doc-3", "doc-7"]
+
+
+@pytest.mark.p2
+def test_repair_bad_citation_formats_converts_fig_labels_to_backend_ids():
+    answer = "根据报告，亚太地区私人财富预计会超过西欧 Fig. 1，并且增长率更高 Figure 2。"
+    kbinfos = {
+        "chunks": [
+            {
+                "doc_id": "doc-0",
+                "docnm_kwd": "Report.pdf",
+                "content_with_weight": "Asia-Pacific private wealth projected to surpass Western Europe.",
+            },
+            {
+                "doc_id": "doc-1",
+                "docnm_kwd": "Report.pdf",
+                "content_with_weight": "Asia-Pacific private wealth grew 9.5%, Western Europe 3.2%.",
+            },
+        ],
+        "doc_aggs": [{"doc_id": "doc-0", "doc_name": "Report.pdf", "count": 2}],
+    }
+
+    repaired, idx = repair_bad_citation_formats(answer, kbinfos, set())
+    compact_answer, refs, old_to_new = build_compact_reference(repaired, kbinfos, idx)
+
+    assert "Fig." not in repaired
+    assert "Figure" not in repaired
+    assert "[ID:0]" in repaired
+    assert "[ID:1]" in repaired
+    assert idx == {0, 1}
+    assert old_to_new == {0: 0, 1: 1}
+    assert compact_answer.count("[ID:") == 2
+    assert len(refs["chunks"]) == 2
+    assert refs["doc_aggs"] == [{"doc_id": "doc-0", "doc_name": "Report.pdf", "count": 2}]
+
+
+@pytest.mark.p2
 def test_build_compact_reference_remaps_sparse_citations_to_contiguous_ids():
     kbinfos = {
         "chunks": [

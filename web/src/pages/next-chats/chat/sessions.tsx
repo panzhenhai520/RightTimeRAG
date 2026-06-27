@@ -19,15 +19,15 @@ import {
   useRemoveSessions,
 } from '@/hooks/use-chat-request';
 import {
-  LucideCopyX,
   LucideListChecks,
+  LucideMinus,
   LucidePanelLeftClose,
   LucidePlus,
   LucideSend,
   LucideTrash2,
   LucideUndo2,
 } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { useChatUrlParams } from '../hooks/use-chat-url';
@@ -38,8 +38,14 @@ import { ConversationDropdown } from './conversation-dropdown';
 type SessionProps = Pick<
   ReturnType<typeof useHandleClickConversationCard>,
   'handleConversationCardClick'
->;
-export function Sessions({ handleConversationCardClick }: SessionProps) {
+> & {
+  /** Auto-collapse the session list while an answer is generating. */
+  autoCollapsed?: boolean;
+};
+export function Sessions({
+  handleConversationCardClick,
+  autoCollapsed = false,
+}: SessionProps) {
   const { t } = useTranslation();
   const {
     list: conversationList,
@@ -49,7 +55,19 @@ export function Sessions({ handleConversationCardClick }: SessionProps) {
     searchString,
   } = useSelectDerivedConversationList();
   const { data } = useFetchChat();
-  const { visible, switchVisible } = useSetModalState(true);
+  const { visible, switchVisible, hideModal } = useSetModalState(true);
+
+  // Auto-collapse when generation starts, and keep it collapsed afterwards to
+  // preserve horizontal space for the chat + recall area. The user can re-open
+  // the session list manually via the toggle. Only acts on the false→true
+  // transition so a manual toggle is never clobbered.
+  const prevAutoCollapsedRef = useRef(autoCollapsed);
+  useEffect(() => {
+    if (autoCollapsed && !prevAutoCollapsedRef.current) {
+      hideModal();
+    }
+    prevAutoCollapsedRef.current = autoCollapsed;
+  }, [autoCollapsed, hideModal]);
   const { removeSessions } = useRemoveSessions();
   const { setConversationBoth } = useChatUrlParams();
   const { conversationId } = useGetChatSearchParams();
@@ -287,7 +305,7 @@ export function Sessions({ handleConversationCardClick }: SessionProps) {
                   : 'chat-detail-session-selection-enable'
               }
             >
-              {selectionMode ? <LucideListChecks /> : <LucideCopyX />}
+              {selectionMode ? <LucideListChecks /> : <LucideMinus />}
             </Button>
           )}
         </div>

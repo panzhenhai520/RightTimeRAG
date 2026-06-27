@@ -173,10 +173,10 @@ export function NextMessageInput({
   }, []);
 
   const submit = React.useCallback(() => {
-    if (isUploading) return;
+    if (isUploading || disabled || sendLoading || sendDisabled) return;
     pressEnter();
     setFiles([]);
-  }, [isUploading, pressEnter]);
+  }, [disabled, isUploading, pressEnter, sendDisabled, sendLoading]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -396,7 +396,11 @@ export function NextMessageInput({
                   dark:bg-[#2d5f80] dark:hover:bg-[#376f94] dark:disabled:bg-[#486273] dark:disabled:text-[#c0d2dc]
                 "
                 disabled={
-                  sendDisabled || isUploading || sendLoading || !value.trim()
+                  disabled ||
+                  sendDisabled ||
+                  isUploading ||
+                  sendLoading ||
+                  !value.trim()
                 }
                 data-testid="chat-detail-send"
               >

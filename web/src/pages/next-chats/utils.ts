@@ -68,24 +68,101 @@ const normalizeReference = (reference?: Partial<IReference>) => {
   } as IReference;
 };
 
+const hasReferenceItems = (value: unknown) => {
+  if (Array.isArray(value)) return value.length > 0;
+  if (value && typeof value === 'object') return Object.keys(value).length > 0;
+  return false;
+};
+
+const mergeMessageReference = (
+  serverReference?: Partial<IReference>,
+  messageReference?: Partial<IReference>,
+) => {
+  const normalizedServerReference = normalizeReference(serverReference);
+  const normalizedMessageReference = normalizeReference(messageReference);
+  const hasServerPayload =
+    hasReferenceItems(normalizedServerReference.chunks) ||
+    hasReferenceItems(normalizedServerReference.doc_aggs) ||
+    normalizedServerReference.evidence_audit;
+  const hasMessagePayload =
+    hasReferenceItems(normalizedMessageReference.chunks) ||
+    hasReferenceItems(normalizedMessageReference.doc_aggs) ||
+    normalizedMessageReference.evidence_audit;
+
+  if (!hasServerPayload && !hasMessagePayload) {
+    return normalizeReference({ doc_aggs: [], chunks: [], total: 0 });
+  }
+  if (!hasServerPayload) return normalizedMessageReference;
+  if (!hasMessagePayload) return normalizedServerReference;
+
+  const hasMessageChunks = hasReferenceItems(normalizedMessageReference.chunks);
+  const hasMessageDocAggs = hasReferenceItems(
+    normalizedMessageReference.doc_aggs,
+  );
+
+  return {
+    ...normalizedServerReference,
+    ...normalizedMessageReference,
+    chunks: hasMessageChunks
+      ? normalizedMessageReference.chunks
+      : normalizedServerReference.chunks,
+    doc_aggs: hasMessageDocAggs
+      ? normalizedMessageReference.doc_aggs
+      : normalizedServerReference.doc_aggs,
+    evidence_audit:
+      normalizedMessageReference.evidence_audit ??
+      normalizedServerReference.evidence_audit,
+    total:
+      hasMessageChunks || hasMessageDocAggs
+        ? normalizedMessageReference.total
+        : normalizedServerReference.total,
+  } as IReference;
+};
+
 export const buildMessageItemReference = (
   conversation: { messages: IMessage[]; reference: IReference[] },
   message: IMessage,
 ) => {
-  const assistantMessages = conversation.messages
-    ?.filter(
-      (x) =>
-        x.role === MessageType.Assistant && !x.content.startsWith('**ERROR**:'), // Exclude error messages
-    )
-    .slice(1);
-  const referenceIndex = assistantMessages.findIndex(
-    (x) => x.id === message.id,
+  const references = conversation?.reference ?? [];
+  const messages = conversation?.messages ?? [];
+  const allAssistantMessages = messages.filter(
+    (x) =>
+      x.role === MessageType.Assistant &&
+      !String(x.content ?? '').startsWith('**ERROR**:'), // Exclude error messages
   );
-  const reference = !isEmpty(message?.reference)
-    ? message?.reference
-    : (conversation?.reference ?? [])[referenceIndex];
+  const firstAssistantIndex = messages.findIndex(
+    (x) =>
+      x.role === MessageType.Assistant &&
+      !String(x.content ?? '').startsWith('**ERROR**:'),
+  );
+  const hasPrologue = firstAssistantIndex === 0;
+  const assistantMessages = hasPrologue
+    ? allAssistantMessages.slice(1)
+    : allAssistantMessages;
+  const referenceIndexByObject = assistantMessages.findIndex(
+    (x) => x === message,
+  );
+  const referenceIndexById =
+    message.id === undefined || message.id === null
+      ? -1
+      : assistantMessages.findIndex((x) => x.id === message.id);
+  const referenceIndex =
+    referenceIndexByObject >= 0 ? referenceIndexByObject : referenceIndexById;
+  const latestAssistant = assistantMessages[assistantMessages.length - 1];
+  const isLatestAssistant =
+    latestAssistant === message ||
+    (message.id !== undefined &&
+      message.id !== null &&
+      latestAssistant?.id === message.id);
+  const serverReference =
+    referenceIndex >= 0
+      ? references[referenceIndex]
+      : isLatestAssistant
+        ? references[references.length - 1]
+        : undefined;
 
-  return normalizeReference(
-    reference ?? { doc_aggs: [], chunks: [], total: 0 },
+  return mergeMessageReference(
+    serverReference,
+    !isEmpty(message?.reference) ? message.reference : undefined,
   );
 };

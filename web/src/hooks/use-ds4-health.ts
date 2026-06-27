@@ -84,3 +84,17 @@ export function ds4IsCompacting(state: DS4HealthState['state']): boolean {
 export function ds4IsWarming(state: DS4HealthState['state']): boolean {
   return state === 'warming' || state === 'starting';
 }
+
+export function ds4NeedsMaintenance(health: DS4HealthState): boolean {
+  if (
+    typeof health.live_tokens !== 'number' ||
+    typeof health.restart_threshold !== 'number'
+  ) {
+    return false;
+  }
+
+  return (
+    health.restart_threshold > 0 &&
+    health.live_tokens >= health.restart_threshold
+  );
+}

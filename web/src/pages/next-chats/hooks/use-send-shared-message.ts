@@ -2,6 +2,7 @@ import { NextMessageInputOnPressEnterParameter } from '@/components/message-inpu
 import message from '@/components/ui/message';
 import { MessageType, SharedFrom } from '@/constants/chat';
 import {
+  hasAnswerPayload,
   useHandleMessageInputChange,
   useSelectDerivedMessages,
   useSendMessageWithSse,
@@ -118,7 +119,7 @@ export const useSendSharedMessage = () => {
   }, [fetchSessionId]);
 
   useEffect(() => {
-    if (answer.answer) {
+    if (hasAnswerPayload(answer)) {
       addNewestAnswer(answer);
     }
   }, [answer, addNewestAnswer]);

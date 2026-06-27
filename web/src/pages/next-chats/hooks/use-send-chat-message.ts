@@ -1,6 +1,7 @@
 import { NextMessageInputOnPressEnterParameter } from '@/components/message-input/next';
 import { MessageType } from '@/constants/chat';
 import {
+  hasAnswerPayload,
   useHandleMessageInputChange,
   useRegenerateMessage,
   useSelectDerivedMessages,
@@ -347,7 +348,7 @@ export const useSendMessage = (controller: AbortController) => {
 
   useEffect(() => {
     //  #1289
-    if (answer.answer && conversationId && isNew !== 'true') {
+    if (hasAnswerPayload(answer) && conversationId && isNew !== 'true') {
       addNewestAnswer(answer);
     }
   }, [answer, addNewestAnswer, conversationId, isNew]);

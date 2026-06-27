@@ -1,6 +1,7 @@
 import { NextMessageInputOnPressEnterParameter } from '@/components/message-input/next';
 import { MessageType } from '@/constants/chat';
 import {
+  hasAnswerPayload,
   useHandleMessageInputChange,
   useSelectDerivedMessages,
   useSendMessageWithSse,
@@ -52,7 +53,7 @@ export function useSendSingleMessage({
   } = useSelectDerivedMessages();
 
   useEffect(() => {
-    if (answer.answer) {
+    if (hasAnswerPayload(answer)) {
       addNewestAnswer(answer);
     }
   }, [answer, addNewestAnswer]);

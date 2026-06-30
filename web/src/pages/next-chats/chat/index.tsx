@@ -21,8 +21,9 @@ import { useSwitchDebugMode } from './use-switch-debug-mode';
 
 export default function Chat() {
   const { t } = useTranslation();
-  const [currentConversation, setCurrentConversation] =
-    useState<IClientConversation>({} as IClientConversation);
+  const [conversationById, setConversationById] = useState<
+    Record<string, IClientConversation>
+  >({});
 
   const { fetchSessionManually } = useFetchSessionManually();
 
@@ -31,6 +32,9 @@ export default function Chat() {
 
   const { isDebugMode, switchDebugMode } = useSwitchDebugMode();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [loadingConversationIds, setLoadingConversationIds] = useState<
+    string[]
+  >([]);
   const { removeChatBox, addChatBox, chatBoxIds, hasSingleChatBox } =
     useAddChatBox(isDebugMode);
 
@@ -45,35 +49,68 @@ export default function Chat() {
     );
   }, [conversationId, dialogList, t]);
 
+  const currentConversation = useMemo(
+    () =>
+      conversationId
+        ? (conversationById[conversationId] ?? ({} as IClientConversation))
+        : ({} as IClientConversation),
+    [conversationById, conversationId],
+  );
+
   const fetchConversation: typeof handleConversationCardClick = useCallback(
     async (conversationId, isNew) => {
       if (!conversationId || isNew) {
-        setCurrentConversation({} as IClientConversation);
         return;
       }
 
       if (conversationId && !isNew) {
         const conversation = await fetchSessionManually(conversationId);
-        if (!isEmpty(conversation)) {
-          setCurrentConversation(conversation);
-        } else {
-          setCurrentConversation({} as IClientConversation);
-        }
+        setConversationById((previousState) => ({
+          ...previousState,
+          [conversationId]: !isEmpty(conversation)
+            ? conversation
+            : ({} as IClientConversation),
+        }));
       }
     },
     [fetchSessionManually],
   );
 
   const handleSessionClick: typeof handleConversationCardClick = useCallback(
-    (conversationId, isNew) => {
+    async (conversationId, isNew) => {
       handleConversationCardClick(conversationId, isNew);
+      if (!conversationId || isNew) {
+        return;
+      }
+      await fetchConversation(conversationId, false);
     },
-    [handleConversationCardClick],
+    [fetchConversation, handleConversationCardClick],
   );
 
   useEffect(() => {
-    fetchConversation(conversationId, isNew === 'true');
+    void fetchConversation(conversationId, isNew === 'true');
   }, [conversationId, fetchConversation, isNew]);
+
+  const handleConversationsRemoved = useCallback(
+    (conversationIds: string[]) => {
+      const removedIdSet = new Set(conversationIds);
+      setConversationById((previousState) => {
+        const nextState = { ...previousState };
+        conversationIds.forEach((id) => {
+          delete nextState[id];
+        });
+        return nextState;
+      });
+      setLoadingConversationIds((previousIds) => {
+        const nextIds = previousIds.filter((id) => !removedIdSet.has(id));
+        if (nextIds.length === 0) {
+          setIsGenerating(false);
+        }
+        return nextIds;
+      });
+    },
+    [],
+  );
 
   if (isDebugMode) {
     return (
@@ -123,7 +160,13 @@ export default function Chat() {
         <article className="flex flex-1 min-h-0 pb-9">
           <Sessions
             handleConversationCardClick={handleSessionClick}
+            stopOutputMessage={stopOutputMessage}
             autoCollapsed={isGenerating}
+            loadingConversationIds={loadingConversationIds}
+            onConversationRefresh={(conversationId) =>
+              fetchConversation(conversationId, false)
+            }
+            onConversationsRemoved={handleConversationsRemoved}
           ></Sessions>
 
           <Card className="flex-1 min-w-0 bg-transparent border-none shadow-none h-full">
@@ -154,7 +197,21 @@ export default function Chat() {
                     controller={controller}
                     stopOutputMessage={stopOutputMessage}
                     conversation={currentConversation}
-                    onLoadingChange={setIsGenerating}
+                    onLoadingChange={(loading, conversationId) => {
+                      setIsGenerating(loading);
+                      if (!conversationId) {
+                        return;
+                      }
+                      setLoadingConversationIds((prev) => {
+                        const next = new Set(prev);
+                        if (loading) {
+                          next.add(conversationId);
+                        } else {
+                          next.delete(conversationId);
+                        }
+                        return Array.from(next);
+                      });
+                    }}
                     onConversationRefresh={(conversationId) =>
                       fetchConversation(conversationId, false)
                     }

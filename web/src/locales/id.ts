@@ -875,7 +875,7 @@ export default {
       targetLang: 'Bahasa target',
       gitHub: 'GitHub',
       githubDescription:
-        'Komponen ini digunakan untuk mencari repositori dari https://github.com/. Top N menentukan jumlah hasil pencarian yang akan disesuaikan.',
+        'Komponen ini digunakan untuk mencari repositori dari GitHub. Top N menentukan jumlah hasil pencarian yang akan disesuaikan.',
       baiduFanyi: 'BaiduFanyi',
       baiduFanyiDescription:
         'Komponen ini digunakan untuk mendapatkan terjemahan dari https://fanyi.baidu.com/. Biasanya, ini memberikan hasil terjemahan yang lebih khusus',

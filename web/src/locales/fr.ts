@@ -714,8 +714,8 @@ export default {
       useGraphRagTip:
         'Construit un graphe basé sur les segments de cette base pour répondre à des questions complexes. Voir documentation.',
       graphRagMethod: 'Méthode',
-      graphRagMethodTip: `Light : (Par défaut) utilise les prompts de github.com/HKUDS/LightRAG. Moins de consommation.
-    General : utilise ceux de github.com/microsoft/graphrag.
+      graphRagMethodTip: `Light : (Par défaut) utilise les prompts de HKUDS/LightRAG. Moins de consommation.
+    General : utilise ceux de Microsoft GraphRAG.
     NER : utilise spaCy NER et l'extraction de mots-clés basée sur des règles pour extraire les entités et les relations. Aucun LLM n'est requis pour l'extraction, ce qui la rend rapide et économe en ressources.`,
       resolution: "Résolution d'entités",
       resolutionTip:
@@ -1900,7 +1900,7 @@ Exemple : Virtual Hosted Style`,
       targetLang: 'Langue cible',
       gitHub: 'GitHub',
       gitHubDescription:
-        'Un composant qui recherche des dépôts sur https://github.com/. Vous pouvez utiliser Top N pour spécifier le nombre de résultats.',
+        'Un composant qui recherche des dépôts sur GitHub. Vous pouvez utiliser Top N pour spécifier le nombre de résultats.',
       baiduFanyi: 'BaiduFanyi',
       baiduFanyiDescription:
         'Un composant qui obtient des traductions spécialisées de https://fanyi.baidu.com/.',

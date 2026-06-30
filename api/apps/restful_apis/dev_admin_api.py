@@ -266,7 +266,17 @@ def get_ds4_health():
         health_file = _Path("/home/xsuper/app/newapp/runtime/ds4/ds4-health.json")
         if health_file.exists():
             return get_json_result(data=_json.loads(health_file.read_text(encoding="utf-8")))
-        return get_json_result(data={"state": "unknown", "ready": False, "usage_percent": None})
+        return get_json_result(
+            data={
+                "state": "unknown",
+                "ready": False,
+                "blocking": False,
+                "usage_percent": None,
+                "restart_usage_percent": None,
+                "maintenance_progress": None,
+                "maintenance_phase": None,
+            }
+        )
     except Exception as exc:
         return server_error_response(exc)
 

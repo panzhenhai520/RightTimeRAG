@@ -31,8 +31,7 @@ interface IProps {
 }
 
 const EmptyContent = () => <div></div>;
-const SandboxQuickstartUrl =
-  'https://github.com/infiniflow/ragflow/blob/main/docs/guides/agent/agent_quickstarts/sandbox_quickstart.md';
+const SandboxQuickstartUrl: string = '';
 
 const FormSheet = ({
   visible,
@@ -50,6 +49,8 @@ const FormSheet = ({
   const OperatorForm = currentFormMap?.component ?? EmptyContent;
   const isMcp = useIsMcp(operatorName);
   const { t } = useTranslate('flow');
+  const showSandboxQuickstart =
+    operatorName === Operator.Code && Boolean(SandboxQuickstartUrl);
   const { component_name: toolComponentName } = (getAgentToolById(
     clickedToolId,
   ) ?? {}) as {
@@ -102,7 +103,7 @@ const FormSheet = ({
                 {t(
                   `${lowerFirst(operatorName === Operator.Tool ? toolComponentName : operatorName)}Description`,
                 )}
-                {operatorName === Operator.Code && (
+                {showSandboxQuickstart ? (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -119,7 +120,7 @@ const FormSheet = ({
                   >
                     <ArrowUpRight className="size-4 cursor-pointer text-text-secondary" />
                   </Button>
-                )}
+                ) : null}
               </p>
             )}
           </section>

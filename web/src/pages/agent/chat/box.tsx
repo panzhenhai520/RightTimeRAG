@@ -97,6 +97,7 @@ function AgentChatBox() {
                   nickname={userInfo.nickname}
                   avatar={userInfo.avatar}
                   avatarDialog={canvasInfo.avatar}
+                  agentName={canvasInfo.title}
                   ttsConfig={agentTtsConfig}
                   item={message}
                   reference={findReferenceByMessageId(message.id)}

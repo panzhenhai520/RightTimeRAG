@@ -4,9 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { AvatarUpload } from '@/components/avatar-upload';
 import { RAGFlowFormItem } from '@/components/ragflow-form';
 import { Card, CardContent } from '@/components/ui/card';
 import { Form } from '@/components/ui/form';
+import { DEFAULT_AGENT_AVATAR } from '@/constants/agent';
 import { TagRenameId } from '@/constants/knowledge';
 import { IModalProps } from '@/interfaces/common';
 import { cn } from '@/lib/utils';
@@ -77,6 +79,7 @@ function FlowTypeCards({ value, onChange }: FlowTypeCardProps) {
 
 export const FormSchema = z.object({
   ...NameFormSchema,
+  avatar: z.string().optional(),
   tag: z.string().trim().optional(),
   description: z.string().trim().optional(),
   type: z.nativeEnum(FlowType).optional(),
@@ -93,7 +96,11 @@ export function CreateAgentForm({
 
   const form = useForm<FormSchemaType>({
     resolver: zodResolver(FormSchema),
-    defaultValues: { name: '', type: FlowType.Agent },
+    defaultValues: {
+      name: '',
+      type: FlowType.Agent,
+      avatar: DEFAULT_AGENT_AVATAR,
+    },
   });
 
   async function onSubmit(data: FormSchemaType) {
@@ -116,9 +123,17 @@ export function CreateAgentForm({
             name="type"
             label={t('flow.chooseAgentType')}
           >
-            <FlowTypeCards></FlowTypeCards>
+            {(field) => (
+              <FlowTypeCards
+                value={field.value}
+                onChange={field.onChange}
+              ></FlowTypeCards>
+            )}
           </RAGFlowFormItem>
         )}
+        <RAGFlowFormItem name="avatar" label={t('flow.settings.photo')}>
+          <AvatarUpload tips="" />
+        </RAGFlowFormItem>
         <NameFormField></NameFormField>
       </form>
     </Form>

@@ -6,6 +6,7 @@ import { Form, FormControl, FormItem, FormLabel } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
+import { resolveAgentAvatar } from '@/constants/agent';
 import { useTranslate } from '@/hooks/common-hooks';
 import { useFetchAgent } from '@/hooks/use-agent-request';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -43,7 +44,7 @@ export function SettingForm({ submit }: SettingFormProps) {
     form.reset({
       title: data?.title,
       description: data?.description,
-      avatar: data.avatar,
+      avatar: resolveAgentAvatar(data.avatar),
       permission: data?.permission,
     });
   }, [data, form]);

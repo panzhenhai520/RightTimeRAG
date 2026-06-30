@@ -12,14 +12,23 @@ export enum ProgrammingLanguage {
   Javascript = 'javascript',
 }
 
+export const DEFAULT_AGENT_AVATAR = '/righttime-logo.png';
+
+export const resolveAgentAvatar = (avatar?: string | null) =>
+  avatar || DEFAULT_AGENT_AVATAR;
+
 export const CodeTemplateStrMap = {
   [ProgrammingLanguage.Python]: `def main(arg1: str, arg2: str) -> str:
     return f"result: {arg1 + arg2}"
 `,
   [ProgrammingLanguage.Javascript]: `const axios = require('axios');
+const url = '';
 async function main({}) {
   try {
-    const response = await axios.get('https://github.com/infiniflow/ragflow');
+    if (!url) {
+      return 'Body:';
+    }
+    const response = await axios.get(url);
     return 'Body:' + response.data;
   } catch (error) {
     return 'Error:' + error.message;

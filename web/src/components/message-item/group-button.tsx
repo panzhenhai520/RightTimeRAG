@@ -10,6 +10,7 @@ import { useSetModalState } from '@/hooks/common-hooks';
 import { IRemoveMessageById } from '@/hooks/logic-hooks';
 import { cn } from '@/lib/utils';
 import {
+  FileSearch,
   Loader2,
   LucidePauseCircle,
   LucideRefreshCw,
@@ -33,6 +34,7 @@ interface IProps {
   audioBinary?: string;
   ttsConfig?: Record<string, unknown>;
   showLoudspeaker?: boolean;
+  onSelectReferenceMessage?: () => void;
 }
 
 export const AssistantGroupButton = ({
@@ -43,6 +45,7 @@ export const AssistantGroupButton = ({
   ttsConfig,
   showLikeButton,
   showLoudspeaker = true,
+  onSelectReferenceMessage,
 }: IProps) => {
   const { visible, hideModal, showModal, onFeedbackOk, loading } =
     useSendFeedback(messageId);
@@ -125,6 +128,23 @@ export const AssistantGroupButton = ({
               <LucideThumbsDown />
             </Button>
           </>
+        )}
+        {onSelectReferenceMessage && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="transparent"
+                size="icon-xs"
+                className="border-0"
+                onClick={onSelectReferenceMessage}
+                aria-label={t('chat.showRecallPanel')}
+                title={t('chat.showRecallPanel')}
+              >
+                <FileSearch />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('chat.showRecallPanel')}</TooltipContent>
+          </Tooltip>
         )}
         {prompt && (
           <Button

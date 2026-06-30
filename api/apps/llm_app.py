@@ -64,7 +64,7 @@ def _build_ds4_health_level(payload: dict) -> str:
         usage = float(usage_percent)
     except (TypeError, ValueError):
         return "unknown"
-    if usage >= 87:
+    if usage >= 86:
         return "critical"
     if usage >= 80:
         return "warning"
@@ -134,12 +134,17 @@ def ds4_status():
         "state": "unknown",
         "reason": "health_status_missing",
         "ready": False,
+        "blocking": False,
         "context_length": 131072,
         "live_tokens": None,
         "remaining_tokens": None,
         "usage_percent": None,
         "restart_threshold": None,
+        "restart_usage_percent": None,
         "min_free_tokens": None,
+        "maintenance_progress": None,
+        "maintenance_phase": None,
+        "maintenance_started_at": None,
         "restart_count": None,
         "updated_at": None,
         "stale": True,

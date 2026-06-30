@@ -155,6 +155,8 @@ export default {
   updateSession: (chatId: string, sessionId: string) =>
     `${restAPIv1}/chats/${chatId}/sessions/${sessionId}`,
   removeSessions: (chatId: string) => `${restAPIv1}/chats/${chatId}/sessions`,
+  organizeSessions: (chatId: string) =>
+    `${restAPIv1}/chats/${chatId}/sessions/organize`,
   deleteMessage: (chatId: string, sessionId: string, msgId: string) =>
     `${restAPIv1}/chats/${chatId}/sessions/${sessionId}/messages/${msgId}`,
   thumbup: (chatId: string, sessionId: string, msgId: string) =>

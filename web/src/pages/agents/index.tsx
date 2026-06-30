@@ -2,30 +2,58 @@ import { EmptyCardType } from '@/components/empty/constant';
 import { EmptyAppCard } from '@/components/empty/empty';
 import ListFilterBar from '@/components/list-filter-bar';
 import { RenameDialog } from '@/components/rename-dialog';
-import { RAGFlowPagination } from '@/components/ui/ragflow-pagination';
 import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { useFetchAgentListByPage } from '@/hooks/use-agent-request';
+import { IFlow } from '@/interfaces/database/agent';
 import { t } from 'i18next';
-import { pick } from 'lodash';
 import { LayoutTemplate, Plus } from 'lucide-react';
-import { useCallback, useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 import { CreateAgentDialog } from './create-agent-dialog';
-import { HexAgentCard, HexCreateButton } from './hex-agent-card';
+import {
+  HexAgentCard,
+  HexCreateButton,
+  HexEmptyCell,
+  HexTile,
+} from './hex-agent-card';
 import { useCreateAgentOrPipeline } from './hooks/use-create-agent';
 import { useSelectFilters } from './hooks/use-selelct-filters';
+import styles from './index.module.less';
 import { useRenameAgent } from './use-rename-agent';
+
+type HoneycombCell =
+  | { type: 'create-template' }
+  | { type: 'create-manual' }
+  | { type: 'agent'; data: IFlow }
+  | { type: 'empty'; id: string };
+
+const MIN_HONEYCOMB_CELLS = 24;
+const HONEYCOMB_ROW_SIZE = 8;
+
+function fillHoneycombCells(cells: HoneycombCell[]) {
+  const targetCount = Math.max(
+    MIN_HONEYCOMB_CELLS,
+    Math.ceil((cells.length + 4) / HONEYCOMB_ROW_SIZE) * HONEYCOMB_ROW_SIZE,
+  );
+  const emptyCount = Math.max(0, targetCount - cells.length);
+
+  return [
+    ...cells,
+    ...Array.from({ length: emptyCount }, (_, index) => ({
+      type: 'empty' as const,
+      id: `empty-${index}`,
+    })),
+  ];
+}
 
 export default function Agents() {
   const {
     data,
-    pagination,
-    setPagination,
     searchString,
     handleInputChange,
     filterValue,
     handleFilterSubmit,
-  } = useFetchAgentListByPage();
+  } = useFetchAgentListByPage({ page: 1, pageSize: 100000 });
 
   const {
     agentRenameLoading,
@@ -47,13 +75,6 @@ export default function Agents() {
   const { navigateToAgentTemplates } = useNavigatePage();
   const filters = useSelectFilters();
 
-  const handlePageChange = useCallback(
-    (page: number, pageSize?: number) => {
-      setPagination({ page, pageSize });
-    },
-    [setPagination],
-  );
-
   const [searchUrl, setSearchUrl] = useSearchParams();
   const isCreate = searchUrl.get('isCreate') === 'true';
 
@@ -65,11 +86,25 @@ export default function Agents() {
   }, [isCreate, searchUrl, setSearchUrl]);
 
   const hasAgents = Boolean(data?.length);
+  const honeycombCells = useMemo(() => {
+    const actionCells: HoneycombCell[] = searchString
+      ? []
+      : [{ type: 'create-template' }, { type: 'create-manual' }];
+    const agentCells: HoneycombCell[] = data.map((agent) => ({
+      type: 'agent',
+      data: agent,
+    }));
+
+    return fillHoneycombCells([...actionCells, ...agentCells]);
+  }, [data, searchString]);
 
   return (
     <>
-      <article className="size-full flex flex-col" data-testid="agents-list">
-        <header className="px-5 pt-8 mb-6">
+      <article
+        className={`size-full flex flex-col ${styles.agentShell}`}
+        data-testid="agents-list"
+      >
+        <header className="px-5 pt-8 mb-6 shrink-0">
           <ListFilterBar
             title={t('flow.agents')}
             searchString={searchString}
@@ -81,39 +116,54 @@ export default function Agents() {
           />
         </header>
 
-        <div className="flex-1 overflow-auto px-5 pb-8 space-y-8">
-          {/* Row 1 — create-action buttons (hidden when searching) */}
-          {!searchString && (
-            <div className="flex gap-6">
-              <HexCreateButton
-                icon={<LayoutTemplate className="size-9" />}
-                label="从模板创建"
-                onClick={navigateToAgentTemplates}
-              />
-              <HexCreateButton
-                icon={<Plus className="size-9" />}
-                label="手动编排"
-                onClick={showCreatingModal}
-              />
-            </div>
-          )}
+        <div className={styles.honeycombPage}>
+          <div className={styles.honeycombGrid}>
+            {honeycombCells.map((cell, index) => {
+              if (cell.type === 'create-template') {
+                return (
+                  <HexTile key={cell.type} index={index}>
+                    <HexCreateButton
+                      icon={<LayoutTemplate className="size-6" />}
+                      label="从模板创建"
+                      onClick={navigateToAgentTemplates}
+                    />
+                  </HexTile>
+                );
+              }
 
-          {/* Row 2 — agent hex cards */}
-          {hasAgents && (
-            <div className="flex flex-wrap gap-6">
-              {data.map((x) => (
-                <HexAgentCard
-                  key={x.id}
-                  data={x}
-                  showAgentRenameModal={showAgentRenameModal}
-                />
-              ))}
-            </div>
-          )}
+              if (cell.type === 'create-manual') {
+                return (
+                  <HexTile key={cell.type} index={index}>
+                    <HexCreateButton
+                      icon={<Plus className="size-6" />}
+                      label="手动创建"
+                      onClick={showCreatingModal}
+                    />
+                  </HexTile>
+                );
+              }
 
-          {/* search empty */}
+              if (cell.type === 'agent') {
+                return (
+                  <HexTile key={cell.data.id} index={index}>
+                    <HexAgentCard
+                      data={cell.data}
+                      showAgentRenameModal={showAgentRenameModal}
+                    />
+                  </HexTile>
+                );
+              }
+
+              return (
+                <HexTile key={cell.id} index={index}>
+                  <HexEmptyCell />
+                </HexTile>
+              );
+            })}
+          </div>
+
           {searchString && !hasAgents && (
-            <div className="flex items-center justify-center h-64">
+            <div className={styles.searchEmpty}>
               <EmptyAppCard
                 showIcon
                 size="large"
@@ -122,15 +172,6 @@ export default function Agents() {
                 type={EmptyCardType.Agent}
               />
             </div>
-          )}
-
-          {/* pagination */}
-          {hasAgents && (
-            <RAGFlowPagination
-              {...pick(pagination, 'current', 'pageSize')}
-              total={pagination.total}
-              onChange={handlePageChange}
-            />
           )}
         </div>
       </article>

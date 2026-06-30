@@ -20,7 +20,7 @@ import {
   SoundOutlined,
   SyncOutlined,
 } from '@ant-design/icons';
-import { Download, NotebookText } from 'lucide-react';
+import { Download, FileSearch, NotebookText } from 'lucide-react';
 import { useCallback, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import FeedbackDialog from '../feedback-dialog';
@@ -36,6 +36,7 @@ interface IProps {
   audioBinary?: string;
   ttsConfig?: Record<string, unknown>;
   showLoudspeaker?: boolean;
+  onSelectReferenceMessage?: () => void;
   showLog?: boolean;
   attachment?: {
     file_name: string;
@@ -53,6 +54,7 @@ export const AssistantGroupButton = ({
   ttsConfig,
   showLikeButton,
   showLoudspeaker = true,
+  onSelectReferenceMessage,
   showLog = true,
   attachment,
   isShare,
@@ -135,6 +137,16 @@ export const AssistantGroupButton = ({
               <DislikeOutlined />
             </ToggleGroupItem>
           </>
+        )}
+        {onSelectReferenceMessage && (
+          <ToggleGroupItem
+            value="d-recall"
+            onClick={onSelectReferenceMessage}
+            aria-label={t('chat.showRecallPanel')}
+            title={t('chat.showRecallPanel')}
+          >
+            <FileSearch />
+          </ToggleGroupItem>
         )}
         {prompt && (
           <ToggleGroupItem value="e" onClick={showPromptModal}>

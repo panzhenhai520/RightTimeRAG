@@ -1,6 +1,7 @@
 import { RAGFlowAvatar } from '@/components/ragflow-avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { resolveAgentAvatar } from '@/constants/agent';
 import { LanguageAbbreviation } from '@/constants/common';
 import { IFlowTemplate } from '@/interfaces/database/agent';
 import i18n from '@/locales/config';
@@ -32,7 +33,7 @@ export function TemplateCard({ data, showModal }: IProps) {
         <div className="flex justify-start items-center gap-4 mb-4">
           <RAGFlowAvatar
             className="w-7 h-7"
-            avatar={data.avatar ? data.avatar : 'https://github.com/shadcn.png'}
+            avatar={resolveAgentAvatar(data.avatar)}
             name={data?.title[language] || 'CN'}
           ></RAGFlowAvatar>
           <div

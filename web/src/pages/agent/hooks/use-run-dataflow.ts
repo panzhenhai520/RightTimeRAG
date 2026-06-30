@@ -25,18 +25,28 @@ export function useRunDataflow({
       const success = saveRet?.code === 0;
       if (!success) return;
 
+      const files = Array.isArray(fileResponseData.file)
+        ? fileResponseData.file
+        : fileResponseData.file
+          ? [fileResponseData.file]
+          : [];
+      if (files.length === 0) {
+        message.error('Please upload a file before running.');
+        return;
+      }
+
       showLogSheet();
       const res = await send({
         agent_id: id,
         query: '',
         'openai-compatible': false,
         session_id: null,
-        files: [fileResponseData.file],
+        files,
       });
 
       if (res && res?.response.status === 200 && get(res, 'data.code') === 0) {
         // fetch canvas
-        setUploadedFileData(fileResponseData.file[0]);
+        setUploadedFileData(files[0]);
         const msgId = get(res, 'data.data.message_id');
         if (msgId) {
           setMessageId(msgId);

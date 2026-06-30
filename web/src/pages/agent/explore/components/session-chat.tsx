@@ -134,6 +134,7 @@ export function SessionChat({ session }: SessionChatProps) {
                     nickname={userInfo.nickname}
                     avatar={userInfo.avatar}
                     avatarDialog={canvasInfo?.avatar || ''}
+                    agentName={canvasInfo?.title}
                     reference={findReferenceByMessageId(message.id)}
                     clickDocumentButton={clickDocumentButton}
                     index={i}

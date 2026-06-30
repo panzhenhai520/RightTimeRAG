@@ -17,8 +17,7 @@ import { LLMHeader } from '../../components/llm-header';
 import VerifyButton from '../../modal/verify-button';
 
 const llmFactoryToUrlMap: Partial<Record<LLMFactory, string>> = {
-  [LLMFactory.Ollama]:
-    'https://github.com/infiniflow/ragflow/blob/main/docs/guides/models/deploy_local_llm.mdx',
+  [LLMFactory.Ollama]: '',
   [LLMFactory.Xinference]:
     'https://inference.readthedocs.io/en/latest/user_guide',
   [LLMFactory.ModelScope]:
@@ -107,9 +106,7 @@ const OllamaModal = ({
     ]),
   };
 
-  const url =
-    llmFactoryToUrlMap[llmFactory as LLMFactory] ||
-    'https://github.com/infiniflow/ragflow/blob/main/docs/guides/models/deploy_local_llm.mdx';
+  const url = llmFactoryToUrlMap[llmFactory as LLMFactory] || '';
 
   const fields = useMemo<FormFieldConfig[]>(() => {
     const getOptions = (factory: string) => {
@@ -314,11 +311,13 @@ const OllamaModal = ({
         {onVerify && (
           <VerifyButton onVerify={handleVerify} isAbsolute={false} />
         )}
-        <div className="flex items-center justify-between w-full gap-2 ">
-          <a href={url} target="_blank" rel="noreferrer" className="text-sm">
-            {t('ollamaLink', { name: llmFactory })}
-          </a>
-          <div className="flex gap-2">
+        <div className="flex items-center w-full gap-2 ">
+          {url && (
+            <a href={url} target="_blank" rel="noreferrer" className="text-sm">
+              {t('ollamaLink', { name: llmFactory })}
+            </a>
+          )}
+          <div className="flex gap-2 ml-auto">
             <DynamicForm.CancelButton
               handleCancel={() => {
                 hideModal?.();

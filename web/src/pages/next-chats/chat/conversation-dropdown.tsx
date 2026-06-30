@@ -29,14 +29,20 @@ export function ConversationDropdown({
   children,
   conversation,
   removeTemporaryConversation,
+  loadingConversationIds = [],
+  stopOutputMessage,
+  onConversationsRemoved,
 }: PropsWithChildren & {
   conversation: IConversation;
   removeTemporaryConversation?: (conversationId: string) => void;
+  loadingConversationIds?: string[];
+  stopOutputMessage?: () => void;
+  onConversationsRemoved?: (conversationIds: string[]) => void;
 }) {
   const { t } = useTranslation();
   const { setConversationBoth } = useChatUrlParams();
   const { removeSessions } = useRemoveSessions();
-  const { conversationId, isNew } = useGetChatSearchParams();
+  const { conversationId } = useGetChatSearchParams();
   const navigate = useNavigate();
   const [addToMemoryOpen, setAddToMemoryOpen] = useState(false);
   const [addToMemoryLoading, setAddToMemoryLoading] = useState(false);
@@ -88,23 +94,31 @@ export function ConversationDropdown({
 
   const handleDelete: MouseEventHandler<HTMLDivElement> =
     useCallback(async () => {
-      if (isNew === 'true' && removeTemporaryConversation) {
+      if (loadingConversationIds.includes(conversation.id)) {
+        stopOutputMessage?.();
+      }
+      if (conversation.is_new && removeTemporaryConversation) {
         removeTemporaryConversation(conversation.id);
+        onConversationsRemoved?.([conversation.id]);
         if (conversationId === conversation.id) {
           setConversationBoth('', '');
         }
       } else {
         const code = await removeSessions([conversation.id]);
         if (code === 0) {
+          onConversationsRemoved?.([conversation.id]);
           setConversationBoth('', '');
         }
       }
     }, [
       conversation.id,
+      conversation.is_new,
       conversationId,
-      isNew,
       removeSessions,
       removeTemporaryConversation,
+      loadingConversationIds,
+      stopOutputMessage,
+      onConversationsRemoved,
       setConversationBoth,
     ]);
 

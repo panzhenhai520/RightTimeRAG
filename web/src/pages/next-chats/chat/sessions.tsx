@@ -6,6 +6,7 @@ import { RAGFlowAvatar } from '@/components/ragflow-avatar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SearchInput } from '@/components/ui/input';
+import message from '@/components/ui/message';
 import {
   Tooltip,
   TooltipContent,
@@ -16,9 +17,12 @@ import { useSetModalState } from '@/hooks/common-hooks';
 import {
   useFetchChat,
   useGetChatSearchParams,
+  useOrganizeSessions,
   useRemoveSessions,
 } from '@/hooks/use-chat-request';
 import {
+  Divide,
+  Loader2,
   LucideListChecks,
   LucideMinus,
   LucidePanelLeftClose,
@@ -37,14 +41,21 @@ import { ConversationDropdown } from './conversation-dropdown';
 
 type SessionProps = Pick<
   ReturnType<typeof useHandleClickConversationCard>,
-  'handleConversationCardClick'
+  'handleConversationCardClick' | 'stopOutputMessage'
 > & {
   /** Auto-collapse the session list while an answer is generating. */
   autoCollapsed?: boolean;
+  loadingConversationIds?: string[];
+  onConversationRefresh?: (conversationId: string) => void | Promise<void>;
+  onConversationsRemoved?: (conversationIds: string[]) => void;
 };
 export function Sessions({
   handleConversationCardClick,
+  stopOutputMessage,
   autoCollapsed = false,
+  loadingConversationIds = [],
+  onConversationRefresh,
+  onConversationsRemoved,
 }: SessionProps) {
   const { t } = useTranslation();
   const {
@@ -69,22 +80,32 @@ export function Sessions({
     prevAutoCollapsedRef.current = autoCollapsed;
   }, [autoCollapsed, hideModal]);
   const { removeSessions } = useRemoveSessions();
+  const { organizeSessions } = useOrganizeSessions();
   const { setConversationBoth } = useChatUrlParams();
   const { conversationId } = useGetChatSearchParams();
 
   // Selection mode state
   const [selectionMode, setSelectionMode] = useState(false);
+  const [organizeMode, setOrganizeMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Toggle selection mode (click batch delete icon)
   const toggleSelectionMode = useCallback(() => {
     setSelectionMode(true);
+    setOrganizeMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  const toggleOrganizeMode = useCallback(() => {
+    setOrganizeMode(true);
+    setSelectionMode(false);
     setSelectedIds(new Set());
   }, []);
 
   // Exit selection mode (click return icon)
   const exitSelectionMode = useCallback(() => {
     setSelectionMode(false);
+    setOrganizeMode(false);
     setSelectedIds(new Set());
   }, []);
 
@@ -118,6 +139,12 @@ export function Sessions({
     }
 
     const selectedIdList = Array.from(selectedIds);
+    const deletingLoadingConversation = selectedIdList.some((id) =>
+      loadingConversationIds.includes(id),
+    );
+    if (deletingLoadingConversation) {
+      stopOutputMessage?.();
+    }
     const currentConversationDeleted = conversationId
       ? selectedIdList.includes(conversationId)
       : false;
@@ -125,10 +152,12 @@ export function Sessions({
       conversationList.filter((item) => item.is_new).map((item) => item.id),
     );
     const persistedIds: string[] = [];
+    const removedIds: string[] = [];
 
     selectedIdList.forEach((id) => {
       if (temporaryIdSet.has(id)) {
         removeTemporaryConversation(id);
+        removedIds.push(id);
       } else {
         persistedIds.push(id);
       }
@@ -137,6 +166,9 @@ export function Sessions({
     let removeCode = -1;
     if (persistedIds.length > 0) {
       removeCode = await removeSessions(persistedIds);
+      if (removeCode === 0) {
+        removedIds.push(...persistedIds);
+      }
     }
 
     if (currentConversationDeleted && conversationId) {
@@ -147,6 +179,9 @@ export function Sessions({
         setConversationBoth('', '');
       }
     }
+    if (removedIds.length > 0) {
+      onConversationsRemoved?.(removedIds);
+    }
     exitSelectionMode();
   }, [
     selectedIds,
@@ -154,8 +189,52 @@ export function Sessions({
     conversationList,
     setConversationBoth,
     removeTemporaryConversation,
+    loadingConversationIds,
+    stopOutputMessage,
     removeSessions,
+    onConversationsRemoved,
     exitSelectionMode,
+  ]);
+
+  const handleOrganizeSessions = useCallback(async () => {
+    const selectedIdList = Array.from(selectedIds);
+    const persistedIds = selectedIdList.filter(
+      (id) => !conversationList.find((item) => item.id === id)?.is_new,
+    );
+
+    if (persistedIds.length === 0) {
+      message.info(t('chat.organizeSessionsNoPersisted'));
+      return;
+    }
+
+    const payload = await organizeSessions(persistedIds);
+    if (payload?.code === 0) {
+      const data = payload.data || {};
+      const nextSessionId = data.target_session_id || persistedIds[0];
+      message.success(
+        t('chat.organizeSessionsSuccess', {
+          kept_turns: data.kept_turns ?? 0,
+          dropped_duplicate_turns: data.dropped_duplicate_turns ?? 0,
+          dropped_error_turns: data.dropped_error_turns ?? 0,
+          removed_sessions: data.removed_sessions ?? 0,
+        }),
+      );
+      exitSelectionMode();
+      if (nextSessionId) {
+        setConversationBoth(nextSessionId, '');
+        void onConversationRefresh?.(nextSessionId);
+      }
+    } else {
+      message.error(payload?.message || t('chat.organizeSessions'));
+    }
+  }, [
+    conversationList,
+    exitSelectionMode,
+    organizeSessions,
+    selectedIds,
+    setConversationBoth,
+    onConversationRefresh,
+    t,
   ]);
 
   const selectedCount = useMemo(() => selectedIds.size, [selectedIds]);
@@ -170,7 +249,7 @@ export function Sessions({
         <Button
           variant="transparent"
           size="icon-sm"
-          className="border-0"
+          className="relative border-0"
           onClick={switchVisible}
           data-testid="chat-detail-sessions-open"
         >
@@ -179,6 +258,9 @@ export function Sessions({
             name={data.name}
             className="size-8 cursor-pointer"
           />
+          {loadingConversationIds.length > 0 && (
+            <Loader2 className="absolute -right-1 -top-1 size-3.5 animate-spin text-text-secondary" />
+          )}
         </Button>
       </div>
     );
@@ -250,7 +332,7 @@ export function Sessions({
         </div>
 
         <div className="flex items-center gap-2">
-          {selectionMode ? (
+          {selectionMode || organizeMode ? (
             // Exit selection mode
             <Button
               variant="ghost"
@@ -294,19 +376,68 @@ export function Sessions({
                 <LucideTrash2 />
               </Button>
             </ConfirmDeleteDialog>
+          ) : organizeMode && selectedCount > 0 ? (
+            <ConfirmDeleteDialog
+              onOk={handleOrganizeSessions}
+              title={t('chat.organizeSessions')}
+              content={{
+                title: t('chat.organizeSessionsConfirm', {
+                  count: selectedCount,
+                }),
+              }}
+              testId="chat-detail-session-organize-dialog"
+              confirmButtonTestId="chat-detail-session-organize-confirm"
+              cancelButtonTestId="chat-detail-session-organize-cancel"
+            >
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                data-testid="chat-detail-session-organize"
+              >
+                <Divide />
+              </Button>
+            </ConfirmDeleteDialog>
           ) : (
             <Button
               variant="ghost"
               size="icon-xs"
-              onClick={selectionMode ? toggleSelectAll : toggleSelectionMode}
+              onClick={
+                selectionMode || organizeMode
+                  ? toggleSelectAll
+                  : toggleSelectionMode
+              }
               data-testid={
                 selectionMode
                   ? 'chat-detail-session-select-all'
-                  : 'chat-detail-session-selection-enable'
+                  : organizeMode
+                    ? 'chat-detail-session-organize-select-all'
+                    : 'chat-detail-session-selection-enable'
               }
             >
-              {selectionMode ? <LucideListChecks /> : <LucideMinus />}
+              {selectionMode ? (
+                <LucideListChecks />
+              ) : organizeMode ? (
+                <Divide />
+              ) : (
+                <LucideMinus />
+              )}
             </Button>
+          )}
+
+          {!selectionMode && !organizeMode && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={toggleOrganizeMode}
+                  data-testid="chat-detail-session-organize-enable"
+                >
+                  <Divide />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('chat.organizeSessions')}</TooltipContent>
+            </Tooltip>
           )}
         </div>
       </div>
@@ -320,7 +451,7 @@ export function Sessions({
       </div>
 
       <div className="flex-1 overflow-auto">
-        {selectionMode ? (
+        {selectionMode || organizeMode ? (
           <ul className="space-y-1" role="listbox" aria-multiselectable>
             {conversationList.map((x) => (
               <li
@@ -357,17 +488,25 @@ export function Sessions({
                 >
                   <button
                     type="button"
-                    className="focus-visible:outline-none px-2.5 py-1.5 text-left flex-1 truncate"
+                    className="focus-visible:outline-none px-2.5 py-1.5 text-left flex-1 min-w-0"
                     onClick={() => handleConversationCardClick(x.id, x.is_new)}
                     data-testid="chat-detail-session-item"
                     data-session-id={x.id}
                   >
-                    {x.name}
+                    <span className="flex min-w-0 items-center gap-1">
+                      {loadingConversationIds.includes(x.id) && (
+                        <Loader2 className="size-3.5 shrink-0 animate-spin text-text-secondary" />
+                      )}
+                      <span className="min-w-0 truncate">{x.name}</span>
+                    </span>
                   </button>
 
                   <ConversationDropdown
                     conversation={x}
                     removeTemporaryConversation={removeTemporaryConversation}
+                    loadingConversationIds={loadingConversationIds}
+                    stopOutputMessage={stopOutputMessage}
+                    onConversationsRemoved={onConversationsRemoved}
                   >
                     <MoreButton
                       data-testid="chat-detail-session-actions"

@@ -55,6 +55,7 @@ interface IProps extends Partial<IRemoveMessageById>, IRegenerateMessage {
   showLikeButton?: boolean;
   showLoudspeaker?: boolean;
   continueMessage?: (item: IMessage) => void;
+  onSelectReferenceMessage?: (item: IMessage) => void;
   /** Hide the inline recalled-document list when it is rendered elsewhere
    * (e.g. the right-side RecallPanel in single chat). */
   hideInlineReferences?: boolean;
@@ -112,6 +113,7 @@ const MessageItem = ({
   showLoudspeaker = true,
   visibleAvatar = true,
   continueMessage,
+  onSelectReferenceMessage,
   hideInlineReferences = false,
 }: IProps) => {
   const { t } = useTranslation();
@@ -213,6 +215,10 @@ const MessageItem = ({
     regenerateMessage?.(item);
   }, [regenerateMessage, item]);
 
+  const handleSelectReferenceMessage = useCallback(() => {
+    onSelectReferenceMessage?.(item);
+  }, [item, onSelectReferenceMessage]);
+
   return (
     <div
       className={classNames(styles.messageItem, {
@@ -264,6 +270,11 @@ const MessageItem = ({
                   audioBinary={item.audio_binary}
                   ttsConfig={ttsConfig}
                   showLoudspeaker={showLoudspeaker}
+                  onSelectReferenceMessage={
+                    onSelectReferenceMessage
+                      ? handleSelectReferenceMessage
+                      : undefined
+                  }
                 ></AssistantGroupButton>
               )
             ) : (
@@ -307,9 +318,18 @@ const MessageItem = ({
                 </button>
                 {shouldShowRetrievingBody && (
                   <div
-                    className={cn(styles.thinkingText, {
-                      [styles.thinkingTextRunning]: isRetrievingRunning,
-                    })}
+                    onClick={
+                      onSelectReferenceMessage
+                        ? handleSelectReferenceMessage
+                        : undefined
+                    }
+                    className={cn(
+                      styles.thinkingText,
+                      {
+                        [styles.thinkingTextRunning]: isRetrievingRunning,
+                      },
+                      onSelectReferenceMessage && 'cursor-default select-text',
+                    )}
                   >
                     {displayedRetrievingLines.length > 0 ? (
                       <div className={styles.reasoningLineList}>
@@ -364,9 +384,18 @@ const MessageItem = ({
                 </button>
                 {shouldShowThinkingBody && (
                   <div
-                    className={cn(styles.thinkingText, {
-                      [styles.thinkingTextRunning]: isThinkingRunning,
-                    })}
+                    onClick={
+                      onSelectReferenceMessage
+                        ? handleSelectReferenceMessage
+                        : undefined
+                    }
+                    className={cn(
+                      styles.thinkingText,
+                      {
+                        [styles.thinkingTextRunning]: isThinkingRunning,
+                      },
+                      onSelectReferenceMessage && 'cursor-default select-text',
+                    )}
                   >
                     {displayedThinkingLines.length > 0 ? (
                       <div className={styles.reasoningLineList}>
@@ -406,6 +435,11 @@ const MessageItem = ({
             {/* Show message content if there's any text besides the download */}
             {answerContent && (
               <div
+                onClick={
+                  onSelectReferenceMessage
+                    ? handleSelectReferenceMessage
+                    : undefined
+                }
                 className={cn(
                   isAssistant
                     ? theme === 'dark'
@@ -413,6 +447,7 @@ const MessageItem = ({
                       : styles.messageText
                     : styles.messageUserText,
                   { '!bg-bg-card': !isAssistant },
+                  onSelectReferenceMessage && 'cursor-default select-text',
                 )}
               >
                 <InlineRenderBoundary

@@ -882,7 +882,7 @@ export default {
       targetLang: 'ターゲット言語',
       gitHub: 'GitHub',
       githubDescription:
-        'このコンポーネントは、https://github.com/ からリポジトリを検索するために使用されます。Top Nは、調整する検索結果の数を指定します。',
+        'このコンポーネントは、GitHub からリポジトリを検索するために使用されます。Top Nは、調整する検索結果の数を指定します。',
       baiduFanyi: 'BaiduFanyi',
       baiduFanyiDescription:
         'このコンポーネントは、https://fanyi.baidu.com/ から翻訳を取得するために使用されます。通常、より専門的な翻訳結果を提供します。',

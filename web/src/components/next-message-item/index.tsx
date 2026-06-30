@@ -18,6 +18,7 @@ import {
   useState,
 } from 'react';
 
+import { resolveAgentAvatar } from '@/constants/agent';
 import { IRegenerateMessage, IRemoveMessageById } from '@/hooks/logic-hooks';
 import { useFeatureFlags } from '@/hooks/use-feature-flags';
 import { INodeEvent, MessageEventType } from '@/hooks/use-send-message';
@@ -414,7 +415,7 @@ function MessageItem({
             ) : avatarDialog || agentName ? (
               <RAGFlowAvatar
                 className="size-20 shrink-0"
-                avatar={avatarDialog as string}
+                avatar={resolveAgentAvatar(avatarDialog)}
                 name={agentName}
                 isPerson
               />

@@ -35,6 +35,19 @@ MIN_AGENT_PROMPT_TOKENS = 2048
 DEFAULT_AGENT_SAFE_CONTEXT_TOKENS = 60000
 DEFAULT_AGENT_RETRY_CONTEXT_TOKENS = 24000
 DEFAULT_AGENT_OUTPUT_TOKENS = 4096
+DEFAULT_AGENT_AUTO_CONTINUE_ROUNDS = 6
+DEFAULT_AGENT_AUTO_CONTINUE_TAIL_CHARS = 6000
+
+LENGTH_NOTIFICATION_CN = "······\n由于大模型的上下文窗口大小限制，回答已经被大模型截断。"
+LENGTH_NOTIFICATION_EN = "...\nThe answer is truncated by your chosen LLM due to its limitation on context length."
+AUTO_CONTINUE_DONE_MARKER = "[[END_OF_REPORT]]"
+AUTO_CONTINUE_PROMPT = f"""上一段内容因为输出长度限制被截断。请从上一段最后一个完整句子之后继续生成。
+要求：
+1. 不要重复已经输出的内容；
+2. 不要重新开始报告；
+3. 不要解释你在续写；
+4. 保持原来的 Markdown 结构和编号；
+5. 如果报告已经完整结束，只输出 {AUTO_CONTINUE_DONE_MARKER}。"""
 
 
 def _env_int(name: str, default: int) -> int:
@@ -58,6 +71,17 @@ def _is_context_span_error(exc: Exception | str) -> bool:
             "exceeds context",
         )
     )
+
+
+def _is_length_truncated_text(text: str) -> bool:
+    return any(marker in str(text or "") for marker in (LENGTH_NOTIFICATION_CN, LENGTH_NOTIFICATION_EN))
+
+
+def _strip_length_notification(text: str) -> str:
+    cleaned = str(text or "")
+    for marker in (LENGTH_NOTIFICATION_CN, LENGTH_NOTIFICATION_EN):
+        cleaned = cleaned.replace(marker, "")
+    return cleaned.rstrip()
 
 
 class LLMParam(ComponentParamBase):
@@ -341,6 +365,62 @@ class LLM(ComponentBase):
             return await self.chat_mdl.async_chat(msg[0]["content"], msg[1:], self._safe_gen_conf(), **kwargs)
         return await self.chat_mdl.async_chat(msg[0]["content"], msg[1:], self._safe_gen_conf(), images=self.imgs, **kwargs)
 
+    async def _generate_async_with_auto_continue(self, msg: list[dict], **kwargs) -> str:
+        ans = await self._generate_async(msg, **kwargs)
+        if ans.find("**ERROR**") >= 0 or not _is_length_truncated_text(ans):
+            return ans
+
+        max_rounds = _env_int("AGENT_LLM_AUTO_CONTINUE_ROUNDS", DEFAULT_AGENT_AUTO_CONTINUE_ROUNDS)
+        if max_rounds <= 0:
+            return ans
+
+        tail_chars = _env_int("AGENT_LLM_AUTO_CONTINUE_TAIL_CHARS", DEFAULT_AGENT_AUTO_CONTINUE_TAIL_CHARS)
+        parts = [_strip_length_notification(ans)]
+        truncated_after_limit = True
+
+        for round_idx in range(max_rounds):
+            if self.check_if_canceled("LLM auto continuation"):
+                break
+
+            previous_tail = "\n\n".join(parts)[-tail_chars:]
+            continue_msg = deepcopy(msg)
+            continue_msg.extend(
+                [
+                    {"role": "assistant", "content": previous_tail},
+                    {"role": "user", "content": AUTO_CONTINUE_PROMPT},
+                ]
+            )
+            _, continue_msg = message_fit_in(continue_msg, self._safe_prompt_budget(False))
+
+            next_ans = await self._generate_async(continue_msg, **kwargs)
+            if next_ans.find("**ERROR**") >= 0:
+                parts.append(next_ans)
+                truncated_after_limit = False
+                break
+
+            still_truncated = _is_length_truncated_text(next_ans)
+            clean_next = _strip_length_notification(next_ans).strip()
+            clean_next = clean_next.replace(AUTO_CONTINUE_DONE_MARKER, "").strip()
+            if clean_next:
+                parts.append(clean_next)
+
+            logging.info(
+                "AgentLLM auto-continue component=%s round=%s still_truncated=%s accumulated_chars=%s",
+                self._id,
+                round_idx + 1,
+                still_truncated,
+                sum(len(part) for part in parts),
+            )
+
+            if not still_truncated:
+                truncated_after_limit = False
+                break
+
+        final = "\n\n".join(part for part in parts if part).strip()
+        if truncated_after_limit:
+            final += "\n\n······\n由于自动续写达到上限，报告可能仍未完全生成。"
+        return final
+
     async def _generate_streamly(self, msg: list[dict], **kwargs) -> AsyncGenerator[str, None]:
         async def delta_wrapper(txt_iter):
             ans = ""
@@ -524,17 +604,17 @@ class LLM(ComponentBase):
             _, msg_fit = self._fit_prompt_messages(prompt, msg, retry=False)
             error = ""
             try:
-                ans = await self._generate_async(msg_fit, **extra_chat_kwargs)
+                ans = await self._generate_async_with_auto_continue(msg_fit, **extra_chat_kwargs)
             except Exception as exc:
                 if not _is_context_span_error(exc):
                     raise
                 logging.warning("AgentLLM context span error; retrying with reduced prompt budget: %s", exc)
                 _, msg_fit = self._fit_prompt_messages(prompt, msg, retry=True)
-                ans = await self._generate_async(msg_fit, **extra_chat_kwargs)
+                ans = await self._generate_async_with_auto_continue(msg_fit, **extra_chat_kwargs)
             if ans.find("**ERROR**") >= 0 and _is_context_span_error(ans):
                 logging.warning("AgentLLM context error response; retrying with reduced prompt budget: %s", ans)
                 _, msg_fit = self._fit_prompt_messages(prompt, msg, retry=True)
-                ans = await self._generate_async(msg_fit, **extra_chat_kwargs)
+                ans = await self._generate_async_with_auto_continue(msg_fit, **extra_chat_kwargs)
             msg_fit.pop(0)
             if ans.find("**ERROR**") >= 0:
                 logging.error(f"LLM response error: {ans}")

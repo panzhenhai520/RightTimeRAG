@@ -1434,6 +1434,7 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取实体和关系
       longTaskReportOutline4: '结论与行动建议',
       evidenceAudit: '证据分析',
       recallPanelTitle: '召回区',
+      showRecallPanel: '查看这条回答的召回证据',
       recallDocuments: '召回文档',
       recallEvidenceAnalyzing: '正在生成证据分析…',
       generatingSummary: '正在生成总结…',
@@ -1646,6 +1647,13 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取实体和关系
       tocEnhanceTip: `解析文档时生成了目录信息（见General方法的'启用目录抽取'），让大模型返回和用户问题相关的目录项，从而利用目录项拿到相关chunk，对这些chunk在排序中进行加权。这种方法来源于模仿人类查询书本中知识的行为逻辑`,
       batchDeleteSessions: '批量删除',
       deleteSelectedConfirm: '删除选中的 {{count}} 个会话？',
+      organizeSessions: '整理会话',
+      organizeSessionsConfirm:
+        '整理选中的 {{count}} 个会话？系统会保留一个会话，合并有效问答，清理 70% 以上相似回答和错误问答，并移除被合并的旧会话。',
+      organizeSessionsConfirmAction: '整理',
+      organizeSessionsSuccess:
+        '整理完成：保留 {{kept_turns}} 轮，清理重复 {{dropped_duplicate_turns}} 轮，清理错误 {{dropped_error_turns}} 轮，移除会话 {{removed_sessions}} 个。',
+      organizeSessionsNoPersisted: '请选择已经保存的会话进行整理。',
     },
     setting: {
       Verify: '验证',
@@ -2327,7 +2335,7 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取实体和关系
       targetLang: '目标语言',
       gitHub: 'GitHub',
       gitHubDescription:
-        '该组件用于从 https://github.com/ 搜索仓库。Top N 指定需要调整的搜索结果数量。',
+        '该组件用于从 GitHub 搜索仓库。Top N 指定需要调整的搜索结果数量。',
       baiduFanyi: '百度翻译',
       baiduFanyiDescription:
         '该组件用于从 https://fanyi.baidu.com/ 获取翻译。通常，它提供更专业的翻译结果',
@@ -2699,7 +2707,8 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取实体和关系
       addAgent: '添加智能体',
       agentDescription: '构建具备推理、工具调用和多智能体协同的智能体组件。',
       maxRecords: '最大记录数',
-      createAgent: '智能体流程',
+      createAgent: '问答智能体流程',
+      createPipeline: '知识库解析流水线',
       stringTransform: '文本处理',
       userFillUp: '等待输入',
       userFillUpDescription: `此组件会暂停当前的流程并等待用户发送消息，接收到消息之后再进行之后的流程。`,
@@ -2754,11 +2763,11 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取实体和关系
       createFromBlank: '从空白创建',
       createFromTemplate: '从模板创建',
       importJsonFile: '导入 JSON 文件',
-      chooseAgentType: '选择智能体类型',
+      chooseAgentType: '选择创建类型',
       parser: '解析器',
       parserDescription: '从文件中提取原始文本和结构以供下游处理。',
       tokenizer: '分词器',
-      tokenizerRequired: '请先添加Tokenizer节点',
+      tokenizerRequired: '请先添加分词器节点',
       tokenizerDescription:
         '根据所选的搜索方法，将文本转换为所需的数据结构（例如，用于嵌入搜索的向量嵌入）。',
       tokenChunker: '按 Token 分块',
@@ -2812,6 +2821,9 @@ Tokenizer 会根据所选方式将内容存储为对应的数据结构。`,
       questions: '问题',
       metadata: '元数据',
       toc: 'PageIndex',
+      legal_structure: '法律结构化',
+      legal_analysis: '法律分析',
+      legal_risk: '法律风险',
       fieldName: '结果目的地',
       prompts: {
         system: {
@@ -2849,6 +2861,28 @@ Tokenizer 会根据所选方式将内容存储为对应的数据结构。`,
           metadata: `从给定内容中提取重要的结构化信息。仅输出有效的 JSON 字符串，不包含任何附加文本。如果未找到重要的结构化信息，则输出一个空的 JSON 对象：{}。
 
 重要的结构化信息可能包括：姓名、日期、地点、事件、关键事实、数字数据或其他可提取实体。`,
+          legal_structure: `你是法律条文结构化解析助手。
+请从输入的法律条文或法律文本片段中提取结构化信息。
+只输出合法 JSON，不要输出 Markdown，不要解释，不要添加额外文字。
+
+JSON 字段包括：
+law_name, part, chapter, section, article_no, article_title, article_text, subject, keywords, rights, obligations, prohibitions, liabilities, exceptions, effective_condition, page_hint
+
+如果某字段无法识别，字符串字段使用空字符串，数组字段使用空数组。`,
+          legal_analysis: `你是法律条文解释助手。
+请基于输入的法律条文或法律文本片段进行解释。
+要求：
+1. 严格依据原文，不编造外部事实。
+2. 说明条文含义、适用场景、权利义务、法律后果。
+3. 如存在例外、前置条件、期限、责任承担方式，需要明确列出。
+4. 输出应适合写入法律条文解析报告。`,
+          legal_risk: `你是法律风险识别助手。
+请基于输入的法律条文或法律文本片段识别风险点。
+要求：
+1. 严格依据原文，不编造外部事实。
+2. 输出风险点、触发条件、可能后果、建议关注事项。
+3. 如果文本中没有明显风险点，请说明“未识别出明显风险点”。
+4. 不提供正式法律意见，只做文本分析。`,
         },
         user: {
           keywords: `文本内容
@@ -2858,11 +2892,33 @@ Tokenizer 会根据所选方式将内容存储为对应的数据结构。`,
           summary: `要总结的文本：
 [在此处插入文本]`,
           metadata: `内容：[在此处插入内容]`,
+          legal_structure: `请解析以下法律文本片段，并输出 JSON：
+
+[在此处插入法律文本]`,
+          legal_analysis: `请解释以下法律文本片段：
+
+[在此处插入法律文本]`,
+          legal_risk: `请识别以下法律文本片段中的风险点：
+
+[在此处插入法律文本]`,
         },
       },
       cancel: '取消',
       filenameEmbeddingWeight: '文件名嵌入权重',
       switchPromptMessage: '提示词将发生变化，请确认是否放弃已有提示词？',
+      tokenizerSearchMethodOptions: {
+        full_text: '全文检索',
+        embedding: '向量检索',
+      },
+      tokenizerFieldsOptions: {
+        text: '处理后的正文',
+        keywords: '关键词',
+        questions: '问题',
+        summary: '增强上下文',
+        legal_structure: '法律结构化',
+        legal_analysis: '法律分析',
+        legal_risk: '法律风险',
+      },
       structuredOutput: {
         configuration: '配置',
         structuredOutput: '结构化输出',

@@ -46,7 +46,7 @@
             "presence_penalty": 0.5,
             "prompts": [
               {
-                "content": "{sys.query}\n\n",
+                "content": "{sys.query}\n\n<uploaded_files>\n{sys.files}\n</uploaded_files>\n\nIf <uploaded_files> is not empty, treat it as the primary dataset and analyze it directly. Do not say that no data was provided. If the uploaded file cannot be parsed or the parsed content is insufficient, explain that the file was uploaded but could not be read clearly. Unless the user explicitly asks for code, return the final analysis directly instead of raw code.\n",
                 "role": "user"
               }
             ],
@@ -194,7 +194,7 @@
               "presence_penalty": 0.5,
               "prompts": [
                 {
-                  "content": "{sys.query}\n\n",
+                  "content": "{sys.query}\n\n<uploaded_files>\n{sys.files}\n</uploaded_files>\n\nIf <uploaded_files> is not empty, treat it as the primary dataset and analyze it directly. Do not say that no data was provided. If the uploaded file cannot be parsed or the parsed content is insufficient, explain that the file was uploaded but could not be read clearly. Unless the user explicitly asks for code, return the final analysis directly instead of raw code.\n",
                   "role": "user"
                 }
               ],

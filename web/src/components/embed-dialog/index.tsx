@@ -92,6 +92,9 @@ export const defaultWidgetSettings: WidgetSettings = {
   widgetFooterTextColor: '#111827',
 };
 
+const AgentIdHelpUrl: string = '';
+const ChatIdHelpUrl: string = '';
+
 type IProps = IModalProps<any> & {
   token: string;
   from: SharedFrom;
@@ -298,6 +301,7 @@ window.addEventListener('message',e=>{
       widgetFooterTextColor: values.widgetFooterTextColor,
     });
   }, [onSaveWidgetSettings, values]);
+  const idHelpUrl = isAgent ? AgentIdHelpUrl : ChatIdHelpUrl;
 
   return (
     <Dialog open={visible} onOpenChange={hideModal}>
@@ -441,7 +445,7 @@ window.addEventListener('message',e=>{
                       name="widgetFooterLink"
                       label="Footer redirect link"
                     >
-                      <Input placeholder="https://ragflow.io"></Input>
+                      <Input placeholder=""></Input>
                     </RAGFlowFormItem>
                     <FormField
                       control={form.control}
@@ -612,18 +616,16 @@ window.addEventListener('message',e=>{
             <span>{token} </span>
             <CopyToClipboard text={token}></CopyToClipboard>
           </div>
-          <a
-            className="cursor-pointer text-accent-primary inline-block"
-            href={
-              isAgent
-                ? 'https://ragflow.io/docs/dev/http_api_reference#create-session-with-agent'
-                : 'https://ragflow.io/docs/dev/http_api_reference#create-session-with-chat-assistant'
-            }
-            target="_blank"
-            rel="noreferrer"
-          >
-            {t(`${isAgent ? 'flow' : 'chat'}.howUseId`)}
-          </a>
+          {idHelpUrl && (
+            <a
+              className="cursor-pointer text-accent-primary inline-block"
+              href={idHelpUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t(`${isAgent ? 'flow' : 'chat'}.howUseId`)}
+            </a>
+          )}
         </section>
       </DialogContent>
     </Dialog>

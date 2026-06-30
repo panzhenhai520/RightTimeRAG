@@ -165,14 +165,20 @@ export function PipelineAccordionOperators({
 }) {
   const restrictSingleOperatorOnCanvas = useRestrictSingleOperatorOnCanvas();
   const { getOperatorTypeFromId } = useGraphStore((state) => state);
+  const sourceOperator = getOperatorTypeFromId(nodeId);
 
   const operators = useMemo(() => {
-    const list = [
-      ...restrictSingleOperatorOnCanvas([Operator.Parser, Operator.Tokenizer]),
-    ];
+    const list = [...restrictSingleOperatorOnCanvas([Operator.Parser])];
+
+    if (sourceOperator === Operator.Extractor) {
+      list.push(Operator.Tokenizer, Operator.DocGenerator);
+    } else {
+      list.push(...restrictSingleOperatorOnCanvas([Operator.Tokenizer]));
+    }
+
     list.push(Operator.Extractor);
-    return list;
-  }, [restrictSingleOperatorOnCanvas]);
+    return Array.from(new Set(list));
+  }, [restrictSingleOperatorOnCanvas, sourceOperator]);
 
   const chunkerOperators = useMemo(() => {
     return [
@@ -184,11 +190,8 @@ export function PipelineAccordionOperators({
   }, [restrictSingleOperatorOnCanvas]);
 
   const showChunker = useMemo(() => {
-    return (
-      getOperatorTypeFromId(nodeId) !== Operator.Extractor &&
-      chunkerOperators.length > 0
-    );
-  }, [chunkerOperators.length, getOperatorTypeFromId, nodeId]);
+    return sourceOperator !== Operator.Extractor && chunkerOperators.length > 0;
+  }, [chunkerOperators.length, sourceOperator]);
 
   return (
     <>

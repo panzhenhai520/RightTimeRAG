@@ -68,6 +68,22 @@ from peewee import MySQLDatabase, PostgresqlDatabase
 _background_tasks: Set[asyncio.Task] = set()
 
 
+def _request_bool(value, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "y", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "n", "off", ""}:
+            return False
+    return bool(value)
+
+
 def _require_canvas_access_sync(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -390,7 +406,7 @@ async def create_agent_session(agent_id, tenant_id):
 
     req = await get_request_json()
     user_id = req.get("user_id") or request.args.get("user_id", tenant_id)
-    release_mode = bool(req.get("release", request.args.get("release", False)))
+    release_mode = _request_bool(req.get("release", request.args.get("release")), False)
 
     try:
         cvs, dsl = UserCanvasService.get_agent_dsl_with_release(agent_id, release_mode, tenant_id)
@@ -619,7 +635,8 @@ async def create_agent(tenant_id):
     req["canvas_type"] = req.get("canvas_type","")
     req["user_id"] = tenant_id
     req["canvas_category"] = req.get("canvas_category") or CanvasCategory.Agent
-    req["release"] = bool(req.get("release", ""))
+    req["release"] = _request_bool(req.get("release"), False)
+    req["avatar"] = req.get("avatar") or "/righttime-logo.png"
 
     if req.get("dsl") is None:
         return get_json_result(
@@ -874,7 +891,12 @@ def delete_agent(agent_id, tenant_id):
 async def update_agent(agent_id, tenant_id):
     req = {k: v for k, v in (await get_request_json()).items() if v is not None}
     req["canvas_type"] = req.get("canvas_type","")
-    req["release"] = bool(req.get("release", ""))
+    release_value = None
+    if "release" in req:
+        release_value = _request_bool(req.get("release"), False)
+        req["release"] = release_value
+    if "avatar" in req:
+        req["avatar"] = req.get("avatar") or "/righttime-logo.png"
 
     if req.get("dsl") is not None:
         try:
@@ -898,13 +920,16 @@ async def update_agent(agent_id, tenant_id):
     owner_nickname = _get_user_nickname(tenant_id)
     UserCanvasService.update_by_id(agent_id, req)
 
-    if req.get("dsl") is not None:
+    if req.get("dsl") is not None or release_value is True:
+        version_dsl = req.get("dsl") if req.get("dsl") is not None else current_agent.dsl
         UserCanvasVersionService.save_or_replace_latest(
             user_canvas_id=agent_id,
             title=UserCanvasVersionService.build_version_title(owner_nickname, agent_title_for_version),
-            dsl=req["dsl"],
-            release=req.get("release"),
+            dsl=version_dsl,
+            release=release_value,
         )
+
+    if req.get("dsl") is not None:
         replica_ok = CanvasReplicaService.replace_for_set(
             canvas_id=agent_id,
             tenant_id=str(tenant_id),

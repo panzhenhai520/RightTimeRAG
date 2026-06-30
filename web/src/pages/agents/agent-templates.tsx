@@ -3,7 +3,7 @@ import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { useFetchAgentTemplates, useSetAgent } from '@/hooks/use-agent-request';
 
 import { CardContainer } from '@/components/card-container';
-import { AgentCategory } from '@/constants/agent';
+import { AgentCategory, resolveAgentAvatar } from '@/constants/agent';
 import { IFlowTemplate } from '@/interfaces/database/agent';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CreateAgentDialog } from './create-agent-dialog';
@@ -48,7 +48,7 @@ export default function AgentTemplates() {
       const ret = await setAgent({
         title: payload.name,
         dsl,
-        avatar: template?.avatar,
+        avatar: resolveAgentAvatar(payload.avatar || template?.avatar),
         canvas_category: canvasCategory,
       });
 

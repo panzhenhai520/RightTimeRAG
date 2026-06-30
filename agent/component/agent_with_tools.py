@@ -227,7 +227,7 @@ class Agent(LLM, ToolBase):
 
         msg = self._fit_messages(prompt, msg)
         self._append_system_prompt(msg, schema_prompt)
-        ans = await self._generate_async(msg)
+        ans = await (self._generate_async(msg) if output_schema else self._generate_async_with_auto_continue(msg))
 
         if ans.find("**ERROR**") >= 0:
             logging.error(f"Agent._chat got error. response: {ans}")

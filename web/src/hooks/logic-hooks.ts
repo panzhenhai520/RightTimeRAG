@@ -8,18 +8,13 @@ import {
   IAnswer,
   IClientConversation,
   IMessage,
-  IReference,
   Message,
 } from '@/interfaces/database/chat';
 import { IKnowledgeFile } from '@/interfaces/database/dataset';
 import { changeLanguageAsync } from '@/locales/config';
 import api from '@/utils/api';
 import { getAuthorization } from '@/utils/authorization-util';
-import {
-  buildMessageUuid,
-  mergeFinalAnswerWithProcess,
-  mergeStreamingAnswerChunk,
-} from '@/utils/chat';
+import { buildMessageUuid } from '@/utils/chat';
 import axios from 'axios';
 import { EventSourceParserStream } from 'eventsource-parser/stream';
 import { has, isEmpty, omit } from 'lodash';
@@ -77,10 +72,14 @@ export const useGetPaginationWithRouter = () => {
   } = useSetPaginationParams();
 
   const onPageChange: Pagination['onChange'] = useCallback(
-    (pageNumber: number, pageSize?: number) => {
-      setPaginationParams(pageNumber, pageSize);
+    (pageNumber: number, size?: number) => {
+      if (size !== pageSize) {
+        setPaginationParams(1, size);
+      } else {
+        setPaginationParams(pageNumber, size);
+      }
     },
-    [setPaginationParams],
+    [setPaginationParams, pageSize],
   );
 
   const setCurrentPagination = useCallback(
@@ -280,19 +279,14 @@ export const useSendMessageWithSse = () => {
                 if (typeof d !== 'boolean') {
                   setAnswer((prev) => {
                     const prevAnswer = prev.answer || '';
-                    const currentAnswer = d.answer || '';
+                    const currentAnswer =
+                      d.final && prevAnswer ? '' : d.answer || '';
 
                     let newAnswer: string;
-                    if (d.final === true && currentAnswer) {
-                      newAnswer = mergeFinalAnswerWithProcess(
-                        prevAnswer,
-                        currentAnswer,
-                      );
+                    if (prevAnswer && currentAnswer.startsWith(prevAnswer)) {
+                      newAnswer = currentAnswer;
                     } else {
-                      newAnswer = mergeStreamingAnswerChunk(
-                        prevAnswer,
-                        currentAnswer,
-                      );
+                      newAnswer = prevAnswer + currentAnswer;
                     }
 
                     if (d.start_to_think === true) {
@@ -412,57 +406,81 @@ export const useSpeechSyncJob = () => {
   return { create, poll };
 };
 
-//#region chat hooks
-
-const hasReferenceItems = (value: unknown) => {
-  if (Array.isArray(value)) return value.length > 0;
-  if (value && typeof value === 'object') return Object.keys(value).length > 0;
-  return false;
-};
-
-const hasReferencePayload = (reference?: Partial<IReference>) => {
+export const hasAnswerPayload = (answer?: Partial<IAnswer> | null) => {
+  if (!answer) return false;
+  if (typeof answer.answer === 'string' && answer.answer.trim() !== '') {
+    return true;
+  }
+  if (answer.audio_binary || (answer.downloads?.length ?? 0) > 0) {
+    return true;
+  }
+  const reference = answer.reference;
+  if (!reference) return false;
   return Boolean(
-    reference &&
-    (hasReferenceItems(reference.chunks) ||
-      hasReferenceItems(reference.doc_aggs) ||
-      reference.evidence_audit),
+    (reference.chunks?.length ?? 0) > 0 ||
+    (reference.doc_aggs?.length ?? 0) > 0 ||
+    (reference.total ?? 0) > 0 ||
+    reference.evidence_audit,
   );
 };
 
-export const hasAnswerPayload = (answer?: Partial<IAnswer>) => {
-  return Boolean(answer?.answer || hasReferencePayload(answer?.reference));
-};
-
 export const mergeAnswerReference = (
-  previousReference?: IReference,
-  incomingReference?: IReference,
+  previousReference?: IAnswer['reference'],
+  nextReference?: IAnswer['reference'],
 ) => {
-  if (!hasReferencePayload(incomingReference)) {
+  if (!nextReference) return previousReference;
+
+  const nextHasEvidence =
+    (nextReference.chunks?.length ?? 0) > 0 ||
+    (nextReference.doc_aggs?.length ?? 0) > 0 ||
+    (nextReference.total ?? 0) > 0;
+
+  if (!previousReference) {
+    return nextHasEvidence || nextReference.evidence_audit
+      ? nextReference
+      : undefined;
+  }
+
+  if (!nextHasEvidence && !nextReference.evidence_audit) {
     return previousReference;
   }
-  if (!previousReference) {
-    return incomingReference;
-  }
-  const hasIncomingChunks = hasReferenceItems(incomingReference?.chunks);
-  const hasIncomingDocAggs = hasReferenceItems(incomingReference?.doc_aggs);
 
   return {
-    ...previousReference,
-    ...incomingReference,
-    chunks: hasIncomingChunks
-      ? incomingReference?.chunks
-      : previousReference.chunks,
-    doc_aggs: hasIncomingDocAggs
-      ? incomingReference?.doc_aggs
+    chunks: nextHasEvidence ? nextReference.chunks : previousReference.chunks,
+    doc_aggs: nextHasEvidence
+      ? nextReference.doc_aggs
       : previousReference.doc_aggs,
-    evidence_audit:
-      incomingReference?.evidence_audit ?? previousReference.evidence_audit,
-    total:
-      hasIncomingChunks || hasIncomingDocAggs
-        ? (incomingReference?.total ?? previousReference.total)
-        : previousReference.total,
-  } as IReference;
+    total: nextHasEvidence ? nextReference.total : previousReference.total,
+    evidence_audit: {
+      ...previousReference.evidence_audit,
+      ...nextReference.evidence_audit,
+      retrieval: {
+        ...previousReference.evidence_audit?.retrieval,
+        ...nextReference.evidence_audit?.retrieval,
+      },
+      evidence: nextReference.evidence_audit?.evidence?.length
+        ? nextReference.evidence_audit.evidence
+        : previousReference.evidence_audit?.evidence,
+      answer_basis: nextReference.evidence_audit?.answer_basis?.length
+        ? nextReference.evidence_audit.answer_basis
+        : previousReference.evidence_audit?.answer_basis,
+      answer_evidence_plan: nextReference.evidence_audit?.answer_evidence_plan
+        ?.length
+        ? nextReference.evidence_audit.answer_evidence_plan
+        : previousReference.evidence_audit?.answer_evidence_plan,
+      warnings: nextReference.evidence_audit?.warnings?.length
+        ? nextReference.evidence_audit.warnings
+        : previousReference.evidence_audit?.warnings,
+    },
+  };
 };
+
+export const useFetchModelId = () => {
+  const { data: tenantInfo } = useFetchTenantInfo(true);
+  return tenantInfo?.llm_id ?? '';
+};
+
+//#region chat hooks
 
 export const useScrollToBottom = (
   messages?: unknown,
@@ -470,8 +488,11 @@ export const useScrollToBottom = (
 ) => {
   const ref = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
-  // true = user intentionally scrolled up; false = follow the stream
-  const userPausedRef = useRef(false);
+  const isAtBottomRef = useRef(true);
+
+  useEffect(() => {
+    isAtBottomRef.current = isAtBottom;
+  }, [isAtBottom]);
 
   const checkIfUserAtBottom = useCallback(() => {
     if (!containerRef?.current) return true;
@@ -479,44 +500,21 @@ export const useScrollToBottom = (
     return Math.abs(scrollTop + clientHeight - scrollHeight) < 25;
   }, [containerRef]);
 
-  // Track scroll to detect when user returns to the bottom
   useEffect(() => {
     if (!containerRef?.current) return;
     const container = containerRef.current;
 
     const handleScroll = () => {
-      const atBottom = checkIfUserAtBottom();
-      setIsAtBottom(atBottom);
-      if (atBottom) {
-        userPausedRef.current = false; // user scrolled back to bottom — resume
-      }
+      setIsAtBottom(checkIfUserAtBottom());
     };
 
-    container.addEventListener('scroll', handleScroll, { passive: true });
+    container.addEventListener('scroll', handleScroll);
     handleScroll();
     return () => container.removeEventListener('scroll', handleScroll);
   }, [containerRef, checkIfUserAtBottom]);
 
-  // Detect intentional upward scroll via mouse wheel.
-  // Only pause when NOT already at the bottom to avoid macOS momentum-bounce
-  // events (which emit deltaY < 0 while the user is at the very bottom).
-  useEffect(() => {
-    if (!containerRef?.current) return;
-    const container = containerRef.current;
-
-    const handleWheel = (e: WheelEvent) => {
-      if (e.deltaY < 0 && !checkIfUserAtBottom()) {
-        userPausedRef.current = true;
-      }
-    };
-
-    container.addEventListener('wheel', handleWheel, { passive: true });
-    return () => container.removeEventListener('wheel', handleWheel);
-  }, [containerRef, checkIfUserAtBottom]);
-
-  // Imperative scroll function — also resets the paused flag
+  // Imperative scroll function
   const scrollToBottom = useCallback(() => {
-    userPausedRef.current = false;
     if (containerRef?.current) {
       const container = containerRef.current;
       container.scrollTo({
@@ -526,23 +524,17 @@ export const useScrollToBottom = (
     }
   }, [containerRef]);
 
-  // Auto-scroll on new content. Scroll the tracked container directly (rather
-  // than scrollIntoView, which can scroll the wrong ancestor now that a sibling
-  // recall panel is also scrollable). A double rAF lets async markdown layout
-  // settle before we read scrollHeight.
   useEffect(() => {
     if (!messages) return;
-    if (userPausedRef.current) return;
-    const scroll = () => {
-      const container = containerRef?.current;
-      if (!container || userPausedRef.current) return;
-      container.scrollTop = container.scrollHeight;
-    };
+    if (!containerRef?.current) return;
     requestAnimationFrame(() => {
-      scroll();
-      requestAnimationFrame(scroll);
+      setTimeout(() => {
+        if (isAtBottomRef.current) {
+          scrollToBottom();
+        }
+      }, 100);
     });
-  }, [messages, containerRef]);
+  }, [messages, containerRef, scrollToBottom]);
 
   return { scrollRef: ref, isAtBottom, scrollToBottom };
 };
@@ -613,98 +605,33 @@ export const useSelectDerivedMessages = () => {
   // Add the streaming message to the last item in the message list
   const addNewestAnswer = useCallback((answer: IAnswer) => {
     setDerivedMessages((pre) => {
-      const previousMessage = pre?.at(-1);
-      const previousContent = String(previousMessage?.content ?? '');
-      const incomingContent = answer.answer ?? '';
-      const isReferenceOnlyPatch =
-        previousMessage?.role === MessageType.Assistant &&
-        incomingContent === '' &&
-        hasReferencePayload(answer.reference);
-      const shouldPreserveProcess =
-        isReferenceOnlyPatch ||
-        (answer as any).final === true ||
-        (/<(?:retrieving|think)>/i.test(previousContent) &&
-          !/<(?:retrieving|think)>/i.test(incomingContent));
-      const content = isReferenceOnlyPatch
-        ? previousContent
-        : previousMessage?.role === MessageType.Assistant &&
-            shouldPreserveProcess
-          ? mergeFinalAnswerWithProcess(previousContent, incomingContent)
-          : answer.answer;
-
-      // Preserve early references through later events that only patch in
-      // evidence_audit or carry an empty reference object.
-      const resolvedReference = mergeAnswerReference(
-        previousMessage?.reference,
-        answer.reference,
-      );
-
-      const assistantMessage = {
-        ...omit(answer, ['reference', 'content']),
-        role: MessageType.Assistant,
-        content,
-        answer: content,
-        reference: resolvedReference,
-        id: buildMessageUuid({
-          id: answer.id,
+      return [
+        ...(pre?.slice(0, -1) ?? []),
+        {
           role: MessageType.Assistant,
-        }),
-        prompt: answer.prompt,
-        audio_binary: answer.audio_binary,
-      };
-
-      if (previousMessage?.role !== MessageType.Assistant) {
-        return [...(pre ?? []), assistantMessage];
-      }
-
-      return [...(pre?.slice(0, -1) ?? []), assistantMessage];
+          content: answer.answer,
+          reference: answer.reference,
+          id: buildMessageUuid({
+            id: answer.id,
+            role: MessageType.Assistant,
+          }),
+          prompt: answer.prompt,
+          audio_binary: answer.audio_binary,
+          ...omit(answer, 'reference'),
+        },
+      ];
     });
   }, []);
 
   // Add the streaming message to the last item in the message list
   const addNewestOneAnswer = useCallback((answer: IAnswer) => {
     setDerivedMessages((pre) => {
-      const idx = pre.findIndex(
-        (x) => x.id === answer.id && x.role === MessageType.Assistant,
-      );
+      const idx = pre.findIndex((x) => x.id === answer.id);
 
       if (idx !== -1) {
         return pre.map((x) => {
-          if (x.id === answer.id && x.role === MessageType.Assistant) {
-            const previousContent = String(x.content ?? '');
-            const incomingContent = answer.answer ?? '';
-            const isReferenceOnlyPatch =
-              incomingContent === '' && hasReferencePayload(answer.reference);
-            const shouldPreserveProcess =
-              isReferenceOnlyPatch ||
-              (answer as any).final === true ||
-              (/<(?:retrieving|think)>/i.test(previousContent) &&
-                !/<(?:retrieving|think)>/i.test(incomingContent));
-            const resolvedReference = mergeAnswerReference(
-              x.reference,
-              answer.reference,
-            );
-            return {
-              ...x,
-              ...omit(answer, ['reference', 'content']),
-              reference: resolvedReference,
-              content: isReferenceOnlyPatch
-                ? previousContent
-                : shouldPreserveProcess
-                  ? mergeFinalAnswerWithProcess(
-                      previousContent,
-                      incomingContent,
-                    )
-                  : answer.answer,
-              answer: isReferenceOnlyPatch
-                ? previousContent
-                : shouldPreserveProcess
-                  ? mergeFinalAnswerWithProcess(
-                      previousContent,
-                      incomingContent,
-                    )
-                  : answer.answer,
-            };
+          if (x.id === answer.id) {
+            return { ...x, ...answer, content: answer.answer };
           }
           return x;
         });
@@ -713,10 +640,8 @@ export const useSelectDerivedMessages = () => {
       return [
         ...(pre ?? []),
         {
-          ...omit(answer, ['reference', 'content']),
           role: MessageType.Assistant,
           content: answer.answer,
-          answer: answer.answer,
           reference: answer.reference,
           id: buildMessageUuid({
             id: answer.id,
@@ -724,6 +649,7 @@ export const useSelectDerivedMessages = () => {
           }),
           prompt: answer.prompt,
           audio_binary: answer.audio_binary,
+          ...omit(answer, 'reference'),
         },
       ];
     });
@@ -933,12 +859,6 @@ export const useSelectItem = (defaultId?: string) => {
   }, [defaultId]);
 
   return { selectedId, handleItemClick };
-};
-
-export const useFetchModelId = () => {
-  const { data: tenantInfo } = useFetchTenantInfo(true);
-
-  return tenantInfo?.llm_id ?? '';
 };
 
 const ChunkTokenNumMap = {

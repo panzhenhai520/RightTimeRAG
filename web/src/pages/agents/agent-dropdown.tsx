@@ -9,9 +9,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { resolveAgentAvatar } from '@/constants/agent';
 import { useDeleteAgent, useSetAgent } from '@/hooks/use-agent-request';
 import { IFlow } from '@/interfaces/database/agent';
-import { Globe, Lock, PenLine, Tag, Trash2 } from 'lucide-react';
+import { Globe, Home, Lock, PenLine, Tag, Trash2 } from 'lucide-react';
 import {
   MouseEventHandler,
   PropsWithChildren,
@@ -20,6 +21,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AgentTagEditor } from './agent-tag-editor';
+import { useHomeAgentSelection } from './hooks/use-home-agent-selection';
 import { useRenameAgent } from './use-rename-agent';
 
 export function AgentDropdown({
@@ -33,6 +35,7 @@ export function AgentDropdown({
   const { t } = useTranslation();
   const { deleteAgent } = useDeleteAgent();
   const { loading: publishLoading, setAgent } = useSetAgent(false);
+  const { isHomeAgent, toggleHomeAgent } = useHomeAgentSelection();
   const [tagEditorOpen, setTagEditorOpen] = useState(false);
 
   const handleShowAgentRenameModal: MouseEventHandler<HTMLDivElement> =
@@ -50,6 +53,15 @@ export function AgentDropdown({
   }, []);
 
   const isPublished = Boolean(agent.release_time);
+  const isPinnedToHome = isHomeAgent(agent.id);
+
+  const handleToggleHomeAgent: MouseEventHandler<HTMLDivElement> = useCallback(
+    (e) => {
+      e.stopPropagation();
+      toggleHomeAgent(agent);
+    },
+    [agent, toggleHomeAgent],
+  );
 
   const handleTogglePublish: MouseEventHandler<HTMLDivElement> = useCallback(
     async (e) => {
@@ -77,6 +89,9 @@ export function AgentDropdown({
           <DropdownMenuItem onClick={handleEditTags}>
             {t('flow.editTags')} <Tag />
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleToggleHomeAgent}>
+            {isPinnedToHome ? '取消首页显示' : '设为首页显示'} <Home />
+          </DropdownMenuItem>
           <DropdownMenuItem
             onClick={handleTogglePublish}
             disabled={publishLoading}
@@ -98,7 +113,10 @@ export function AgentDropdown({
             content={{
               node: (
                 <ConfirmDeleteDialogNode
-                  avatar={{ avatar: agent.avatar, name: agent.title }}
+                  avatar={{
+                    avatar: resolveAgentAvatar(agent.avatar),
+                    name: agent.title,
+                  }}
                   name={agent.title}
                 />
               ),

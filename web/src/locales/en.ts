@@ -1385,8 +1385,8 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
         'Construct a knowledge graph over file chunks of the current dataset to enhance multi-hop question-answering involving nested logic. See https://Panython.io/docs/dev/construct_knowledge_graph for details.',
       graphRagMethod: 'Method',
       graphRagMethodTip: `
-      Light: (Default) Use prompts provided by github.com/HKUDS/LightRAG to extract entities and relationships. This option consumes fewer tokens, less memory, and fewer computational resources.</br>
-      General: Use prompts provided by github.com/microsoft/graphrag to extract entities and relationships.</br>
+      Light: (Default) Use prompts provided by HKUDS/LightRAG to extract entities and relationships. This option consumes fewer tokens, less memory, and fewer computational resources.</br>
+      General: Use prompts provided by Microsoft GraphRAG to extract entities and relationships.</br>
       NER: Use spaCy NER and rule-based keyword extraction to extract entities and relationships. No LLM is required for extraction itself, making it fast and resource-efficient.`,
       graphRagBatchChunkTokenSize: 'Batch chunk token size',
       graphRagBatchChunkTokenSizeTip:
@@ -1564,6 +1564,7 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
       longTaskReportOutline4: 'Conclusion and action recommendations',
       evidenceAudit: 'Evidence audit',
       recallPanelTitle: 'Recall',
+      showRecallPanel: 'Show recall evidence for this answer',
       recallDocuments: 'Retrieved documents',
       recallEvidenceAnalyzing: 'Generating evidence audit…',
       generatingSummary: 'Generating summary…',
@@ -1787,6 +1788,13 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
       tocEnhanceTip: ` During the parsing of the document, table of contents information was generated (see the 'Enable Table of Contents Extraction' option in the General method). This allows the large model to return table of contents items relevant to the user's query, thereby using these items to retrieve related chunks and apply weighting to these chunks during the sorting process. This approach mimics human information-searching behavior in books.`,
       batchDeleteSessions: 'Batch delete',
       deleteSelectedConfirm: 'Delete the selected {{count}} session(s)?',
+      organizeSessions: 'Organize sessions',
+      organizeSessionsConfirm:
+        'Organize the selected {{count}} session(s)? The system will keep one session, merge useful Q&A turns, remove answers with at least 70% similarity and error turns, and delete merged old sessions.',
+      organizeSessionsConfirmAction: 'Organize',
+      organizeSessionsSuccess:
+        'Organized: kept {{kept_turns}} turns, removed {{dropped_duplicate_turns}} duplicate turns, removed {{dropped_error_turns}} error turns, deleted {{removed_sessions}} session(s).',
+      organizeSessionsNoPersisted: 'Select saved sessions to organize.',
     },
     setting: {
       Verify: 'Verify',
@@ -2658,7 +2666,7 @@ Best for: Documents with flowing, contextually connected content — such as boo
       targetLang: 'Target language',
       gitHub: 'GitHub',
       gitHubDescription:
-        'A component that searches for repositories from https://github.com/. You can use Top N to specify the number of search results.',
+        'A component that searches for repositories from GitHub. You can use Top N to specify the number of search results.',
       baiduFanyi: 'BaiduFanyi',
       baiduFanyiDescription:
         'A component that gets specialized translations from https://fanyi.baidu.com/.',
@@ -3207,6 +3215,9 @@ The Indexer will store the content in the corresponding data structures for the 
       questions: 'Questions',
       metadata: 'Metadata',
       toc: 'PageIndex',
+      legal_structure: 'Legal structure',
+      legal_analysis: 'Legal analysis',
+      legal_risk: 'Legal risk',
       fieldName: 'Result destination',
       prompts: {
         system: {
@@ -3244,6 +3255,28 @@ Key Instructions:
           metadata: `Extract important structured information from the given content. Output ONLY a valid JSON string with no additional text. If no important structured information is found, output an empty JSON object: {}.
 
 Important structured information may include: names, dates, locations, events, key facts, numerical data, or other extractable entities.`,
+          legal_structure: `You are a legal text structuring assistant.
+Extract structured information from the given legal article or legal text fragment.
+Output ONLY valid JSON. Do not output Markdown, explanations, or extra text.
+
+JSON fields:
+law_name, part, chapter, section, article_no, article_title, article_text, subject, keywords, rights, obligations, prohibitions, liabilities, exceptions, effective_condition, page_hint
+
+If a field cannot be identified, use an empty string for string fields and an empty array for array fields.`,
+          legal_analysis: `You are a legal text explanation assistant.
+Explain the given legal article or legal text fragment.
+Requirements:
+1. Strictly rely on the source text and do not invent external facts.
+2. Explain meaning, application scenarios, rights and obligations, and legal consequences.
+3. Clearly list exceptions, preconditions, deadlines, and liability methods if present.
+4. The output should be suitable for a legal article analysis report.`,
+          legal_risk: `You are a legal risk identification assistant.
+Identify risk points from the given legal article or legal text fragment.
+Requirements:
+1. Strictly rely on the source text and do not invent external facts.
+2. Output risk points, triggering conditions, possible consequences, and recommended focus areas.
+3. If no obvious risk is found, state that no obvious risk point was identified.
+4. Do not provide formal legal advice; perform text analysis only.`,
           toc: '',
         },
         user: {
@@ -3254,6 +3287,15 @@ Important structured information may include: names, dates, locations, events, k
           summary: `Text to Summarize:
 [Insert text here]`,
           metadata: `Content: [INSERT CONTENT HERE]`,
+          legal_structure: `Parse the following legal text fragment and output JSON:
+
+[Insert legal text here]`,
+          legal_analysis: `Explain the following legal text fragment:
+
+[Insert legal text here]`,
+          legal_risk: `Identify risk points in the following legal text fragment:
+
+[Insert legal text here]`,
           toc: '[Insert text here]',
         },
       },
@@ -3270,6 +3312,9 @@ Important structured information may include: names, dates, locations, events, k
         keywords: 'Keywords',
         questions: 'Questions',
         summary: 'Augmented context',
+        legal_structure: 'Legal structure',
+        legal_analysis: 'Legal analysis',
+        legal_risk: 'Legal risk',
       },
       imageParseMethodOptions: {
         ocr: 'OCR',

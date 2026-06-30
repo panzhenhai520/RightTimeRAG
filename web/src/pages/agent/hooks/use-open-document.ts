@@ -1,11 +1,12 @@
 import { useCallback } from 'react';
 
+const AgentComponentsDocumentUrl: string = '';
+
 export function useOpenDocument() {
   const openDocument = useCallback(() => {
-    window.open(
-      'https://ragflow.io/docs/dev/category/agent-components',
-      '_blank',
-    );
+    if (AgentComponentsDocumentUrl) {
+      window.open(AgentComponentsDocumentUrl, '_blank');
+    }
   }, []);
 
   return openDocument;

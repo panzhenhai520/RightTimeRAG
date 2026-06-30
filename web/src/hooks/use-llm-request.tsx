@@ -265,6 +265,60 @@ export const useSelectLlmList = () => {
   };
 };
 
+type IAddedModel = {
+  name: string;
+  provider_name: string;
+  instance_name: string;
+  model_type: string[];
+};
+
+const flattenAddedModels = (detailedLlmList: Record<string, any>) => {
+  return Object.entries(detailedLlmList).flatMap(([providerName, provider]) => {
+    const llmList = Array.isArray(provider?.llm) ? provider.llm : [];
+    return llmList.map((model: any) => ({
+      ...model,
+      name: model.name ?? '',
+      provider_name: providerName,
+      instance_name: model.name ?? '',
+      model_type: Array.isArray(model.model_type)
+        ? model.model_type
+        : [model.type ?? provider?.type ?? 'chat'],
+    })) as IAddedModel[];
+  });
+};
+
+export const useFetchAllAddedModels = () => {
+  const { data: detailedLlmList, loading } = useFetchMyLlmListDetailed();
+  const data = useMemo(
+    () => flattenAddedModels(detailedLlmList),
+    [detailedLlmList],
+  );
+
+  return { data, loading };
+};
+
+export const useFetchDefaultModelDictionary = (enabled = true) => {
+  const { data } = useFetchAllAddedModels();
+
+  return useMemo(() => {
+    if (!enabled) {
+      return undefined;
+    }
+
+    const firstModel = data.find((model) =>
+      model.model_type.some((type) => type === 'chat' || type === 'llm'),
+    );
+
+    if (!firstModel) {
+      return undefined;
+    }
+
+    return {
+      llm_id: `${getRealModelName(firstModel.name)}@${firstModel.instance_name}@${firstModel.provider_name}`,
+    };
+  }, [data, enabled]);
+};
+
 export interface IApiKeySavingParams {
   llm_factory: string;
   api_key: string;

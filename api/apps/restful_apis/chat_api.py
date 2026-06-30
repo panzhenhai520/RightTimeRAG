@@ -23,6 +23,7 @@ import wave
 import asyncio
 import tempfile
 import binascii
+from difflib import SequenceMatcher
 from copy import deepcopy
 from datetime import datetime
 from types import SimpleNamespace
@@ -170,6 +171,26 @@ _CHAT_MEMO_ERROR_MARKERS = (
     "Traceback",
     "layer-slice token span exceeds context",
     "kv payload staging failed",
+)
+_SESSION_ORGANIZE_DUPLICATE_THRESHOLD = float(os.environ.get("RAGFLOW_SESSION_ORGANIZE_DUPLICATE_THRESHOLD", "0.7"))
+_SESSION_ORGANIZE_MAX_SESSIONS = int(os.environ.get("RAGFLOW_SESSION_ORGANIZE_MAX_SESSIONS", "100"))
+_SESSION_ORGANIZE_ERROR_MARKERS = tuple(
+    marker.lower()
+    for marker in (
+        *_CHAT_MEMO_ERROR_MARKERS,
+        "**ERROR**:",
+        "Something went wrong",
+        "Sorry, an error occurred while loading the page",
+        "Error details",
+        "TypeError:",
+        "ReferenceError:",
+        "Internal Server Error",
+        "Bad Gateway",
+        "Gateway Timeout",
+        "Failed to fetch",
+        "NetworkError",
+        "request failed",
+    )
 )
 _tts_route_log = logging.getLogger("panython.tts.route")
 
@@ -494,6 +515,160 @@ def _build_session_response(conv: dict) -> dict:
     conv["chat_id"] = conv.pop("dialog_id", conv.get("chat_id"))
     conv["messages"] = conv.pop("message", conv.get("messages", []))
     return conv
+
+
+def _session_organize_text(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value, ensure_ascii=False)
+    except Exception:
+        return str(value)
+
+
+def _session_organize_visible_text(value) -> str:
+    text = _strip_memo_process_text(_session_organize_text(value))
+    text = re.sub(r"##\d+\$\$", "", text)
+    text = re.sub(r"\bFig(?:ure)?\.?\s*\d+\b", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bID\s*[:：]?\s*\d+\b", "", text, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _session_organize_similarity_key(value) -> str:
+    text = _session_organize_visible_text(value).lower()
+    return re.sub(r"[^\w\u4e00-\u9fff]+", "", text, flags=re.UNICODE)[:20000]
+
+
+def _session_organize_similarity(left: str, right: str) -> float:
+    if not left or not right:
+        return 0.0
+    if left == right:
+        return 1.0
+    return SequenceMatcher(None, left, right, autojunk=False).ratio()
+
+
+def _is_session_organize_error_turn(user_msg: dict, assistant_msg: dict) -> bool:
+    assistant_content = _session_organize_text(assistant_msg.get("content"))
+    visible_answer = _session_organize_visible_text(assistant_content)
+    if not visible_answer:
+        return True
+
+    haystack = assistant_content.lower()
+    return any(marker in haystack for marker in _SESSION_ORGANIZE_ERROR_MARKERS)
+
+
+def _session_prologue_message(conv: dict, fallback: str = "") -> dict:
+    messages = conv.get("message") or conv.get("messages") or []
+    if messages and messages[0].get("role") == "assistant":
+        prologue = deepcopy(messages[0])
+        if not prologue.get("id"):
+            prologue["id"] = get_uuid()
+        return prologue
+    return {"role": "assistant", "content": fallback or "", "id": get_uuid()}
+
+
+def _extract_session_organize_turns(conv: dict) -> list[dict]:
+    messages = conv.get("message") or conv.get("messages") or []
+    references = conv.get("reference") or []
+    turns = []
+    reference_index = 0
+    index = 0
+
+    while index < len(messages):
+        message = messages[index]
+        role = message.get("role")
+
+        if role == "assistant" and index == 0:
+            index += 1
+            continue
+
+        if role != "user":
+            index += 1
+            continue
+
+        if index + 1 >= len(messages) or messages[index + 1].get("role") != "assistant":
+            index += 1
+            continue
+
+        reference = (
+            deepcopy(references[reference_index])
+            if reference_index < len(references)
+            else {"chunks": [], "doc_aggs": []}
+        )
+        turns.append(
+            {
+                "user": deepcopy(message),
+                "assistant": deepcopy(messages[index + 1]),
+                "reference": reference,
+                "session_id": conv.get("id"),
+                "create_time": conv.get("create_time") or 0,
+            }
+        )
+        reference_index += 1
+        index += 2
+
+    return turns
+
+
+def _merge_session_organize_turns(convs: list[dict]) -> tuple[list[dict], list[dict], dict]:
+    kept_turns: list[dict] = []
+    kept_similarity_keys: list[str] = []
+    stats = {
+        "input_turns": 0,
+        "kept_turns": 0,
+        "dropped_error_turns": 0,
+        "dropped_duplicate_turns": 0,
+    }
+
+    for conv in sorted(convs, key=lambda item: item.get("create_time") or 0):
+        for turn in _extract_session_organize_turns(conv):
+            stats["input_turns"] += 1
+            if _is_session_organize_error_turn(turn["user"], turn["assistant"]):
+                stats["dropped_error_turns"] += 1
+                continue
+
+            similarity_key = _session_organize_similarity_key(turn["assistant"].get("content"))
+            duplicate_index = next(
+                (
+                    index
+                    for index, existing_key in enumerate(kept_similarity_keys)
+                    if _session_organize_similarity(similarity_key, existing_key)
+                    >= _SESSION_ORGANIZE_DUPLICATE_THRESHOLD
+                ),
+                None,
+            )
+
+            if duplicate_index is not None:
+                stats["dropped_duplicate_turns"] += 1
+                if len(similarity_key) > len(kept_similarity_keys[duplicate_index]):
+                    kept_turns[duplicate_index] = turn
+                    kept_similarity_keys[duplicate_index] = similarity_key
+                continue
+
+            kept_turns.append(turn)
+            kept_similarity_keys.append(similarity_key)
+
+    merged_messages = []
+    merged_references = []
+    used_message_ids = set()
+
+    for turn in kept_turns:
+        pair_id = turn["user"].get("id") or turn["assistant"].get("id") or get_uuid()
+        if pair_id in used_message_ids:
+            pair_id = get_uuid()
+        used_message_ids.add(pair_id)
+
+        user_msg = deepcopy(turn["user"])
+        assistant_msg = deepcopy(turn["assistant"])
+        user_msg["id"] = pair_id
+        assistant_msg["id"] = pair_id
+        merged_messages.extend([user_msg, assistant_msg])
+        merged_references.append(deepcopy(turn["reference"]))
+
+    stats["kept_turns"] = len(kept_turns)
+    return merged_messages, merged_references, stats
 
 
 async def _ensure_owned_chat(chat_id):
@@ -1253,6 +1428,76 @@ async def delete_sessions(chat_id):
                 )
             return get_data_error_result(message="; ".join(all_errors))
         return get_json_result(data=True)
+    except Exception as ex:
+        return server_error_response(ex)
+
+
+@manager.route("/chats/<chat_id>/sessions/organize", methods=["POST"])  # noqa: F821
+@login_required
+async def organize_sessions(chat_id):
+    if not await _ensure_owned_chat(chat_id):
+        return get_json_result(data=False, message="No authorization.", code=RetCode.AUTHENTICATION_ERROR)
+    try:
+        req = await get_request_json()
+        session_ids = req.get("ids") or req.get("session_ids") or []
+        if not isinstance(session_ids, list) or not session_ids:
+            return get_data_error_result(message="`ids` must be a non-empty list.")
+
+        unique_ids, duplicate_messages = check_duplicate_ids(session_ids, "session")
+        if len(unique_ids) > _SESSION_ORGANIZE_MAX_SESSIONS:
+            return get_data_error_result(
+                message=f"Too many sessions selected. Maximum is {_SESSION_ORGANIZE_MAX_SESSIONS}."
+            )
+        if duplicate_messages:
+            return get_data_error_result(message="; ".join(duplicate_messages))
+
+        convs = []
+        errors = []
+        for session_id in unique_ids:
+            ok, conv = ConversationService.get_by_id(session_id)
+            if not ok or conv.dialog_id != chat_id:
+                errors.append(f"The chat doesn't own the session {session_id}")
+                continue
+            convs.append(conv.to_dict())
+        if errors:
+            return get_data_error_result(message="; ".join(errors))
+
+        target_session_id = req.get("target_session_id") or req.get("target_id")
+        if target_session_id not in unique_ids:
+            target_session_id = unique_ids[0]
+
+        target_conv = next((conv for conv in convs if conv.get("id") == target_session_id), None)
+        if not target_conv:
+            return get_data_error_result(message="Target session not found.")
+
+        ok, dia = DialogService.get_by_id(chat_id)
+        fallback_prologue = dia.prompt_config.get("prologue", "") if ok else ""
+        prologue = _session_prologue_message(target_conv, fallback_prologue)
+        merged_messages, merged_references, stats = _merge_session_organize_turns(convs)
+
+        target_update = deepcopy(target_conv)
+        target_update["message"] = [prologue, *merged_messages]
+        target_update["reference"] = merged_references
+        ConversationService.update_by_id(target_session_id, target_update)
+
+        removed_session_ids = []
+        for session_id in unique_ids:
+            if session_id == target_session_id:
+                continue
+            ConversationService.delete_by_id(session_id)
+            removed_session_ids.append(session_id)
+
+        ok, updated_conv = ConversationService.get_by_id(target_session_id)
+        data = {
+            **stats,
+            "target_session_id": target_session_id,
+            "removed_session_ids": removed_session_ids,
+            "removed_sessions": len(removed_session_ids),
+        }
+        if ok:
+            data["session"] = _build_session_response(updated_conv.to_dict())
+
+        return get_json_result(data=data)
     except Exception as ex:
         return server_error_response(ex)
 

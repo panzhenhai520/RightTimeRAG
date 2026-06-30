@@ -1,3 +1,4 @@
+import { resolveAgentAvatar } from '@/constants/agent';
 import { useFetchAppConf } from '@/hooks/logic-hooks';
 import { RefreshCcw } from 'lucide-react';
 import { PropsWithChildren } from 'react';
@@ -28,7 +29,7 @@ export function EmbedContainer({
         <div className="flex justify-between items-center border-b p-3 relative">
           <div className="flex gap-2 items-center absolute left-1/2 -translate-x-1/2 md:static md:left-auto md:translate-x-0">
             <RAGFlowAvatar
-              avatar={avatar}
+              avatar={resolveAgentAvatar(avatar)}
               name={title}
               isPerson
               className="size-5 md:size-10"

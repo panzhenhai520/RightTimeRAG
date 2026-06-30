@@ -583,6 +583,85 @@ class DocGenerator(Message, ABC):
             file_bytes = f.read()
         return file_path, file_bytes
 
+    def _clean_markdown_inline(self, text: str) -> str:
+        text = re.sub(r"!\[([^\]]*)\]\([^)]+\)", r"\1", text)
+        text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+        text = re.sub(r"(\*\*|__)(.*?)\1", r"\2", text)
+        text = re.sub(r"(\*|_)(.*?)\1", r"\2", text)
+        text = re.sub(r"`([^`]+)`", r"\1", text)
+        return text.strip()
+
+    def _generate_docx_with_python_docx(self, content: str) -> tuple[str, bytes]:
+        from docx import Document
+
+        output_directory = self._get_output_directory()
+        filename = self._build_output_filename("docx")
+        file_path = os.path.join(output_directory, filename)
+        markdown_content = self._build_markdown_source(
+            content,
+            include_timestamp_in_body=False,
+        )
+
+        document = Document()
+        in_code_block = False
+        for raw_line in markdown_content.splitlines():
+            line = raw_line.rstrip()
+            stripped = line.strip()
+
+            if stripped.startswith("```"):
+                in_code_block = not in_code_block
+                continue
+            if not stripped:
+                continue
+
+            if in_code_block:
+                paragraph = document.add_paragraph()
+                run = paragraph.add_run(line)
+                run.font.name = "Courier New"
+                continue
+
+            if re.fullmatch(r"[-*_]{3,}", stripped):
+                continue
+
+            heading = re.match(r"^(#{1,6})\s+(.+)$", stripped)
+            if heading:
+                level = min(len(heading.group(1)), 3)
+                document.add_heading(
+                    self._clean_markdown_inline(heading.group(2)),
+                    level=level,
+                )
+                continue
+
+            bullet = re.match(r"^\s*[-*+]\s+(.+)$", line)
+            if bullet:
+                document.add_paragraph(
+                    self._clean_markdown_inline(bullet.group(1)),
+                    style="List Bullet",
+                )
+                continue
+
+            numbered = re.match(r"^\s*\d+[.)]\s+(.+)$", line)
+            if numbered:
+                document.add_paragraph(
+                    self._clean_markdown_inline(numbered.group(1)),
+                    style="List Number",
+                )
+                continue
+
+            quote = re.match(r"^>\s+(.+)$", stripped)
+            if quote:
+                paragraph = document.add_paragraph(
+                    self._clean_markdown_inline(quote.group(1))
+                )
+                for run in paragraph.runs:
+                    run.italic = True
+                continue
+
+            document.add_paragraph(self._clean_markdown_inline(stripped))
+
+        document.save(file_path)
+        return self._decorate_docx(file_path)
+
     def thoughts(self) -> str:
         return f"Generating {self._param.output_format.upper()} document with markdown conversion..."
 
@@ -620,8 +699,18 @@ class DocGenerator(Message, ABC):
                 extra_args=["--standalone"],
             )
             return self._decorate_docx(file_path)
-        except Exception as e:
-            raise Exception(f"DOCX generation failed: {str(e)}")
+        except Exception as pandoc_error:
+            logging.warning(
+                "Pandoc DOCX generation failed, falling back to python-docx: %s",
+                pandoc_error,
+            )
+            try:
+                return self._generate_docx_with_python_docx(content)
+            except Exception as fallback_error:
+                raise Exception(
+                    "DOCX generation failed: "
+                    f"{pandoc_error}; python-docx fallback failed: {fallback_error}"
+                )
 
     def _generate_txt(self, content: str) -> tuple[str, bytes]:
         try:

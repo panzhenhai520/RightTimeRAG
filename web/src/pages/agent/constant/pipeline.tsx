@@ -100,6 +100,9 @@ export enum ContextGeneratorFieldName {
   Questions = 'questions',
   Metadata = 'metadata',
   TableOfContents = 'toc',
+  LegalStructure = 'legal_structure',
+  LegalAnalysis = 'legal_analysis',
+  LegalRisk = 'legal_risk',
 }
 
 export const FileId = 'File'; // BeginId
@@ -117,6 +120,9 @@ export enum TokenizerFields {
   Text = 'text',
   Questions = 'questions',
   Summary = 'summary',
+  LegalStructure = 'legal_structure',
+  LegalAnalysis = 'legal_analysis',
+  LegalRisk = 'legal_risk',
 }
 
 export enum ParserFields {

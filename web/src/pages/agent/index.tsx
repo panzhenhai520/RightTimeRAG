@@ -22,6 +22,7 @@ import { useSetAgent } from '@/hooks/use-agent-request';
 import { cn } from '@/lib/utils';
 import { ReactFlowProvider } from '@xyflow/react';
 import {
+  ArrowLeft,
   ChevronDown,
   CirclePlay,
   History,
@@ -124,8 +125,12 @@ export default function Agent() {
 
   const { showEmbedModal, hideEmbedModal, embedVisible, beta } =
     useShowEmbedModal();
-  const { navigateToAgentLogs, navigateToAgentExplore, navigateToHome } =
-    useNavigatePage();
+  const {
+    navigateToAgentLogs,
+    navigateToAgentExplore,
+    navigateToAgents,
+    navigateToHome,
+  } = useNavigatePage();
   const time = useWatchAgentChange(chatDrawerVisible);
   const isWebhookMode = useIsWebhookMode();
 
@@ -277,6 +282,14 @@ export default function Agent() {
     <section className="h-full" data-testid="agent-detail">
       <PageHeader>
         <section className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            onClick={navigateToAgents}
+            className="shrink-0"
+          >
+            <ArrowLeft />
+            {t('common.back')}
+          </Button>
           <button
             type="button"
             onClick={navigateToHome}

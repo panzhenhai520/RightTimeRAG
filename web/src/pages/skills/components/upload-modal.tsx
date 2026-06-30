@@ -909,7 +909,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
               id="git-repo-url"
               placeholder={
                 gitPlatform === 'github'
-                  ? 'https://github.com/owner/repo/tree/main/skill-path'
+                  ? ''
                   : 'https://gitee.com/owner/repo/tree/master/skill-path'
               }
               disabled={gitImporting}

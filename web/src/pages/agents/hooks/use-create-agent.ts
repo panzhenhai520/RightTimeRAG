@@ -1,4 +1,9 @@
-import { AgentCategory, EmptyDsl, Operator } from '@/constants/agent';
+import {
+  AgentCategory,
+  EmptyDsl,
+  Operator,
+  resolveAgentAvatar,
+} from '@/constants/agent';
 import { useSetModalState } from '@/hooks/common-hooks';
 import { useSetAgent } from '@/hooks/use-agent-request';
 
@@ -86,6 +91,7 @@ export function useCreateAgentOrPipeline() {
       const isAgent = data.type === FlowType.Agent;
       const ret = await setAgent({
         title: data.name,
+        avatar: resolveAgentAvatar(data.avatar),
         dsl: isAgent ? EmptyDsl : DataflowEmptyDsl,
         canvas_category: isAgent
           ? AgentCategory.AgentCanvas

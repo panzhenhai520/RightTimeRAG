@@ -1,4 +1,3 @@
-import { MessageType } from '@/constants/chat';
 import { useTranslate } from '@/hooks/common-hooks';
 import {
   useFetchChatList,
@@ -33,7 +32,6 @@ export const useSelectDerivedConversationList = () => {
   } = useFetchSessionList();
 
   const { id: dialogId } = useParams();
-  const prologue = useFindPrologueFromDialogList();
   const { setConversationBoth } = useChatUrlParams();
 
   const addTemporaryConversation = useCallback(() => {
@@ -47,12 +45,7 @@ export const useSelectDerivedConversationList = () => {
             name: t('newConversation'),
             chat_id: dialogId,
             is_new: true,
-            messages: [
-              {
-                content: prologue,
-                role: MessageType.Assistant,
-              },
-            ],
+            messages: [],
           } as any,
           ...conversationList,
         ];
@@ -61,7 +54,7 @@ export const useSelectDerivedConversationList = () => {
 
       return pre;
     });
-  }, [dialogId, setConversationBoth, t, prologue, conversationList]);
+  }, [dialogId, setConversationBoth, t, conversationList]);
 
   const removeTemporaryConversation = useCallback((conversationId: string) => {
     setList((prevList) => {

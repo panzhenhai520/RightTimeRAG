@@ -27,6 +27,7 @@ from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from copy import deepcopy
 from pathlib import Path
+from typing import Any
 
 import requests
 
@@ -47,6 +48,15 @@ from api.db.services.llm_service import LLMBundle
 from api.db.services.memory_service import MemoryService
 from api.db.services.panython_tts_settings_service import PanythonTTSSettingsService, build_tts_kwargs
 from api.db.services.panython_identity_service import PanythonIdentityService
+from api.db.services.question_boundary_service import (
+    build_retrieval_plan,
+    classify_chunk_by_constraints,
+    enforce_boundary_constraints,
+    format_boundary_guidance,
+    format_boundary_no_evidence_response,
+    normalize_boundary_slots,
+    parse_question_boundary,
+)
 from common.metadata_utils import apply_meta_data_filter
 from api.utils.reference_metadata_utils import (
     enrich_chunks_with_document_metadata,
@@ -1989,6 +1999,29 @@ def _build_retrieval_query(question: str, fallback_question: str | None = None) 
     return normalized[:MAX_RETRIEVAL_QUERY_CHARS].rstrip()
 
 
+def _compact_retrieval_query_for_retry(query: str, max_terms: int = 24, max_chars: int = 240) -> str:
+    tokens = [token for token in re.split(r"\s+", _clean_generated_query_text(query)) if token]
+    compact = " ".join(tokens[:max_terms]).strip()
+    if not compact:
+        compact = _clean_text(query)
+    if len(compact) > max_chars:
+        compact = compact[:max_chars].rstrip()
+    return compact
+
+
+def _is_clause_overflow_error(exc: Exception) -> bool:
+    text = str(exc)
+    return any(
+        marker in text
+        for marker in (
+            "search_phase_execution_exception",
+            "maxClauseCount",
+            "too many nested clauses",
+            "too_many_nested_clauses",
+        )
+    )
+
+
 def _default_empty_knowledge_response(question: str) -> str:
     if re.search(r"[\u4e00-\u9fff]", question or ""):
         return "知识库中未找到与该问题相关的可靠证据，因此不能基于知识库回答。请尝试换用更具体的关键词、选择相关知识库，或把该问题作为普通聊天提问。"
@@ -2537,6 +2570,9 @@ def _build_evidence_audit(
                 "doc_id": _chunk_value(chunk, "doc_id", "document_id"),
                 "doc_name": _chunk_document_name(chunk),
                 "type": evidence_type,
+                "constraint_status": (chunk.get("constraint_result") or {}).get("status"),
+                "constraint_missing_groups": (chunk.get("constraint_result") or {}).get("missing_groups") or [],
+                "constraint_near_miss_hits": (chunk.get("constraint_result") or {}).get("near_miss_hits") or [],
                 "fig_id": fig_id,
                 "score": _chunk_score(chunk),
                 "has_image": bool(_chunk_value(chunk, "img_id", "image_id")),
@@ -2573,6 +2609,25 @@ def _build_evidence_audit(
         warnings.append("存在标题型或弱上下文片段，生成答案时不应把它们单独当作充分依据")
     answer_evidence_plan = _build_answer_evidence_plan(evidence, cited, citation_id_map)
 
+    constraint_rejected_evidence = []
+    for rejected_index, chunk in enumerate((kbinfos.get("constraint_audit_chunks") or [])[:12]):
+        if not isinstance(chunk, dict):
+            continue
+        constraint_result = chunk.get("constraint_result") or {}
+        constraint_rejected_evidence.append(
+            {
+                "id": rejected_index,
+                "chunk_id": _chunk_value(chunk, "id", "chunk_id"),
+                "doc_id": _chunk_value(chunk, "doc_id", "document_id"),
+                "doc_name": _chunk_document_name(chunk),
+                "constraint_status": constraint_result.get("status"),
+                "constraint_missing_groups": constraint_result.get("missing_groups") or [],
+                "constraint_near_miss_hits": constraint_result.get("near_miss_hits") or [],
+                "score": _chunk_score(chunk),
+                "preview": _chunk_content(chunk).strip()[:260],
+            }
+        )
+
     return {
         "intent": "knowledge_base_question",
         "query": question,
@@ -2584,6 +2639,8 @@ def _build_evidence_audit(
             "type_counts": type_counts,
         },
         "evidence": evidence,
+        "boundary_constraints": kbinfos.get("boundary_constraints") or {},
+        "constraint_rejected_evidence": constraint_rejected_evidence,
         "answer_basis": answer_basis,
         "answer_evidence_plan": answer_evidence_plan,
         "warnings": sorted(set(warnings)),
@@ -2915,68 +2972,36 @@ async def _ds4_pre_generation_status_events(llm_model_config: dict | None, dialo
         return
 
     if _ds4_queue_is_busy():
-        yield {
-            "answer": "<retrieving>DeepSeek V4 Flash generation queue is busy; waiting for an available slot.\n</retrieving>",
-            "reference": {},
-            "audio_binary": None,
-            "final": False,
-        }
+        logging.info("DS4 generation queue is busy; waiting without emitting chat text.")
+        yield {"answer": "", "reference": {}, "audio_binary": None, "final": False}
 
     health_status = await asyncio.to_thread(_read_ds4_health_status)
     if _ds4_health_requires_wait(health_status):
         live_tokens = health_status.get("live_tokens")
         context_length = health_status.get("context_length")
-        yield {
-            "answer": (
-                "<retrieving>DeepSeek V4 Flash is protecting KV cache state; "
-                f"current live tokens {live_tokens or 'unknown'}"
-                f"/{context_length or 'unknown'}. Waiting for model readiness.\n</retrieving>"
-            ),
-            "reference": {},
-            "audio_binary": None,
-            "final": False,
-        }
+        logging.info(
+            "DS4 health requires wait before generation: live_tokens=%s context_length=%s",
+            live_tokens,
+            context_length,
+        )
+        yield {"answer": "", "reference": {}, "audio_binary": None, "final": False}
         ready = await _wait_for_ds4_health_ready()
         if ready:
-            yield {
-                "answer": "<retrieving>DeepSeek V4 Flash is ready; continuing answer generation.\n</retrieving>",
-                "reference": {},
-                "audio_binary": None,
-                "final": False,
-            }
+            yield {"answer": "", "reference": {}, "audio_binary": None, "final": False}
             return
-        yield {
-            "answer": "<retrieving>DeepSeek V4 Flash is still warming up; backend retry will continue waiting.\n</retrieving>",
-            "reference": {},
-            "audio_binary": None,
-            "final": False,
-        }
+        yield {"answer": "", "reference": {}, "audio_binary": None, "final": False}
         return
 
     if await asyncio.to_thread(_probe_ds4_models_ready):
         return
 
-    yield {
-        "answer": "<retrieving>DeepSeek V4 Flash is warming up after KV cache maintenance; waiting for model readiness.\n</retrieving>",
-        "reference": {},
-        "audio_binary": None,
-        "final": False,
-    }
+    logging.info("DS4 models endpoint is not ready; waiting without emitting chat text.")
+    yield {"answer": "", "reference": {}, "audio_binary": None, "final": False}
     ready = await _wait_for_ds4_models_ready()
     if ready:
-        yield {
-            "answer": "<retrieving>DeepSeek V4 Flash is ready; continuing answer generation.\n</retrieving>",
-            "reference": {},
-            "audio_binary": None,
-            "final": False,
-        }
+        yield {"answer": "", "reference": {}, "audio_binary": None, "final": False}
     else:
-        yield {
-            "answer": "<retrieving>DeepSeek V4 Flash is still warming up; backend retry will continue waiting.\n</retrieving>",
-            "reference": {},
-            "audio_binary": None,
-            "final": False,
-        }
+        yield {"answer": "", "reference": {}, "audio_binary": None, "final": False}
 
 
 def _log_rag_token_budget(
@@ -3373,7 +3398,42 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
             kb_ids=dialog.kb_ids,
             metas_loader=lambda: DocMetadataService.get_flatted_meta_by_kbs(dialog.kb_ids),
         )
-    retrieval_query = _build_retrieval_query(questions[-1], latest_user_question)
+    retrieval_plan = {
+        "enabled": False,
+        "primary_query": questions[-1],
+        "evidence_policy": "standard",
+        "plan_hash": "none",
+    }
+    try:
+        boundary_frame = await parse_question_boundary(
+            original_question=latest_user_question,
+            expanded_question=questions[-1],
+            chat_mdl=chat_mdl,
+        )
+        normalized_boundary = normalize_boundary_slots(boundary_frame)
+        retrieval_plan = build_retrieval_plan(
+            original_question=latest_user_question,
+            expanded_question=questions[-1],
+            normalized_boundary=normalized_boundary,
+            target_languages=auto_cross_languages,
+        )
+        if retrieval_plan.get("evidence_policy") == "direct_evidence_only":
+            logging.info(
+                "BoundaryPlanner policy=%s hash=%s must_groups=%d query=%s",
+                retrieval_plan.get("evidence_policy"),
+                retrieval_plan.get("plan_hash"),
+                len(retrieval_plan.get("must_groups") or []),
+                latest_user_question[:160],
+            )
+    except Exception as exc:  # noqa: BLE001 - boundary planning must not break legacy retrieval
+        logging.exception("BoundaryPlanner failed, falling back to standard retrieval: %s", exc)
+
+    # Keep the legacy retrieval query path as the primary signal. The boundary
+    # planner only contributes standardized variants and fallback hints.
+    retrieval_query = _build_retrieval_query(
+        questions[-1],
+        retrieval_plan.get("canonical_query") or latest_user_question,
+    )
     refine_question_ts = timer()
 
     _memory_mode = getattr(dialog, "memory_mode", "kb_first") or "kb_first"
@@ -3504,8 +3564,11 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 _cache_hit = False
                 _cacheable = not attachments and not _comparison_entities
                 if _cacheable:
+                    _cache_query = retrieval_query
+                    if retrieval_plan.get("evidence_policy") == "direct_evidence_only":
+                        _cache_query = f"{retrieval_query}\n#boundary:{retrieval_plan.get('plan_hash') or 'none'}"
                     _cache_key = _make_retrieval_cache_key(
-                        dialog.tenant_id, retrieval_query, dialog.kb_ids or [], kbs
+                        dialog.tenant_id, _cache_query, dialog.kb_ids or [], kbs
                     )
                     _cached_kbinfos = _cache_get(_cache_key)
                     if _cached_kbinfos is not None:
@@ -3519,6 +3582,30 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                         )
 
                 if not _cache_hit:
+                    async def _retrieval_with_retry(query: str, retrieval_kwargs: dict[str, Any], stage: str):
+                        try:
+                            return await retriever.retrieval(query, **retrieval_kwargs)
+                        except Exception as exc:  # noqa: BLE001 - retrieval fallback must be best effort
+                            if not _is_clause_overflow_error(exc):
+                                raise
+                            retry_query = _compact_retrieval_query_for_retry(query)
+                            if not retry_query or retry_query == query:
+                                raise
+                            retry_kwargs = dict(retrieval_kwargs)
+                            retry_kwargs["page_size"] = min(
+                                int(retry_kwargs.get("page_size") or retrieval_top_n or DEFAULT_RETRIEVAL_TOP_N),
+                                6,
+                            )
+                            retry_kwargs["aggs"] = True
+                            logging.warning(
+                                "RetrievalClauseOverflow stage=%s query=%s retry_query=%s error=%s",
+                                stage,
+                                query[:120],
+                                retry_query[:120],
+                                exc,
+                            )
+                            return await retriever.retrieval(retry_query, **retry_kwargs)
+
                     if _comparison_entities:
                         entity_a, entity_b = _comparison_entities
                         per_n = max(1, retrieval_top_n // 2)
@@ -3529,14 +3616,14 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                             entity_a[:40], entity_b[:40], per_n, retrieval_query[:120],
                         )
                         results_a, results_b = await asyncio.gather(
-                            retriever.retrieval(query_a, **{**_retrieval_kwargs, "page_size": per_n}),
-                            retriever.retrieval(query_b, **{**_retrieval_kwargs, "page_size": per_n}),
+                            _retrieval_with_retry(query_a, {**_retrieval_kwargs, "page_size": per_n}, "comparison_a"),
+                            _retrieval_with_retry(query_b, {**_retrieval_kwargs, "page_size": per_n}, "comparison_b"),
                         )
                         kbinfos = _interleave_kbinfos(results_a, results_b)
                         kbinfos["tenant_ids"] = tenant_ids
                         kbinfos["kb_ids"] = dialog.kb_ids
                     else:
-                        kbinfos = await retriever.retrieval(retrieval_query, **_retrieval_kwargs)
+                        kbinfos = await _retrieval_with_retry(retrieval_query, _retrieval_kwargs, "primary")
 
                     if prompt_config.get("toc_enhance"):
                         cks = await retriever.retrieval_by_toc(retrieval_query, kbinfos["chunks"], tenant_ids, chat_mdl, retrieval_top_n)
@@ -3561,6 +3648,66 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                             "TemporalRerank scope=%s years=%s chunks=%d query=%s",
                             retrieval_scope, sorted(_year_filter), _before_rerank, retrieval_query[:120],
                         )
+
+                if retrieval_plan.get("evidence_policy") == "direct_evidence_only":
+                    _has_direct_boundary_evidence = any(
+                        classify_chunk_by_constraints(chunk, retrieval_plan).get("usable_for_answer")
+                        for chunk in (kbinfos.get("chunks") or [])
+                        if isinstance(chunk, dict)
+                    )
+                    _boundary_variants = [
+                        variant
+                        for variant in (retrieval_plan.get("query_variants") or [])
+                        if variant and variant.strip() and variant.strip() != retrieval_query.strip()
+                    ][:3]
+                    if not _has_direct_boundary_evidence and _boundary_variants:
+                        _supplemental_chunks = 0
+                        _supplemental_docs = 0
+                        _supplemental_page_size = max(3, min(retrieval_top_n, 6))
+                        for variant in _boundary_variants:
+                            supplemental = await _retrieval_with_retry(
+                                variant,
+                                {
+                                    **_retrieval_kwargs,
+                                    "page_size": _supplemental_page_size,
+                                    "aggs": True,
+                                    "rank_feature": label_question(variant, kbs),
+                                },
+                                "boundary_supplemental",
+                            )
+                            kbinfos["chunks"].extend(supplemental.get("chunks") or [])
+                            kbinfos["doc_aggs"].extend(supplemental.get("doc_aggs") or [])
+                            _supplemental_chunks += len(supplemental.get("chunks") or [])
+                            _supplemental_docs += len(supplemental.get("doc_aggs") or [])
+                        if _supplemental_chunks:
+                            kbinfos["chunks"] = retriever.retrieval_by_children(kbinfos["chunks"], tenant_ids)
+                            before_dedup, after_dedup = _deduplicate_retrieved_chunks(kbinfos)
+                            logging.info(
+                                "BoundarySupplementalRetrieval variants=%d chunks_added=%d docs_added=%d chunks=%s->%s hash=%s",
+                                len(_boundary_variants),
+                                _supplemental_chunks,
+                                _supplemental_docs,
+                                before_dedup,
+                                after_dedup,
+                                retrieval_plan.get("plan_hash"),
+                            )
+                    _before_boundary = len(kbinfos.get("chunks", []) or [])
+                    kbinfos = enforce_boundary_constraints(kbinfos, retrieval_plan)
+                    _after_boundary = len(kbinfos.get("chunks", []) or [])
+                    _boundary_status = (kbinfos.get("boundary_constraints") or {}).get("status")
+                    logging.info(
+                        "BoundaryConstraintFilter status=%s chunks=%s->%s rejected=%s hash=%s query=%s",
+                        _boundary_status,
+                        _before_boundary,
+                        _after_boundary,
+                        len(kbinfos.get("constraint_audit_chunks", []) or []),
+                        retrieval_plan.get("plan_hash"),
+                        retrieval_query[:160],
+                    )
+                    kbinfos["boundary_constraints"] = {
+                        **(kbinfos.get("boundary_constraints") or {}),
+                        "applied_before_prompt": True,
+                    }
                 yield {
                     "answer": (
                         f"Found {len(kbinfos.get('chunks', []))} relevant passages"
@@ -3603,6 +3750,21 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     if before_dedup != after_dedup:
         logging.info("RetrievalDedup final chunks=%s->%s query=%s", before_dedup, after_dedup, retrieval_query[:160])
 
+    if retrieval_plan.get("evidence_policy") == "direct_evidence_only" and not (kbinfos.get("boundary_constraints") or {}).get("applied_before_prompt"):
+        _before_boundary = len(kbinfos.get("chunks", []) or [])
+        kbinfos = enforce_boundary_constraints(kbinfos, retrieval_plan)
+        _after_boundary = len(kbinfos.get("chunks", []) or [])
+        _boundary_status = (kbinfos.get("boundary_constraints") or {}).get("status")
+        logging.info(
+            "BoundaryConstraintFilter status=%s chunks=%s->%s rejected=%s hash=%s query=%s",
+            _boundary_status,
+            _before_boundary,
+            _after_boundary,
+            len(kbinfos.get("constraint_audit_chunks", []) or []),
+            retrieval_plan.get("plan_hash"),
+            retrieval_query[:160],
+        )
+
     if include_reference_metadata:
         logging.debug(
             "reference_metadata enrichment enabled for async_chat: chunk_count=%d metadata_fields=%s",
@@ -3616,6 +3778,13 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     knowledges = _kb_prompt_dynamic(kbinfos, context_budget["knowledge"], retrieval_query)
     logging.debug("{}->{}".format(" ".join(questions), "\n->".join(knowledges)))
     evidence_guidance_text = _format_evidence_guidance_for_prompt(kbinfos) if knowledges else ""
+    boundary_guidance_text = format_boundary_guidance(
+        retrieval_plan,
+        kbinfos,
+        chinese=bool(re.search(r"[\u4e00-\u9fff]", latest_user_question or questions[-1] or "")),
+    )
+    if boundary_guidance_text:
+        evidence_guidance_text += boundary_guidance_text
     _memory_token_budget = min(MEMORY_CONTEXT_TOKENS, max(MIN_OUTPUT_TOKENS, context_budget["prompt"] // 10))
 
     if _memory_mode == "ignore_memory":
@@ -3650,7 +3819,25 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
             "Use framework synthesis mode only if the user asks for a reusable checklist, framework, template, or methodology."
         )
     elif not knowledges and "knowledge" in param_keys:
-        empty_res = prompt_config.get("empty_response") or _default_empty_knowledge_response(questions[-1])
+        boundary_no_evidence_res = format_boundary_no_evidence_response(questions[-1], retrieval_plan)
+        empty_res = (
+            boundary_no_evidence_res
+            or prompt_config.get("empty_response")
+            or _default_empty_knowledge_response(questions[-1])
+        )
+        if retrieval_plan.get("evidence_policy") == "direct_evidence_only" and not str(empty_res or "").strip():
+            labels = [
+                str(item.get("canonical") or item.get("surface"))
+                for item in (retrieval_plan.get("must_constraints") or [])
+                if item.get("canonical") or item.get("surface")
+            ]
+            empty_res = (
+                "知识库中未找到同时满足以下边界约束的直接证据："
+                + "；".join(labels[:12])
+                + "。当前召回材料即使涉及相近主题，也不能作为该问题的直接依据。"
+                if labels
+                else "知识库中未找到与该问题相关的直接证据。当前召回材料即使涉及相近主题，也不能作为该问题的直接依据。"
+            )
         empty_refs = deepcopy(kbinfos)
         if feature_enabled("evidence_audit"):
             empty_refs["evidence_audit"] = _build_evidence_audit(

@@ -89,6 +89,7 @@ class Message(ComponentBase):
 
         normalized = value.copy()
         normalized.pop("include_download_info_in_content", None)
+        normalized.pop("base64", None)
         return normalized
 
     def _extract_downloads(self, value: Any) -> list[dict[str, Any]]:
@@ -289,7 +290,7 @@ class Message(ComponentBase):
         self.set_output("downloads", downloads)
         self.set_output("content", content)
         self._convert_content(content)
-        self._save_to_memory(content)
+        self._save_to_memory_from_sync(content)
 
     def thoughts(self) -> str:
         return ""
@@ -566,3 +567,17 @@ class Message(ComponentBase):
             "agent_response": content
         }
         return await queue_save_to_memory_task(self._param.memory_ids, message_dict)
+
+    def _save_to_memory_from_sync(self, content):
+        if not hasattr(self._param, "memory_ids") or not self._param.memory_ids:
+            return True, "No memory selected."
+
+        coro = self._save_to_memory(content)
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+
+        if loop.is_running():
+            return loop.create_task(coro)
+        return loop.run_until_complete(coro)

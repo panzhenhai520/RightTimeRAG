@@ -13,7 +13,7 @@ import {
   type FileUploadProps,
 } from '@/components/file-upload';
 import { Button } from '@/components/ui/button';
-import { useUploadAgentFile } from '@/hooks/use-agent-request';
+import { useUploadAgentFileWithProgress } from '@/hooks/use-agent-request';
 import { Upload, X } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -34,40 +34,27 @@ export function FileUploadDirectUpload({
     Array.isArray(value) ? value : value ? [value] : [],
   );
 
-  const { uploadAgentFile } = useUploadAgentFile();
+  const { uploadAgentFile, loading } = useUploadAgentFileWithProgress();
 
   const onUpload: NonNullable<FileUploadProps['onUpload']> = React.useCallback(
-    async (files, { onSuccess, onError }) => {
+    async (files, options) => {
       try {
-        const uploadPromises = files.map(async (file) => {
-          const handleError = (error?: any) => {
-            onError(
-              file,
-              error instanceof Error ? error : new Error('Upload failed'),
-            );
-          };
-          try {
-            const ret = await uploadAgentFile([file]);
-            if (ret.code === 0) {
-              onSuccess(file);
-              uploadedFilesRef.current = [
-                ...uploadedFilesRef.current,
-                ret.data,
-              ];
-              onChange(uploadedFilesRef.current);
-            } else {
-              handleError();
-            }
-          } catch (error) {
-            handleError(error);
-          }
-        });
-
-        // Wait for all uploads to complete
-        await Promise.all(uploadPromises);
+        const ret = await uploadAgentFile({ files, options });
+        if (ret?.code === 0) {
+          const uploaded = Array.isArray(ret.data) ? ret.data : [ret.data];
+          uploadedFilesRef.current = [
+            ...uploadedFilesRef.current,
+            ...uploaded.filter(Boolean),
+          ];
+          onChange(uploadedFilesRef.current);
+        } else {
+          const error = new Error(ret?.message || 'Upload failed');
+          files.forEach((file) => options.onError(file, error));
+        }
       } catch (error) {
-        // This handles any error that might occur outside the individual upload processes
-        console.error('Unexpected error during upload:', error);
+        const nextError =
+          error instanceof Error ? error : new Error('Upload failed');
+        files.forEach((file) => options.onError(file, nextError));
       }
     },
     [onChange, uploadAgentFile],
@@ -105,6 +92,7 @@ export function FileUploadDirectUpload({
       maxFiles={(maxFiles ?? 5) as number}
       className="w-full"
       multiple={!maxFiles || !!(maxFiles && maxFiles > 1)}
+      disabled={loading}
     >
       <FileUploadDropzone>
         <div className="flex flex-col items-center gap-1 text-center">

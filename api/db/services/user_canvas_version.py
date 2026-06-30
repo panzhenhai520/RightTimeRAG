@@ -149,7 +149,7 @@ class UserCanvasVersionService(CommonService):
             if latest and cls._normalize_dsl(latest.dsl) == normalized_dsl:
                 # Protect released version: if latest is released and current is not,
                 # create a new version instead of updating
-                if latest.release and not release:
+                if latest.release and release is False:
                     insert_data = {"user_canvas_id": user_canvas_id, "dsl": normalized_dsl}
                     if title is not None:
                         insert_data["title"] = title

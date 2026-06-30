@@ -1251,7 +1251,7 @@ export default {
       targetLang: '目標語言',
       gitHub: 'GitHub',
       gitHubDescription:
-        '此元件用於從 https://github.com/ 搜尋儲存庫。 Top N 指定要調整的搜尋結果的數量。',
+        '此元件用於從 GitHub 搜尋儲存庫。 Top N 指定要調整的搜尋結果的數量。',
       baiduFanyi: '百度翻譯',
       baiduFanyiDescription:
         '此組件用於從https://fanyi.baidu.com/取得翻譯。通常，它提供更專業的翻譯結果',

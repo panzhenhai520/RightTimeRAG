@@ -14,7 +14,7 @@ import {
   MessageEventType,
   useSendMessageBySSE,
 } from '@/hooks/use-send-message';
-import { Message } from '@/interfaces/database/chat';
+import { IDocumentDownloadInfo, Message } from '@/interfaces/database/chat';
 import i18n from '@/locales/config';
 import api from '@/utils/api';
 import {
@@ -47,10 +47,38 @@ import useGraphStore from '../store';
 import { receiveMessageError } from '../utils';
 import { shouldSplitMessage } from '../utils/chat';
 
+const normalizeDownloads = (downloads?: unknown): IDocumentDownloadInfo[] => {
+  if (!Array.isArray(downloads)) {
+    return [];
+  }
+
+  return downloads.filter((item): item is IDocumentDownloadInfo => {
+    return Boolean(item?.doc_id && item?.filename);
+  });
+};
+
+const uniqDownloads = (
+  downloads: IDocumentDownloadInfo[],
+): IDocumentDownloadInfo[] => {
+  const seen = new Set<string>();
+
+  return downloads.filter((item) => {
+    const key = item.doc_id || `${item.filename}-${item.size ?? ''}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+};
+
 export function findMessageFromList(eventList: IEventList) {
   const messageEventList = eventList.filter(
     (x) => x.event === MessageEventType.Message,
   ) as IMessageEvent[];
+  const messageEndEventList = eventList.filter(
+    (x) => x.event === MessageEventType.MessageEnd,
+  ) as IMessageEndEvent[];
 
   let nextContent = '';
 
@@ -88,12 +116,25 @@ export function findMessageFromList(eventList: IEventList) {
   const workflowFinished = eventList.find(
     (x) => x.event === MessageEventType.WorkflowFinished,
   ) as IMessageEvent;
+  const workflowAttachment = workflowFinished?.data?.outputs?.attachment;
+  const messageEndAttachment = messageEndEventList.find(
+    (x) => x.data?.attachment,
+  )?.data?.attachment;
+  const workflowDownloads = normalizeDownloads(
+    workflowFinished?.data?.outputs?.downloads,
+  );
+  const messageEndDownloads = messageEndEventList.flatMap((x) =>
+    normalizeDownloads(x.data?.downloads),
+  );
+
   return {
     id: eventList[0]?.message_id,
     content: nextContent,
     audio_binary: audioBinary,
-    attachment: workflowFinished?.data?.outputs?.attachment || {},
-    downloads: workflowFinished?.data?.outputs?.downloads || [],
+    attachment: workflowAttachment?.doc_id
+      ? workflowAttachment
+      : messageEndAttachment || {},
+    downloads: uniqDownloads([...messageEndDownloads, ...workflowDownloads]),
   };
 }
 

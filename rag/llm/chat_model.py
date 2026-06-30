@@ -196,18 +196,11 @@ class Base(ABC):
         _no_checkpoint = gen_conf.pop("_ds4_no_checkpoint", False)
         if self._is_local_ds4_endpoint():
             _ds4_status = await asyncio.to_thread(self._read_local_ds4_health_status)
-            _usage_pct = _ds4_status.get("usage_percent") if _ds4_status else None
-            if isinstance(_usage_pct, (int, float)) and _usage_pct >= 86:
-                yield "⚠️ AI引擎上下文队列已满（当前使用率 {:.1f}%），暂时无法接受新请求，系统将在稍后自动清理，请等待1-3分钟后重试。".format(_usage_pct), 0
-                return
             if self._local_ds4_health_requires_wait(_ds4_status):
-                _state = str(_ds4_status.get("state") or "unknown")
-                _reason = str(_ds4_status.get("reason") or "").lower()
-                if any(k in _reason for k in ("kv", "watermark", "overflow", "token")):
-                    _wait_msg = "⏳ AI引擎正在清理KV缓存（上下文队列已满），通常需要1-3分钟，清理完成后会自动继续，请稍候..."
-                else:
-                    _wait_msg = f"⏳ AI引擎正在重启中（{_state}），通常需要1-3分钟，完成后会自动继续，请稍候..."
-                yield _wait_msg, 0
+                logging.info(
+                    "Local ds4 is busy before streaming generation; frontend health banner handles user-visible progress: %s",
+                    json.dumps(_ds4_status, ensure_ascii=False),
+                )
         await self._guard_local_ds4_health_async()
         reasoning_start = False
 

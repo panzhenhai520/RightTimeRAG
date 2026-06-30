@@ -3,7 +3,7 @@ import { MoreButton } from '@/components/more-button';
 import { SharedBadge } from '@/components/shared-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AgentCategory } from '@/constants/agent';
+import { AgentCategory, resolveAgentAvatar } from '@/constants/agent';
 import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { IFlow } from '@/interfaces/database/agent';
 import { cn } from '@/lib/utils';
@@ -48,6 +48,7 @@ export function AgentCard({ data, showAgentRenameModal }: DatasetCardProps) {
         ...data,
         name: data.title,
         description: data.description || '',
+        avatar: resolveAgentAvatar(data.avatar),
         release_time: data.release_time,
       }}
       moreDropdown={

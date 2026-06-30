@@ -1,0 +1,349 @@
+.agentShell {
+  --hex-w: 184px;
+  --hex-h: 160px;
+  --hex-track-w: 138px;
+  --hex-track-h: 80px;
+  --agent-page-bg: var(--bg-base);
+  --hex-line: rgba(91, 101, 110, 0.42);
+  --hex-line-muted: rgba(91, 101, 110, 0.24);
+  --hex-line-hover: rgba(91, 101, 110, 0.5);
+  --hex-line-muted-hover: rgba(91, 101, 110, 0.34);
+  --hex-fill: var(--bg-base);
+  --hex-text: rgb(var(--text-primary));
+  --hex-muted: rgb(var(--text-secondary) / 0.68);
+  --hex-accent: rgb(var(--accent-primary));
+  --hex-sweep: rgba(118, 129, 140, 0.8);
+  --hex-sweep-core: rgba(255, 255, 255, 0.9);
+  --hex-title-published: rgba(46, 54, 62, 0.62);
+  --hex-title-unpublished: rgba(46, 54, 62, 0.38);
+  --hex-title-create: rgba(46, 54, 62, 0.48);
+  --hex-title-hover: rgba(38, 48, 58, 0.84);
+
+  background: var(--agent-page-bg);
+  color: var(--hex-text);
+}
+
+:global(.dark) .agentShell {
+  --hex-line: rgba(177, 164, 112, 0.42);
+  --hex-line-muted: rgba(177, 164, 112, 0.22);
+  --hex-line-hover: rgba(177, 164, 112, 0.52);
+  --hex-line-muted-hover: rgba(177, 164, 112, 0.34);
+  --hex-muted: rgba(225, 221, 206, 0.62);
+  --hex-accent: #e6d68f;
+  --hex-sweep: rgba(230, 214, 143, 0.82);
+  --hex-sweep-core: rgba(255, 246, 194, 0.92);
+  --hex-title-published: rgba(225, 221, 206, 0.68);
+  --hex-title-unpublished: rgba(225, 221, 206, 0.4);
+  --hex-title-create: rgba(225, 221, 206, 0.52);
+  --hex-title-hover: rgba(255, 248, 210, 0.86);
+}
+
+.agentShell header {
+  color: var(--hex-text);
+}
+
+.agentShell header input {
+  color: rgb(var(--text-primary));
+}
+
+.honeycombPage {
+  position: relative;
+  flex: 1;
+  overflow: auto;
+  padding: 24px 28px 80px;
+}
+
+.honeycombGrid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(var(--hex-track-w), var(--hex-track-w))
+  );
+  grid-auto-rows: var(--hex-track-h);
+  align-items: start;
+  justify-content: center;
+  max-width: 1480px;
+  min-height: calc(100% - 10px);
+  margin: 0 auto;
+  padding-inline-end: calc(var(--hex-w) - var(--hex-track-w));
+  padding-bottom: var(--hex-h);
+}
+
+.hexTile {
+  position: relative;
+  grid-row: span 2;
+  width: var(--hex-w);
+  height: var(--hex-h);
+}
+
+.hexTile:nth-child(even) {
+  transform: translateY(var(--hex-track-h));
+}
+
+.hexCell {
+  position: relative;
+  display: flex;
+  width: var(--hex-w);
+  height: var(--hex-h);
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  color: var(--hex-text);
+  background: var(--hex-line);
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  isolation: isolate;
+  outline: 1px solid transparent;
+  transition:
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.hexCell::before,
+.hexCell::after {
+  content: '';
+  position: absolute;
+  clip-path: inherit;
+  pointer-events: none;
+}
+
+.hexCell::before {
+  inset: 1.5px;
+  z-index: 2;
+  background: var(--hex-fill);
+}
+
+.hexCell::after {
+  inset: 0;
+  z-index: 1;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 256deg,
+    var(--hex-sweep) 296deg,
+    var(--hex-sweep-core) 320deg,
+    var(--hex-sweep) 342deg,
+    transparent 360deg
+  );
+  opacity: 0;
+}
+
+.hexCell:hover,
+.hexCell:focus-visible,
+.hexCell:focus-within {
+  background: var(--hex-line-hover);
+}
+
+.hexCell:hover::after,
+.hexCell:focus-visible::after,
+.hexCell:focus-within::after {
+  animation: hexSweep 860ms ease-out;
+}
+
+.hexCell:hover::before,
+.hexCell:focus-visible::before,
+.hexCell:focus-within::before {
+  inset: 2.5px;
+}
+
+.hexCell:hover .hexTitle,
+.hexCell:focus-visible .hexTitle,
+.hexCell:focus-within .hexTitle {
+  color: var(--hex-title-hover);
+}
+
+.hexAgent {
+  cursor: default;
+}
+
+.hexButton,
+.hexCreate {
+  cursor: pointer;
+}
+
+.hexButton {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  padding: 28px 32px 24px;
+  color: inherit;
+  background: transparent;
+  text-align: center;
+}
+
+.hexCreate {
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hexCreateIcon,
+.hexCreate > .hexTitle {
+  position: relative;
+  z-index: 3;
+}
+
+.hexCreateIcon {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  color: var(--hex-muted);
+}
+
+.hexTitle {
+  display: -webkit-box;
+  max-width: 118px;
+  overflow: hidden;
+  color: var(--hex-title-create);
+  font-size: 15px;
+  font-weight: 560;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-align: center;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  transition: color 180ms ease;
+}
+
+.hexPublished .hexTitle {
+  color: var(--hex-title-published);
+}
+
+.hexUnpublished .hexTitle {
+  color: var(--hex-title-unpublished);
+  font-weight: 520;
+}
+
+.hexKicker,
+.hexHomeLabel {
+  max-width: 118px;
+  overflow: hidden;
+  color: var(--hex-muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hexHomeLabel {
+  color: var(--hex-accent);
+}
+
+.hexUnpublished {
+  background: var(--hex-line-muted);
+}
+
+.hexUnpublished:hover,
+.hexUnpublished:focus-visible,
+.hexUnpublished:focus-within {
+  background: var(--hex-line-muted-hover);
+}
+
+.hexMenu {
+  position: absolute;
+  top: 34px;
+  right: 42px;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.hexCell:hover .hexMenu,
+.hexCell:focus-within .hexMenu {
+  opacity: 1;
+}
+
+.hexMoreButton {
+  width: 22px !important;
+  height: 22px !important;
+  color: var(--hex-muted);
+  opacity: 1 !important;
+  background: transparent !important;
+}
+
+.hexMoreButton:hover {
+  color: var(--hex-accent);
+}
+
+.hexEmpty {
+  pointer-events: none;
+  background: var(--hex-line-muted);
+}
+
+.hexEmpty::before {
+  background: var(--hex-fill);
+}
+
+.hexEmpty::after {
+  display: none;
+}
+
+.searchEmpty {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.searchEmpty > * {
+  pointer-events: auto;
+}
+
+@keyframes hexSweep {
+  0% {
+    opacity: 0;
+    transform: rotate(0deg);
+  }
+
+  14% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 900px) {
+  .agentShell {
+    --hex-w: 154px;
+    --hex-h: 134px;
+    --hex-track-w: 115.5px;
+    --hex-track-h: 67px;
+  }
+
+  .honeycombPage {
+    padding: 18px 14px 64px;
+  }
+
+  .hexButton {
+    padding: 22px 24px 20px;
+  }
+
+  .hexTitle {
+    max-width: 98px;
+    font-size: 13px;
+  }
+
+  .hexKicker,
+  .hexHomeLabel {
+    max-width: 98px;
+  }
+}

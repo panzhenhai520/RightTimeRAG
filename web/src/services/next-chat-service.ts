@@ -14,6 +14,7 @@ const {
   getSession,
   updateSession,
   removeSessions,
+  organizeSessions,
   deleteMessage,
   thumbup,
   chatsTts,
@@ -71,6 +72,10 @@ const methods = {
   removeSessions: {
     url: removeSessions,
     method: 'delete',
+  },
+  organizeSessions: {
+    url: organizeSessions,
+    method: 'post',
   },
   deleteMessage: {
     url: deleteMessage,

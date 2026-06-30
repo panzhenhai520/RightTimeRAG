@@ -42,7 +42,7 @@ interface IProps {
   controller: AbortController;
   stopOutputMessage(): void;
   conversation: IClientConversation;
-  onLoadingChange?: (loading: boolean) => void;
+  onLoadingChange?: (loading: boolean, conversationId?: string) => void;
   onConversationRefresh?: (conversationId: string) => void | Promise<void>;
 }
 
@@ -53,6 +53,36 @@ export function SingleChatBox({
   onLoadingChange,
   onConversationRefresh,
 }: IProps) {
+  const { data: userInfo } = useFetchUserInfo();
+  const { data: currentDialog } = useFetchChat();
+  const { createConversationBeforeUploadDocument } =
+    useCreateConversationBeforeUploadDocument();
+  const { conversationId, isNew } = useGetChatSearchParams();
+  const disabled = useGetSendButtonDisabled();
+  const ds4Health = useDS4Health();
+  const ds4Busy =
+    ds4IsCompacting(ds4Health.state) ||
+    ds4IsWarming(ds4Health.state) ||
+    ds4NeedsMaintenance(ds4Health);
+  const [addToMemoryLoading, setAddToMemoryLoading] = useState(false);
+  const [addToMemoryOpen, setAddToMemoryOpen] = useState(false);
+  const { visible, hideModal, documentId, selectedChunk, clickDocumentButton } =
+    useClickDrawer();
+
+  const showInternet = useShowInternet();
+
+  const activeLoadingConversationIdRef = useRef<string | undefined>();
+
+  function handleConversationLoadingChange(
+    sessionId: string,
+    loading: boolean,
+  ) {
+    if (loading) {
+      activeLoadingConversationIdRef.current = sessionId;
+    }
+    onLoadingChange?.(loading, sessionId);
+  }
+
   const {
     value,
     scrollRef,
@@ -68,38 +98,23 @@ export function SingleChatBox({
     handleUploadFile,
     removeFile,
     setDerivedMessages,
-  } = useSendMessage(controller);
-  const { data: userInfo } = useFetchUserInfo();
-  const { data: currentDialog } = useFetchChat();
-  const { createConversationBeforeUploadDocument } =
-    useCreateConversationBeforeUploadDocument();
-  const { conversationId, isNew } = useGetChatSearchParams();
-  const disabled = useGetSendButtonDisabled();
+  } = useSendMessage(controller, handleConversationLoadingChange);
   const sendDisabled = useSendButtonDisabled(value);
-  const ds4Health = useDS4Health();
-  const ds4Busy =
-    ds4IsCompacting(ds4Health.state) ||
-    ds4IsWarming(ds4Health.state) ||
-    ds4NeedsMaintenance(ds4Health);
-  const [addToMemoryLoading, setAddToMemoryLoading] = useState(false);
-  const [addToMemoryOpen, setAddToMemoryOpen] = useState(false);
-  const { visible, hideModal, documentId, selectedChunk, clickDocumentButton } =
-    useClickDrawer();
-
-  const showInternet = useShowInternet();
-
-  useEffect(() => {
-    onLoadingChange?.(sendLoading);
-  }, [onLoadingChange, sendLoading]);
+  const isCurrentConversationLoading =
+    sendLoading &&
+    activeLoadingConversationIdRef.current !== undefined &&
+    activeLoadingConversationIdRef.current === conversationId;
 
   // When streaming ends the thinking panel expands from preview to full content,
   // pushing the answer below the viewport. Scroll back to the bottom so the
   // answer remains visible without requiring a manual drag.
-  const prevSendLoadingRef = useRef(false);
+  const scrollPrevSendLoadingRef = useRef(false);
   useEffect(() => {
-    if (prevSendLoadingRef.current && !sendLoading) {
-      if (conversationId) {
-        void onConversationRefresh?.(conversationId);
+    if (scrollPrevSendLoadingRef.current && !sendLoading) {
+      const refreshConversationId =
+        activeLoadingConversationIdRef.current ?? conversationId;
+      if (refreshConversationId) {
+        void onConversationRefresh?.(refreshConversationId);
       }
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -111,61 +126,69 @@ export function SingleChatBox({
           }
         });
       });
+      activeLoadingConversationIdRef.current = undefined;
     }
-    prevSendLoadingRef.current = sendLoading;
+    scrollPrevSendLoadingRef.current = sendLoading;
   }, [conversationId, onConversationRefresh, sendLoading, messageContainerRef]);
 
   useEffect(() => {
     const messages = conversation?.messages;
     if (isNew === 'true') return;
+    if (!conversationId) return;
 
-    if (!conversationId || !Array.isArray(messages)) {
-      setDerivedMessages([]);
+    if (!Array.isArray(messages)) {
       return;
     }
 
-    if (Array.isArray(messages)) {
-      setDerivedMessages((prevMessages) => {
-        const localByKey = new Map(
-          prevMessages
-            .filter((m) => m.id !== undefined && m.id !== null && m.id !== '')
-            .map((m) => [buildMessageUuidWithRole(m), m]),
-        );
-        // Preserve uploaded file objects from local state that the server doesn't
-        // persist (e.g. File instances). Build a map of message id → files from
-        // the current local state so they survive when server data is applied.
-        const filesMap = new Map(
-          prevMessages
-            .filter((m) => m.files?.length)
-            .map((m) => [m.id, m.files]),
-        );
-        return messages.map((m) => {
-          const hasStableId =
-            m.id !== undefined && m.id !== null && m.id !== '';
-          const localMessage = hasStableId
-            ? localByKey.get(buildMessageUuidWithRole(m))
-            : undefined;
-          const localContent = String(localMessage?.content ?? '');
-          const serverContent = String(m.content ?? '');
+    setDerivedMessages((localMessages) => {
+      const localByKey = new Map(
+        localMessages
+          .filter((m) => m.id !== undefined && m.id !== null && m.id !== '')
+          .map((m) => [buildMessageUuidWithRole(m), m]),
+      );
+      const serverKeys = new Set(
+        messages
+          .filter((m) => m.id !== undefined && m.id !== null && m.id !== '')
+          .map((m) => buildMessageUuidWithRole(m)),
+      );
+      // Preserve uploaded file objects from local state that the server doesn't
+      // persist (e.g. File instances). Build a map of message id -> files from
+      // the current local state so they survive when server data is applied.
+      const filesMap = new Map(
+        localMessages
+          .filter((m) => m.files?.length)
+          .map((m) => [m.id, m.files]),
+      );
+      const mergedMessages = messages.map((m) => {
+        const hasStableId = m.id !== undefined && m.id !== null && m.id !== '';
+        const localMessage = hasStableId
+          ? localByKey.get(buildMessageUuidWithRole(m))
+          : undefined;
+        const localContent = String(localMessage?.content ?? '');
+        const serverContent = String(m.content ?? '');
 
-          return {
-            ...m,
-            ...(m.role === MessageType.Assistant &&
-            hasProcessBlocks(localContent) &&
-            !hasProcessBlocks(serverContent)
-              ? {
-                  content: mergeFinalAnswerWithProcess(
-                    localContent,
-                    serverContent,
-                  ),
-                }
-              : {}),
-            reference: m.reference ?? localMessage?.reference,
-            files: filesMap.get(m.id) ?? m.files,
-          };
-        });
+        return {
+          ...m,
+          ...(m.role === MessageType.Assistant &&
+          hasProcessBlocks(localContent) &&
+          !hasProcessBlocks(serverContent)
+            ? {
+                content: mergeFinalAnswerWithProcess(
+                  localContent,
+                  serverContent,
+                ),
+              }
+            : {}),
+          reference: m.reference ?? localMessage?.reference,
+          files: filesMap.get(m.id) ?? m.files,
+        };
       });
-    }
+      const pendingLocalMessages = localMessages.filter((m) => {
+        const key = buildMessageUuidWithRole(m);
+        return !serverKeys.has(key);
+      });
+      return [...mergedMessages, ...pendingLocalMessages];
+    });
   }, [conversation?.messages, conversationId, isNew, setDerivedMessages]);
 
   const openAddToMemoryDialog = useCallback(() => {
@@ -198,13 +221,6 @@ export function SingleChatBox({
     [conversationId, currentDialog.id],
   );
 
-  useEffect(() => {
-    // Clear the message list after deleting the conversation.
-    if (conversationId === '') {
-      setDerivedMessages([]);
-    }
-  }, [conversationId, setDerivedMessages]);
-
   // Latest assistant message (skip the prologue at index 0) and its reference,
   // used to feed the right-side recall panel.
   const latestAssistant = useMemo(() => {
@@ -215,15 +231,32 @@ export function SingleChatBox({
     return undefined;
   }, [derivedMessages]);
 
-  const latestReference = useMemo(
+  const [selectedReferenceMessageId, setSelectedReferenceMessageId] = useState<
+    IClientConversation['messages'][number] | undefined
+  >();
+
+  useEffect(() => {
+    setSelectedReferenceMessageId(undefined);
+  }, [conversationId]);
+
+  const activeReferenceMessage = useMemo(() => {
+    if (selectedReferenceMessageId) {
+      if (selectedReferenceMessageId.role === MessageType.Assistant) {
+        return selectedReferenceMessageId;
+      }
+    }
+    return latestAssistant;
+  }, [latestAssistant, selectedReferenceMessageId]);
+
+  const activeReference = useMemo(
     () =>
-      latestAssistant
+      activeReferenceMessage
         ? buildMessageItemReference(
             { messages: derivedMessages, reference: conversation.reference },
-            latestAssistant,
+            activeReferenceMessage,
           )
         : undefined,
-    [latestAssistant, derivedMessages, conversation.reference],
+    [activeReferenceMessage, derivedMessages, conversation.reference],
   );
 
   // Only split out the recall panel on wide screens (≥1200px). On narrower
@@ -231,9 +264,9 @@ export function SingleChatBox({
   const responsive = useResponsive();
   const wideEnough = Boolean(responsive.xl);
   const hasRecallContent =
-    sendLoading ||
-    (latestReference?.chunks?.length ?? 0) > 0 ||
-    Boolean(latestReference?.evidence_audit);
+    isCurrentConversationLoading ||
+    (activeReference?.chunks?.length ?? 0) > 0 ||
+    Boolean(activeReference?.evidence_audit);
   const showRecallPanel = wideEnough && hasRecallContent;
 
   // Draggable splitter width for the recall panel.
@@ -242,14 +275,33 @@ export function SingleChatBox({
   const RECALL_EXPANDED_WIDTH = 760;
   const [recallWidth, setRecallWidth] = useState(360);
   const [recallExpanded, setRecallExpanded] = useState(false);
+  const [recallCollapsed, setRecallCollapsed] = useState(false);
   const recallWidthRef = useRef(360);
+  const recallWidthBeforeCollapseRef = useRef(360);
+  const collapsedRecallWidth = 56;
   const effectiveRecallWidth = recallExpanded
     ? RECALL_EXPANDED_WIDTH
-    : recallWidth;
+    : recallCollapsed
+      ? collapsedRecallWidth
+      : recallWidth;
+  const handleToggleRecallCollapse = useCallback(() => {
+    setRecallCollapsed((current) => {
+      if (!current) {
+        recallWidthBeforeCollapseRef.current = recallWidthRef.current;
+      } else {
+        const restoreWidth = recallWidthBeforeCollapseRef.current || 360;
+        recallWidthRef.current = restoreWidth;
+        setRecallWidth(restoreWidth);
+      }
+      return !current;
+    });
+    setRecallExpanded(false);
+  }, []);
   const handleRecallResizeStart = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     // Dragging takes over from the maximized state.
     setRecallExpanded(false);
+    setRecallCollapsed(false);
     const startX = e.clientX;
     const startWidth = recallWidthRef.current;
     const onMove = (ev: PointerEvent) => {
@@ -286,7 +338,7 @@ export function SingleChatBox({
                 key={buildMessageUuidWithRole(message)}
                 loading={
                   message.role === MessageType.Assistant &&
-                  sendLoading &&
+                  isCurrentConversationLoading &&
                   derivedMessages.length - 1 === i
                 }
                 item={message}
@@ -306,17 +358,20 @@ export function SingleChatBox({
                 removeMessageById={removeMessageById}
                 regenerateMessage={regenerateMessage}
                 continueMessage={continueMessage}
-                sendLoading={sendLoading}
+                onSelectReferenceMessage={(selectedMessage) => {
+                  if (selectedMessage?.role === MessageType.Assistant) {
+                    setSelectedReferenceMessageId(selectedMessage);
+                  }
+                }}
+                sendLoading={isCurrentConversationLoading}
                 hideInlineReferences={showRecallPanel}
               />
             ))}
-            {/* DS4 KV compacting status — appears as a chat row below the last message */}
-            {!sendLoading && (
-              <DS4CompactingBanner
-                avatarDialog={currentDialog.icon}
-                health={ds4Health}
-              />
-            )}
+            {/* DS4 KV maintenance status — hidden by the component when idle. */}
+            <DS4CompactingBanner
+              avatarDialog={currentDialog.icon}
+              health={ds4Health}
+            />
           </div>
           <div ref={scrollRef} />
         </div>
@@ -373,11 +428,13 @@ export function SingleChatBox({
             data-testid="chat-recall-resizer"
           />
           <RecallPanel
-            reference={latestReference}
-            loading={sendLoading}
+            reference={activeReference}
+            loading={isCurrentConversationLoading}
             width={effectiveRecallWidth}
             expanded={recallExpanded}
+            collapsed={recallCollapsed}
             onToggleExpand={() => setRecallExpanded((v) => !v)}
+            onToggleCollapse={handleToggleRecallCollapse}
           />
         </>
       )}

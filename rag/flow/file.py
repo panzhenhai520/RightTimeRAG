@@ -42,7 +42,12 @@ class File(ProcessBase):
             #self.set_output("blob", STORAGE_IMPL.get(b, n))
             self.set_output("name", doc.name)
         else:
-            file = kwargs.get("file")[0]
+            file = kwargs.get("file")
+            if isinstance(file, (list, tuple)):
+                file = file[0] if file else None
+            if not isinstance(file, dict):
+                self.set_output("_ERROR", "No uploaded file found.")
+                return
             self.set_output("name", file["name"])
             self.set_output("file", file)
             #self.set_output("blob", FileService.get_blob(file["created_by"], file["id"]))

@@ -11,7 +11,9 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 const formSchema = z.object({
-  file: z.array(z.record(z.any())).min(1),
+  file: z.array(z.record(z.any())).min(1, {
+    message: 'Please upload a file and wait for the upload to finish.',
+  }),
 });
 
 export type FormSchemaType = z.infer<typeof formSchema>;

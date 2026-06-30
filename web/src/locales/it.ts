@@ -520,8 +520,8 @@ Quanto sopra è il contenuto che devi riassumere.`,
         'Costruisci un grafo della conoscenza sui chunk di file della base di conoscenza corrente per migliorare il question-answering multi-hop che coinvolge logica annidata.',
       graphRagMethod: 'Metodo',
       graphRagMethodTip: `
-      Light: (Predefinito) Usa prompt forniti da github.com/HKUDS/LightRAG per estrarre entità e relazioni. Questa opzione consuma meno token, meno memoria e meno risorse computazionali.</br>
-      General: Usa prompt forniti da github.com/microsoft/graphrag per estrarre entità e relazioni.</br>
+      Light: (Predefinito) Usa prompt forniti da HKUDS/LightRAG per estrarre entità e relazioni. Questa opzione consuma meno token, meno memoria e meno risorse computazionali.</br>
+      General: Usa prompt forniti da Microsoft GraphRAG per estrarre entità e relazioni.</br>
       NER: Usa spaCy NER e l'estrazione di parole chiave basata su regole per estrarre entità e relazioni. Non è necessario un LLM per l'estrazione, rendendola veloce ed efficiente nelle risorse.`,
       resolution: 'Risoluzione entità',
       resolutionTip: `Un interruttore di deduplicazione entità. Quando abilitato, il LLM combinerà entità simili per costruire un grafo più accurato`,
@@ -1073,8 +1073,7 @@ Quanto sopra è il contenuto che devi riassumere.`,
       sourceLang: 'Lingua sorgente',
       targetLang: 'Lingua destinazione',
       gitHub: 'GitHub',
-      gitHubDescription:
-        'Un componente che cerca repository da https://github.com/.',
+      gitHubDescription: 'Un componente che cerca repository da GitHub.',
       publish: 'API',
       exeSQL: 'Esegui SQL',
       exeSQLDescription:

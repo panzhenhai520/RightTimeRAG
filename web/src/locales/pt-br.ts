@@ -830,7 +830,7 @@ export default {
       targetLang: 'Idioma de destino',
       gitHub: 'GitHub',
       gitHubDescription:
-        'Um componente que realiza buscas por repositórios em https://github.com/. Você pode usar Top N para especificar o número de resultados de pesquisa.',
+        'Um componente que realiza buscas por repositórios em GitHub. Você pode usar Top N para especificar o número de resultados de pesquisa.',
       baiduFanyi: 'BaiduFanyi',
       baiduFanyiDescription:
         'Um componente que realiza traduções especializadas a partir de https://fanyi.baidu.com/.',

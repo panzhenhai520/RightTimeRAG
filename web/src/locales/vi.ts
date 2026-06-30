@@ -915,7 +915,7 @@ export default {
       targetLang: 'Ngôn ngữ đích',
       gitHub: 'GitHub',
       githubDescription:
-        'Thành phần này được sử dụng để tìm kiếm kho lưu trữ từ https://github.com/. Top N xác định số lượng kết quả tìm kiếm cần điều chỉnh.',
+        'Thành phần này được sử dụng để tìm kiếm kho lưu trữ từ GitHub. Top N xác định số lượng kết quả tìm kiếm cần điều chỉnh.',
       baiduFanyi: 'Baidu Fanyi',
       baiduFanyiDescription:
         'Thành phần này được sử dụng để dịch thuật từ https://fanyi.baidu.com/. Thông thường, nó cung cấp kết quả dịch thuật chuyên biệt hơn.',
@@ -1195,7 +1195,7 @@ export default {
       arXivTip: `Thành phần này được sử dụng để lấy kết quả tìm kiếm từ https://arxiv.org/. Thông thường, nó hoạt động như một phần bổ sung cho cơ sở tri thức. Top N chỉ định số lượng kết quả tìm kiếm bạn cần điều chỉnh.`,
       googleTip: `Thành phần này được sử dụng để lấy kết quả tìm kiếm từ https://www.google.com/. Thông thường, nó hoạt động như một phần bổ sung cho cơ sở tri thức. Top N và khóa API SerpApi chỉ định số lượng kết quả tìm kiếm bạn cần điều chỉnh.`,
       bingTip: `Thành phần này được sử dụng để lấy kết quả tìm kiếm từ https://www.bing.com/. Thông thường, nó hoạt động như một phần bổ sung cho cơ sở tri thức. Top N và khóa đăng ký Bing chỉ định số lượng kết quả tìm kiếm bạn cần điều chỉnh.`,
-      gitHubDescription: `Thành phần này được sử dụng để tìm kiếm các kho lưu trữ từ https://github.com/. Top N chỉ định số lượng kết quả tìm kiếm cần điều chỉnh.`,
+      gitHubDescription: `Thành phần này được sử dụng để tìm kiếm các kho lưu trữ từ GitHub. Top N chỉ định số lượng kết quả tìm kiếm cần điều chỉnh.`,
       flow: `Quy trình làm việc`,
       emailDescription: 'Gửi email đến địa chỉ đã chỉ định',
       toEmail: 'Email người nhận',

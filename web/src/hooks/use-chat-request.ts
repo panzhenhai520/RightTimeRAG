@@ -41,6 +41,7 @@ export const enum ChatApiAction {
   CreateSession = 'createSession',
   UpdateSession = 'updateSession',
   RemoveSession = 'removeSession',
+  OrganizeSession = 'organizeSession',
   DeleteMessage = 'deleteMessage',
   FetchMindMap = 'fetchMindMap',
   FetchRelatedQuestions = 'fetchRelatedQuestions',
@@ -63,18 +64,9 @@ export const useGetChatSearchParams = () => {
   };
 };
 
-type FixedPaginationOptions = {
-  page?: number;
-  pageSize?: number;
-};
-
-export const useFetchChatList = (options?: FixedPaginationOptions) => {
+export const useFetchChatList = () => {
   const { searchString, handleInputChange } = useHandleSearchChange();
   const { pagination, setPagination } = useGetPaginationWithRouter();
-  const requestPagination = {
-    current: options?.page ?? pagination.current,
-    pageSize: options?.pageSize ?? pagination.pageSize,
-  };
   const debouncedSearchString = useDebounce(searchString, { wait: 500 });
 
   const {
@@ -86,7 +78,7 @@ export const useFetchChatList = (options?: FixedPaginationOptions) => {
       ChatApiAction.FetchChatList,
       {
         debouncedSearchString,
-        ...requestPagination,
+        ...pagination,
       },
     ],
     initialData: { chats: [], total: 0 },
@@ -97,8 +89,8 @@ export const useFetchChatList = (options?: FixedPaginationOptions) => {
         {
           params: {
             keywords: debouncedSearchString,
-            page_size: requestPagination.pageSize,
-            page: requestPagination.current,
+            page_size: pagination.pageSize,
+            page: pagination.current,
           },
           data: {},
         },
@@ -122,12 +114,7 @@ export const useFetchChatList = (options?: FixedPaginationOptions) => {
     refetch,
     searchString,
     handleInputChange: onInputChange,
-    pagination: {
-      ...pagination,
-      current: requestPagination.current,
-      pageSize: requestPagination.pageSize,
-      total: data?.total,
-    },
+    pagination: { ...pagination, total: data?.total },
     setPagination,
   };
 };
@@ -228,7 +215,7 @@ export const usePatchChat = () => {
     isPending: loading,
     mutateAsync,
   } = useMutation({
-    mutationKey: [ChatApiAction.PatchChat],
+    mutationKey: [ChatApiAction.OrganizeSession],
     mutationFn: async ({
       chatId,
       params,
@@ -421,6 +408,33 @@ export const useRemoveSessions = () => {
   });
 
   return { data, loading, removeSessions: mutateAsync };
+};
+
+export const useOrganizeSessions = () => {
+  const queryClient = useQueryClient();
+  const { id: chatId } = useParams();
+
+  const {
+    data,
+    isPending: loading,
+    mutateAsync,
+  } = useMutation({
+    mutationKey: [ChatApiAction.PatchChat],
+    mutationFn: async (sessionIds: string[]) => {
+      const { data } = await chatService.organizeSessions(
+        { url: api.organizeSessions(chatId!), data: { ids: sessionIds } },
+        true,
+      );
+      if (data.code === 0) {
+        queryClient.invalidateQueries({
+          queryKey: [ChatApiAction.FetchSessionList],
+        });
+      }
+      return data;
+    },
+  });
+
+  return { data, loading, organizeSessions: mutateAsync };
 };
 
 export const useDeleteMessage = () => {

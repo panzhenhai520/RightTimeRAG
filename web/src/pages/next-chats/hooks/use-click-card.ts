@@ -15,9 +15,8 @@ export function useHandleClickConversationCard() {
   const handleConversationCardClick = useCallback(
     (conversationId: string, isNew: boolean) => {
       setConversationBoth(conversationId, isNew ? 'true' : '');
-      stopOutputMessage();
     },
-    [setConversationBoth, stopOutputMessage],
+    [setConversationBoth],
   );
 
   return { controller, handleConversationCardClick, stopOutputMessage };

@@ -2599,6 +2599,9 @@ Best for: Documents with flowing, contextually connected content — such as boo
       searXNG: 'SearXNG',
       searXNGDescription:
         'A component that searches via your provided SearXNG instance URL. Specify TopN and the instance URL.',
+      fileParser: 'File Parser',
+      fileParserDescription:
+        'Parse uploaded files into temporary chunks and select relevant chunks for downstream LLM nodes.',
       docGenerator: 'Doc Generator',
       docGeneratorDescription: `Generate a file from Markdown content.`,
       browser: 'Browser',
@@ -3148,6 +3151,14 @@ This process aggregates variables from multiple branches into a single variable 
       publishAgent: 'You are about to publish this agent',
       publishSuccess: 'Published successfully',
       publishRunPrompt: 'The agent has been published. Run it now?',
+      publishValidation: 'Pre-publish validation',
+      publishValidating: 'Checking workflow configuration...',
+      publishValidationPassed:
+        'Validation passed. This agent can be published.',
+      publishValidationErrors: 'Issues to fix',
+      publishValidationWarnings: 'Issues to review',
+      publishValidationFailed:
+        'Pre-publish validation failed. Please try again later.',
       linkedDataset: 'Linked dataset:',
       lastPublished: 'Last published',
       createFromBlank: 'Create from blank',

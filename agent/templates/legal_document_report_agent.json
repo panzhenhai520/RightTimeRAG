@@ -1,0 +1,379 @@
+{
+  "id": 41,
+  "title": {
+    "en": "Legal document report assistant",
+    "de": "Assistent fur Rechtsdokumentberichte",
+    "zh": "法律条文解析报告助手"
+  },
+  "description": {
+    "en": "Upload a law, regulation, contract, or legal PDF. The agent parses relevant passages, drafts a structured legal analysis report, and generates a downloadable Word document.",
+    "de": "Laden Sie ein Gesetz, eine Verordnung, einen Vertrag oder ein juristisches PDF hoch. Der Assistent analysiert relevante Passagen, erstellt einen strukturierten Bericht und erzeugt ein Word-Dokument zum Herunterladen.",
+    "zh": "上传法律、法规、合同或法律 PDF 后，智能体会解析相关片段，生成结构化法律条文分析，并输出可下载的 Word 报告。"
+  },
+  "canvas_type": "Recommended",
+  "canvas_types": ["Recommended", "Agent", "Other"],
+  "canvas_category": "agent_canvas",
+  "dsl": {
+    "components": {
+      "begin": {
+        "downstream": ["FileParser:LegalDocument"],
+        "obj": {
+          "component_name": "Begin",
+          "params": {
+            "enablePrologue": true,
+            "inputs": {
+              "law_file": {
+                "name": "法律文件",
+                "type": "file",
+                "optional": false,
+                "options": []
+              },
+              "focus": {
+                "name": "解析重点",
+                "type": "paragraph",
+                "optional": true,
+                "options": []
+              }
+            },
+            "mode": "conversational",
+            "prologue": "你好！请上传法律文件，并说明需要解析的主题或条款范围。"
+          }
+        },
+        "upstream": []
+      },
+      "FileParser:LegalDocument": {
+        "downstream": ["Agent:LegalReport"],
+        "obj": {
+          "component_name": "FileParser",
+          "params": {
+            "chunk_token_num": 1200,
+            "from_page": 0,
+            "input_files": ["sys.file_assets", "begin@law_file_file_assets"],
+            "layout_recognize": "Plain Text",
+            "context_window": 1,
+            "max_content_chars": 18000,
+            "outputs": {
+              "chunks": {
+                "type": "Array<Object>",
+                "value": []
+              },
+              "content": {
+                "type": "string",
+                "value": ""
+              },
+              "matches": {
+                "type": "Array<Object>",
+                "value": []
+              },
+              "references": {
+                "type": "Array<Object>",
+                "value": []
+              },
+              "summary": {
+                "type": "string",
+                "value": ""
+              }
+            },
+            "parser_id": "auto",
+            "query": "{sys.query}\n{begin@focus}",
+            "to_page": 100000,
+            "top_n": 16
+          }
+        },
+        "upstream": ["begin"]
+      },
+      "Agent:LegalReport": {
+        "downstream": ["DocGenerator:LegalReportDoc"],
+        "obj": {
+          "component_name": "Agent",
+          "params": {
+            "delay_after_error": 1,
+            "description": "",
+            "exception_default_value": "",
+            "exception_goto": [],
+            "exception_method": "",
+            "frequencyPenaltyEnabled": false,
+            "frequency_penalty": 0.7,
+            "llm_id": "qwen-max@Tongyi-Qianwen",
+            "maxTokensEnabled": false,
+            "max_retries": 3,
+            "max_rounds": 5,
+            "max_tokens": 2048,
+            "mcp": [],
+            "message_history_window_size": 8,
+            "outputs": {
+              "content": {
+                "type": "string",
+                "value": ""
+              }
+            },
+            "presencePenaltyEnabled": false,
+            "presence_penalty": 0.4,
+            "prompts": [
+              {
+                "content": "用户问题：{sys.query}\n\n用户补充重点：{begin@focus}\n\n从上传文件解析出的相关片段：\n{FileParser:LegalDocument@content}\n\n引用定位信息：\n{FileParser:LegalDocument@references}\n\n请只依据上述上传文件内容生成报告。",
+                "role": "user"
+              }
+            ],
+            "sys_prompt": "你是法律文本解析助手。你的任务是基于用户上传的法律、法规、合同或其他法律文件内容，生成严谨、结构化、可写入报告的分析。\n\n要求：\n1. 只能依据上传文件中解析出的片段，不要编造文件中没有的条款。\n2. 如果片段不足以支持结论，必须明确说明证据不足。\n3. 输出 Markdown，结构包括：标题、问题范围、命中条款或章节、条文要点、适用条件、权利义务、风险提示、结论。\n4. 每个关键结论后尽量标注来自哪个文件或片段。\n5. 不提供正式法律意见，只做文本解析和研究辅助。",
+            "temperature": 0.1,
+            "temperatureEnabled": false,
+            "tools": [],
+            "topPEnabled": false,
+            "top_p": 0.3,
+            "user_prompt": "",
+            "visual_files_var": ""
+          }
+        },
+        "upstream": ["FileParser:LegalDocument"]
+      },
+      "DocGenerator:LegalReportDoc": {
+        "downstream": ["Message:LegalAnswer"],
+        "obj": {
+          "component_name": "DocGenerator",
+          "params": {
+            "add_page_numbers": true,
+            "add_timestamp": true,
+            "content": "{Agent:LegalReport@content}",
+            "filename": "法律条文解析报告",
+            "font_size": 12,
+            "footer_text": "",
+            "header_text": "法律条文解析报告",
+            "include_download_info_in_content": false,
+            "output_format": "docx",
+            "outputs": {
+              "attachment": {
+                "type": "object",
+                "value": {}
+              },
+              "doc_id": {
+                "type": "string",
+                "value": ""
+              },
+              "download": {
+                "type": "string",
+                "value": ""
+              },
+              "downloads": {
+                "type": "Array<Object>",
+                "value": []
+              },
+              "filename": {
+                "type": "string",
+                "value": ""
+              },
+              "mime_type": {
+                "type": "string",
+                "value": ""
+              },
+              "size": {
+                "type": "number",
+                "value": 0
+              }
+            },
+            "watermark_text": ""
+          }
+        },
+        "upstream": ["Agent:LegalReport"]
+      },
+      "Message:LegalAnswer": {
+        "downstream": [],
+        "obj": {
+          "component_name": "Message",
+          "params": {
+            "content": [
+              "{Agent:LegalReport@content}\n\n报告文档：{DocGenerator:LegalReportDoc@download}"
+            ]
+          }
+        },
+        "upstream": ["DocGenerator:LegalReportDoc"]
+      }
+    },
+    "globals": {
+      "sys.conversation_turns": 0,
+      "sys.date": "",
+      "sys.file_assets": [],
+      "sys.files": [],
+      "sys.history": [],
+      "sys.query": "",
+      "sys.user_id": ""
+    },
+    "graph": {
+      "edges": [
+        {
+          "data": {
+            "isHovered": false
+          },
+          "id": "xy-edge__beginstart-FileParser:LegalDocumentend",
+          "source": "begin",
+          "sourceHandle": "start",
+          "target": "FileParser:LegalDocument",
+          "targetHandle": "end"
+        },
+        {
+          "data": {
+            "isHovered": false
+          },
+          "id": "xy-edge__FileParser:LegalDocumentstart-Agent:LegalReportend",
+          "source": "FileParser:LegalDocument",
+          "sourceHandle": "start",
+          "target": "Agent:LegalReport",
+          "targetHandle": "end"
+        },
+        {
+          "data": {
+            "isHovered": false
+          },
+          "id": "xy-edge__Agent:LegalReportstart-DocGenerator:LegalReportDocend",
+          "source": "Agent:LegalReport",
+          "sourceHandle": "start",
+          "target": "DocGenerator:LegalReportDoc",
+          "targetHandle": "end"
+        },
+        {
+          "data": {
+            "isHovered": false
+          },
+          "id": "xy-edge__DocGenerator:LegalReportDocstart-Message:LegalAnswerend",
+          "source": "DocGenerator:LegalReportDoc",
+          "sourceHandle": "start",
+          "target": "Message:LegalAnswer",
+          "targetHandle": "end"
+        }
+      ],
+      "nodes": [
+        {
+          "data": {
+            "form": {
+              "enablePrologue": true,
+              "inputs": [
+                {
+                  "key": "law_file",
+                  "name": "法律文件",
+                  "optional": false,
+                  "options": [],
+                  "type": "file"
+                },
+                {
+                  "key": "focus",
+                  "name": "解析重点",
+                  "optional": true,
+                  "options": [],
+                  "type": "paragraph"
+                }
+              ],
+              "mode": "conversational",
+              "prologue": "你好！请上传法律文件，并说明需要解析的主题或条款范围。"
+            },
+            "label": "Begin",
+            "name": "begin"
+          },
+          "id": "begin",
+          "position": {
+            "x": 50,
+            "y": 220
+          },
+          "sourcePosition": "right",
+          "targetPosition": "left",
+          "type": "beginNode"
+        },
+        {
+          "data": {
+            "form": {
+              "chunk_token_num": 1200,
+              "from_page": 0,
+              "input_files": ["sys.file_assets", "begin@law_file_file_assets"],
+              "layout_recognize": "Plain Text",
+              "context_window": 1,
+              "max_content_chars": 18000,
+              "parser_id": "auto",
+              "query": "{sys.query}\n{begin@focus}",
+              "to_page": 100000,
+              "top_n": 16
+            },
+            "label": "FileParser",
+            "name": "法律文件解析"
+          },
+          "id": "FileParser:LegalDocument",
+          "position": {
+            "x": 360,
+            "y": 220
+          },
+          "sourcePosition": "right",
+          "targetPosition": "left",
+          "type": "ragNode"
+        },
+        {
+          "data": {
+            "form": {
+              "llm_id": "qwen-max@Tongyi-Qianwen",
+              "prompts": [
+                {
+                  "content": "用户问题：{sys.query}\n\n用户补充重点：{begin@focus}\n\n从上传文件解析出的相关片段：\n{FileParser:LegalDocument@content}\n\n引用定位信息：\n{FileParser:LegalDocument@references}\n\n请只依据上述上传文件内容生成报告。",
+                  "role": "user"
+                }
+              ],
+              "sys_prompt": "你是法律文本解析助手。你的任务是基于用户上传的法律、法规、合同或其他法律文件内容，生成严谨、结构化、可写入报告的分析。",
+              "temperature": 0.1
+            },
+            "label": "Agent",
+            "name": "法律报告生成"
+          },
+          "id": "Agent:LegalReport",
+          "position": {
+            "x": 670,
+            "y": 220
+          },
+          "sourcePosition": "right",
+          "targetPosition": "left",
+          "type": "agentNode"
+        },
+        {
+          "data": {
+            "form": {
+              "content": "{Agent:LegalReport@content}",
+              "filename": "法律条文解析报告",
+              "font_size": 12,
+              "header_text": "法律条文解析报告",
+              "output_format": "docx"
+            },
+            "label": "DocGenerator",
+            "name": "生成 Word 报告"
+          },
+          "id": "DocGenerator:LegalReportDoc",
+          "position": {
+            "x": 980,
+            "y": 220
+          },
+          "sourcePosition": "right",
+          "targetPosition": "left",
+          "type": "ragNode"
+        },
+        {
+          "data": {
+            "form": {
+              "content": [
+                "{Agent:LegalReport@content}\n\n报告文档：{DocGenerator:LegalReportDoc@download}"
+              ]
+            },
+            "label": "Message",
+            "name": "输出回答"
+          },
+          "id": "Message:LegalAnswer",
+          "position": {
+            "x": 1290,
+            "y": 220
+          },
+          "sourcePosition": "right",
+          "targetPosition": "left",
+          "type": "messageNode"
+        }
+      ]
+    },
+    "history": [],
+    "messages": [],
+    "path": [],
+    "retrieval": [],
+    "variables": []
+  }
+}

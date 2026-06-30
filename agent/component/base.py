@@ -25,6 +25,7 @@ import logging
 from typing import Any, List, Union
 import pandas as pd
 from agent import settings
+from agent.component.schema import build_runtime_capabilities, build_schema_from_io, merge_schema
 from common.connection_utils import timeout
 
 
@@ -42,6 +43,9 @@ class ComponentParamBase(ABC):
         self.message_history_window_size = 13
         self.inputs = {}
         self.outputs = {}
+        self.input_schema = {}
+        self.output_schema = {}
+        self.runtime_capabilities = {}
         self.description = ""
         self.max_retries = 0
         self.delay_after_error = 2.0
@@ -56,6 +60,23 @@ class ComponentParamBase(ABC):
 
     def check(self):
         raise NotImplementedError("Parameter Object should be checked.")
+
+    def get_input_form(self) -> dict[str, dict]:
+        return {}
+
+    def get_input_schema(self) -> dict[str, dict]:
+        return merge_schema(build_schema_from_io(self.get_input_form(), default_required=True), self.input_schema)
+
+    def get_output_schema(self) -> dict[str, dict]:
+        return merge_schema(build_schema_from_io(self.outputs), self.output_schema)
+
+    def get_runtime_capabilities(self, component_name: str = "") -> dict[str, bool]:
+        return build_runtime_capabilities(
+            component_name,
+            self.runtime_capabilities,
+            self.get_input_schema(),
+            self.get_output_schema(),
+        )
 
     @classmethod
     def _get_or_init_deprecated_params_set(cls):
@@ -551,6 +572,24 @@ class ComponentBase(ABC):
 
     def get_input_form(self) -> dict[str, dict]:
         return self._param.get_input_form()
+
+    def get_input_schema(self) -> dict[str, dict]:
+        return self._param.get_input_schema()
+
+    def get_output_schema(self) -> dict[str, dict]:
+        return self._param.get_output_schema()
+
+    def get_runtime_capabilities(self) -> dict[str, bool]:
+        return self._param.get_runtime_capabilities(self.component_name)
+
+    def get_contract(self) -> dict[str, Any]:
+        return {
+            "component_id": self._id,
+            "component_name": self.component_name,
+            "inputs": self.get_input_schema(),
+            "outputs": self.get_output_schema(),
+            "runtime_capabilities": self.get_runtime_capabilities(),
+        }
 
     def set_input_value(self, key: str, value: Any) -> None:
         if key not in self._param.inputs:

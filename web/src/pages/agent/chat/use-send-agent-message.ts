@@ -16,6 +16,10 @@ import {
 } from '@/hooks/use-send-message';
 import { IDocumentDownloadInfo, Message } from '@/interfaces/database/chat';
 import i18n from '@/locales/config';
+import {
+  createBackgroundAgentRun,
+  fetchAgentRunEvents,
+} from '@/services/agent-service';
 import api from '@/utils/api';
 import {
   buildLongTaskPreview,
@@ -274,6 +278,10 @@ export const useSendAgentMessage = ({
   refetch,
   isTaskMode: isTask,
   releaseMode,
+  activeSessionId,
+  recoveredRunId,
+  onRunStatusChange,
+  useBackgroundRun,
 }: {
   url?: string;
   addEventList?: (data: IEventList, messageId: string) => void;
@@ -282,17 +290,45 @@ export const useSendAgentMessage = ({
   refetch?: () => void;
   isTaskMode?: boolean;
   releaseMode?: string | null;
+  activeSessionId?: string;
+  recoveredRunId?: string;
+  onRunStatusChange?: (
+    sessionId: string | null | undefined,
+    running: boolean,
+    runId?: string | null,
+    runState?: Record<string, any> | null,
+  ) => void;
+  useBackgroundRun?: boolean;
 }) => {
   const { id: agentId } = useParams();
   const { handleInputChange, value, setValue } = useHandleMessageInputChange();
   const inputs = useSelectBeginNodeDataInputs();
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const { send, answerList, done, stopOutputMessage, resetAnswerList } =
-    useSendMessageBySSE(url || api.agentChatCompletion);
+  const {
+    send,
+    answerList,
+    done,
+    stopOutputMessage,
+    resetAnswerList,
+    replaceAnswerList,
+  } = useSendMessageBySSE(url || api.agentChatCompletion);
   const firstAnswer = answerList[0];
   const messageId = useMemo(() => {
     return firstAnswer?.message_id;
   }, [firstAnswer]);
+  const [streamSessionId, setStreamSessionId] = useState<string | null>(null);
+  const [streamRunId, setStreamRunId] = useState<string | null>(null);
+  const answerSessionId = firstAnswer?.session_id || streamSessionId;
+  const answerRunId = firstAnswer?.run_id || streamRunId;
+  const hasTerminalRunEvent = answerList.some(
+    (event) =>
+      event.event === MessageEventType.WorkflowFinished ||
+      String(event.event) === 'workflow_failed' ||
+      String(event.event) === 'workflow_canceled',
+  );
+  const isRecoveringRun = Boolean(answerRunId && done && !hasTerminalRunEvent);
+  const isActiveAnswerVisible =
+    !activeSessionId || !answerSessionId || activeSessionId === answerSessionId;
 
   const isTaskMode = useIsTaskMode(isTask);
 
@@ -366,7 +402,9 @@ export const useSendAgentMessage = ({
         // Prefer the session selected by the outer page state.
         // The hook keeps its own session cache for streamed replies, but that cache
         // can lag behind when the user switches sessions in Explore.
-        params.session_id = exploreSessionId || sessionId;
+        const nextSessionId = exploreSessionId || sessionId;
+        params.session_id = nextSessionId;
+        setStreamSessionId(nextSessionId || null);
         if (releaseMode) {
           params.release = releaseMode;
         }
@@ -377,6 +415,21 @@ export const useSendAgentMessage = ({
       }
 
       try {
+        if (useBackgroundRun) {
+          const res = await createBackgroundAgentRun(agentId!, params);
+          const run = (res as any).data?.data ?? (res as any).data;
+          if (!run?.run_id || !run?.session_id) {
+            throw new Error('Failed to create background run');
+          }
+          setStreamSessionId(run.session_id);
+          setStreamRunId(run.run_id);
+          replaceAnswerList([]);
+          onRunStatusChange?.(run.session_id, true, run.run_id, run);
+          clearUploadResponseList();
+          refetch?.();
+          return;
+        }
+
         const res = await send(params);
 
         clearUploadResponseList();
@@ -390,8 +443,12 @@ export const useSendAgentMessage = ({
         } else {
           refetch?.(); // pull the message list after sending the message successfully
         }
-      } catch (error) {
-        console.log('🚀 ~ useSendAgentMessage ~ error:', error);
+      } catch {
+        sonnerMessage.error(
+          i18n.t('message.sendFailed', {
+            defaultValue: 'Failed to send message',
+          }),
+        );
       }
     },
     [
@@ -407,6 +464,9 @@ export const useSendAgentMessage = ({
       setValue,
       removeLatestMessage,
       refetch,
+      onRunStatusChange,
+      replaceAnswerList,
+      useBackgroundRun,
     ],
   );
 
@@ -545,6 +605,9 @@ export const useSendAgentMessage = ({
   }, [sendMessageInTaskMode]);
 
   useEffect(() => {
+    if (!isActiveAnswerVisible) {
+      return;
+    }
     const { content, id, attachment, audio_binary, downloads } =
       findMessageFromList(answerList);
     const inputAnswer = findInputFromList(answerList);
@@ -577,7 +640,7 @@ export const useSendAgentMessage = ({
         });
       }
     }
-  }, [answerList, addNewestOneAnswer]);
+  }, [answerList, addNewestOneAnswer, isActiveAnswerVisible]);
 
   useEffect(() => {
     if (isTaskMode) {
@@ -607,12 +670,103 @@ export const useSendAgentMessage = ({
   useEffect(() => {
     if (firstAnswer?.session_id) {
       setSessionId(firstAnswer.session_id);
+      setStreamSessionId(firstAnswer.session_id);
+    }
+    if (firstAnswer?.run_id) {
+      setStreamRunId(firstAnswer.run_id);
     }
   }, [firstAnswer]);
 
+  useEffect(() => {
+    if (!activeSessionId) {
+      return;
+    }
+    if (recoveredRunId) {
+      setStreamRunId(recoveredRunId);
+      setStreamSessionId(activeSessionId);
+      return;
+    }
+    setStreamRunId(null);
+    setStreamSessionId(activeSessionId);
+    replaceAnswerList([]);
+  }, [activeSessionId, recoveredRunId, replaceAnswerList]);
+
+  useEffect(() => {
+    onRunStatusChange?.(answerSessionId, !done || isRecoveringRun, answerRunId);
+  }, [answerRunId, answerSessionId, done, isRecoveringRun, onRunStatusChange]);
+
+  useEffect(() => {
+    if (!answerRunId || !done || !isActiveAnswerVisible) {
+      return;
+    }
+    if (hasTerminalRunEvent) {
+      return;
+    }
+
+    let cancelled = false;
+    let clearRecoveryTimer = () => {};
+    const fetchSnapshot = async () => {
+      try {
+        const response = await fetchAgentRunEvents(answerRunId, -1);
+        const data = (response as any).data?.data ?? (response as any).data;
+        if (cancelled || !data?.events?.length) {
+          return;
+        }
+        replaceAnswerList(
+          data.events.map(
+            (item: { event: Record<string, any> }) => item.event,
+          ) as IEventList,
+        );
+        if (data.state?.session_id) {
+          setStreamSessionId(data.state.session_id);
+        }
+        if (data.state?.run_id) {
+          setStreamRunId(data.state.run_id);
+        }
+        if (data.state?.session_id && data.state?.run_id) {
+          const running = ['queued', 'running', 'cancel_requested'].includes(
+            data.state.status,
+          );
+          onRunStatusChange?.(
+            data.state.session_id,
+            running,
+            data.state.run_id,
+            data.state,
+          );
+        }
+        if (
+          data.state?.status &&
+          !['queued', 'running', 'cancel_requested'].includes(data.state.status)
+        ) {
+          cancelled = true;
+          clearRecoveryTimer();
+        }
+      } catch {
+        // Keep polling; transient recovery failures should not interrupt the chat UI.
+      }
+    };
+
+    fetchSnapshot();
+    const timer = window.setInterval(fetchSnapshot, 3000);
+    clearRecoveryTimer = () => window.clearInterval(timer);
+    return () => {
+      cancelled = true;
+      clearRecoveryTimer();
+    };
+  }, [
+    answerList,
+    answerRunId,
+    done,
+    hasTerminalRunEvent,
+    isActiveAnswerVisible,
+    onRunStatusChange,
+    replaceAnswerList,
+  ]);
+
   return {
     value,
-    sendLoading: !done,
+    sendLoading: (!done || isRecoveringRun) && isActiveAnswerVisible,
+    backgroundSendLoading: (!done || isRecoveringRun) && !isActiveAnswerVisible,
     derivedMessages,
     scrollRef,
     messageContainerRef,

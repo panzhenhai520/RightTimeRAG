@@ -1193,6 +1193,9 @@ export default {
       searXNG: 'SearXNG',
       searXNGDescription:
         '此組件透過您提供的 SearXNG 實例 URL 進行搜尋。請設定 Top N 和實例 URL。',
+      fileParser: '文件解析器',
+      fileParserDescription:
+        '將上傳文件解析為臨時切片，並選擇與問題相關的片段供後續大模型節點使用。',
       docGenerator: '文檔生成器',
       docGeneratorDescription: `從 Markdown 內容產生檔案。`,
       subtitle: '副標題',
@@ -1526,6 +1529,12 @@ export default {
       publishAgent: '您即將發布此智能體',
       publishSuccess: '發布成功',
       publishRunPrompt: '智能體已發布成功，是否立即運行？',
+      publishValidation: '發布前校驗',
+      publishValidating: '正在檢查流程配置...',
+      publishValidationPassed: '校驗通過，可以發布。',
+      publishValidationErrors: '必須修復的問題',
+      publishValidationWarnings: '建議檢查的問題',
+      publishValidationFailed: '發布前校驗失敗，請稍後重試。',
       lastPublished: '上次發布時間',
       linkedDataset: '已關聯的知識庫：',
       template: '模板轉換',

@@ -9,11 +9,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { IFlow } from '@/interfaces/database/agent';
+import {
+  IAgentValidationIssue,
+  IAgentValidationResponse,
+  IFlow,
+} from '@/interfaces/database/agent';
 import { IDataset } from '@/interfaces/database/dataset';
 import { formatDate } from '@/utils/date';
-import { BookPlus } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { AlertTriangle, BookPlus, CheckCircle2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useIsPipeline } from '../hooks/use-is-pipeline';
 
@@ -21,6 +25,7 @@ interface PublishConfirmDialogProps {
   agentDetail: IFlow;
   loading: boolean;
   onPublish: () => void | Promise<void>;
+  onValidate?: () => Promise<IAgentValidationResponse>;
 }
 
 function AssociatedDataset({
@@ -60,13 +65,55 @@ function AssociatedDataset({
   );
 }
 
+function PublishIssueList({
+  title,
+  issues,
+  tone,
+}: {
+  title: string;
+  issues: IAgentValidationIssue[];
+  tone: 'error' | 'warning';
+}) {
+  if (issues.length === 0) {
+    return null;
+  }
+
+  const toneClass =
+    tone === 'error'
+      ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-900/60 dark:bg-red-950/25 dark:text-red-100'
+      : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/25 dark:text-amber-100';
+
+  return (
+    <section className={`rounded border px-3 py-2 ${toneClass}`}>
+      <div className="mb-1 flex items-center gap-2 text-sm font-medium">
+        <AlertTriangle className="size-4" />
+        <span>{title}</span>
+      </div>
+      <div className="max-h-32 space-y-1 overflow-y-auto pl-6 text-xs leading-5">
+        {issues.map((issue, index) => (
+          <div key={`${issue.code}-${issue.component_id}-${index}`}>
+            <span>{issue.message}</span>
+            {issue.component_name && (
+              <span className="ml-1 opacity-75">({issue.component_name})</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function PublishConfirmDialog({
   agentDetail,
   loading,
   onPublish,
+  onValidate,
 }: PublishConfirmDialogProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [validation, setValidation] = useState<IAgentValidationResponse>();
+  const [validationError, setValidationError] = useState('');
   const isPipeline = useIsPipeline();
 
   const lastPublished = useMemo(() => {
@@ -81,17 +128,60 @@ export function PublishConfirmDialog({
     return agentDetail?.datasets || [];
   }, [agentDetail?.datasets]);
 
+  const runValidation = useCallback(async () => {
+    if (!onValidate) {
+      return undefined;
+    }
+    setValidating(true);
+    setValidationError('');
+    try {
+      const result = await onValidate();
+      setValidation(result);
+      return result;
+    } catch (error) {
+      setValidationError(
+        error instanceof Error
+          ? error.message
+          : t('flow.publishValidationFailed'),
+      );
+      return undefined;
+    } finally {
+      setValidating(false);
+    }
+  }, [onValidate, t]);
+
+  useEffect(() => {
+    if (open) {
+      runValidation();
+    }
+  }, [open, runValidation]);
+
+  const handleOpenChange = useCallback((nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setValidation(undefined);
+      setValidationError('');
+    }
+  }, []);
+
   const handleConfirmPublish = useCallback(async () => {
+    const result = validation ?? (await runValidation());
+    if (result?.errors?.length) {
+      return;
+    }
     await onPublish();
-    setOpen(false);
-  }, [onPublish]);
+    handleOpenChange(false);
+  }, [handleOpenChange, onPublish, runValidation, validation]);
+
+  const hasValidationErrors = (validation?.errors?.length || 0) > 0;
+  const hasValidationWarnings = (validation?.warnings?.length || 0) > 0;
 
   if (isPipeline) {
     return null;
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <ButtonLoading variant={'secondary'} loading={loading}>
           <BookPlus /> {t('flow.release')}
@@ -136,13 +226,53 @@ export function PublishConfirmDialog({
                 </div>
               )}
             </div>
+
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-text-primary">
+                {t('flow.publishValidation')}
+              </div>
+              {validating ? (
+                <div className="rounded border border-border-default bg-bg-card px-3 py-2 text-sm text-text-secondary">
+                  {t('flow.publishValidating')}
+                </div>
+              ) : validationError ? (
+                <section className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/25 dark:text-amber-100">
+                  {validationError}
+                </section>
+              ) : validation ? (
+                <div className="space-y-2">
+                  {!hasValidationErrors && !hasValidationWarnings && (
+                    <section className="flex items-center gap-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/25 dark:text-emerald-100">
+                      <CheckCircle2 className="size-4" />
+                      <span>{t('flow.publishValidationPassed')}</span>
+                    </section>
+                  )}
+                  <PublishIssueList
+                    title={t('flow.publishValidationErrors')}
+                    issues={validation.errors}
+                    tone="error"
+                  />
+                  <PublishIssueList
+                    title={t('flow.publishValidationWarnings')}
+                    issues={validation.warnings}
+                    tone="warning"
+                  />
+                </div>
+              ) : null}
+            </div>
           </div>
         </DialogDescription>
         <DialogFooter className="gap-2 mt-4">
           <Button variant="outline" onClick={() => setOpen(false)}>
             {t('common.cancel')}
           </Button>
-          <Button onClick={handleConfirmPublish}>{t('common.confirm')}</Button>
+          <ButtonLoading
+            onClick={handleConfirmPublish}
+            loading={loading || validating}
+            disabled={hasValidationErrors}
+          >
+            {t('common.confirm')}
+          </ButtonLoading>
         </DialogFooter>
       </DialogContent>
     </Dialog>

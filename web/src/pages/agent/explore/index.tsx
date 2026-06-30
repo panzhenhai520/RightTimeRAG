@@ -9,21 +9,25 @@ import {
 } from '@/components/ui/breadcrumb';
 import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { useFetchSessionManually } from '@/hooks/use-agent-request';
-import { useCallback } from 'react';
+import { listAgentActiveRuns } from '@/services/agent-service';
+import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { useFetchDataOnMount } from '../hooks/use-fetch-data';
 import { SessionChat } from './components/session-chat';
 import { SessionList } from './components/session-list';
 import { useExploreUrlParams } from './hooks/use-explore-url-params';
+import { ExploreRunProvider, useExploreRunContext } from './run-context';
 
-export default function AgentExplore() {
+function AgentExploreContent() {
   const { sessionId, setSessionId } = useExploreUrlParams();
   const { navigateToAgent, navigateToHome } = useNavigatePage();
   const { t } = useTranslation();
   const { id } = useParams();
   const { flowDetail: agentDetail } = useFetchDataOnMount();
   const { fetchSessionManually, data: session } = useFetchSessionManually();
+  const { runningSessionIds, runningRunsBySession, setSessionRunning } =
+    useExploreRunContext();
 
   const handleBackToAgent = useCallback(() => {
     const navigateFn = navigateToAgent(id as string);
@@ -37,6 +41,32 @@ export default function AgentExplore() {
     },
     [fetchSessionManually, setSessionId],
   );
+
+  useEffect(() => {
+    if (!id) {
+      return;
+    }
+    let cancelled = false;
+    const restoreActiveRuns = async () => {
+      try {
+        const response = await listAgentActiveRuns(id);
+        const payload = (response as any).data?.data ?? (response as any).data;
+        const runs = payload?.runs || [];
+        if (cancelled) {
+          return;
+        }
+        runs.forEach((run: any) => {
+          setSessionRunning(run.session_id, true, run.run_id, run);
+        });
+      } catch {
+        // Active run restoration is opportunistic; local session state still works.
+      }
+    };
+    restoreActiveRuns();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, setSessionRunning]);
 
   return (
     <section className="h-full flex flex-col">
@@ -68,6 +98,8 @@ export default function AgentExplore() {
         <div className="w-[296px] border-r min-w-0">
           <SessionList
             selectedSessionId={sessionId}
+            runningSessionIds={runningSessionIds}
+            runningRunsBySession={runningRunsBySession}
             onSelectSession={handleSessionSelect}
           />
         </div>
@@ -77,5 +109,13 @@ export default function AgentExplore() {
         </div>
       </section>
     </section>
+  );
+}
+
+export default function AgentExplore() {
+  return (
+    <ExploreRunProvider>
+      <AgentExploreContent />
+    </ExploreRunProvider>
   );
 }

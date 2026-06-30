@@ -2,10 +2,15 @@ import { MessageType } from '@/constants/chat';
 import { IAttachment } from '@/hooks/use-send-message';
 
 export interface IDocumentDownloadInfo {
+  artifact_id?: string;
   doc_id: string;
   filename: string;
   mime_type: string;
   size?: number;
+  download_url?: string;
+  run_id?: string;
+  node_id?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PromptConfig {

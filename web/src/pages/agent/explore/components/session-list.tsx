@@ -9,11 +9,23 @@ import { SessionCard } from './session-card';
 
 interface SessionListProps {
   selectedSessionId?: string;
+  runningSessionIds?: Set<string>;
+  runningRunsBySession?: Record<
+    string,
+    {
+      runId?: string;
+      status?: string;
+      progressPercent?: number;
+      currentNodeName?: string;
+    }
+  >;
   onSelectSession: (sessionId: string, isNew?: boolean) => void;
 }
 
 export function SessionList({
   selectedSessionId = '',
+  runningSessionIds = new Set<string>(),
+  runningRunsBySession = {},
   onSelectSession,
 }: SessionListProps) {
   const { t } = useTranslation();
@@ -51,7 +63,9 @@ export function SessionList({
             key={session.id}
             session={session}
             selected={session.id === selectedSessionId}
-            onClick={() => onSelectSession(session.id, session.is_new)}
+            running={runningSessionIds.has(session.id)}
+            runningRun={runningRunsBySession[session.id]}
+            onClick={() => onSelectSession(session.id, (session as any).is_new)}
             removeTemporarySession={removeTemporarySession}
           />
         ))}

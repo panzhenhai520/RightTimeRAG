@@ -71,8 +71,11 @@ class Message(ComponentBase):
 
     @staticmethod
     def _is_download_info(value: Any) -> bool:
-        return isinstance(value, dict) and all(
-            key in value for key in ("doc_id", "filename", "mime_type")
+        return (
+            isinstance(value, dict)
+            and bool(value.get("doc_id"))
+            and bool(value.get("filename") or value.get("file_name"))
+            and bool(value.get("mime_type"))
         )
 
     @staticmethod
@@ -88,8 +91,12 @@ class Message(ComponentBase):
             return value
 
         normalized = value.copy()
+        if normalized.get("file_name") and not normalized.get("filename"):
+            normalized["filename"] = normalized.get("file_name")
         normalized.pop("include_download_info_in_content", None)
         normalized.pop("base64", None)
+        normalized.pop("file_name", None)
+        normalized.pop("format", None)
         return normalized
 
     def _extract_downloads(self, value: Any) -> list[dict[str, Any]]:
@@ -102,10 +109,38 @@ class Message(ComponentBase):
         if self._is_download_info(value):
             return [value]
 
-        if isinstance(value, list) and all(self._is_download_info(item) for item in value):
-            return value
+        if isinstance(value, list):
+            return [item for item in value if self._is_download_info(item)]
 
         return []
+
+    def _collect_upstream_downloads(self) -> list[dict[str, Any]]:
+        downloads = []
+        for component_id in self.get_upstream():
+            try:
+                component = self._canvas.get_component_obj(component_id)
+            except Exception:
+                logging.warning("Unable to collect downloads from upstream component %s", component_id)
+                continue
+            downloads.extend(self._extract_downloads(component.output("downloads")))
+            downloads.extend(self._extract_downloads(component.output("attachment")))
+            downloads.extend(self._extract_downloads(component.output("download")))
+        return downloads
+
+    @staticmethod
+    def _deduplicate_downloads(downloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        deduplicated = []
+        seen = set()
+        for item in downloads:
+            normalized = Message._normalize_download_info(item)
+            if not Message._is_download_info(normalized):
+                continue
+            key = normalized.get("doc_id") or f"{normalized.get('filename')}:{normalized.get('size', '')}"
+            if key in seen:
+                continue
+            seen.add(key)
+            deduplicated.append(normalized)
+        return deduplicated
 
     def _stringify_message_value(
         self,
@@ -251,7 +286,7 @@ class Message(ComponentBase):
             all_content += rand_cnt[s: ]
             yield rand_cnt[s: ]
 
-        self.set_output("downloads", downloads)
+        self.set_output("downloads", self._deduplicate_downloads(downloads + self._collect_upstream_downloads()))
         self.set_output("content", all_content)
         self._convert_content(all_content)
         await self._save_to_memory(all_content)
@@ -287,7 +322,7 @@ class Message(ComponentBase):
         for n, v in kwargs.items():
             content = re.sub(n, v, content)
 
-        self.set_output("downloads", downloads)
+        self.set_output("downloads", self._deduplicate_downloads(downloads + self._collect_upstream_downloads()))
         self.set_output("content", content)
         self._convert_content(content)
         self._save_to_memory_from_sync(content)

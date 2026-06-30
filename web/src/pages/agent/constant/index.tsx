@@ -144,6 +144,19 @@ export const initialExcelProcessorValues = {
   transform_data: '',
   output_format: 'xlsx',
   output_filename: 'output',
+  aggregate_column_keywords: [
+    '合计',
+    '总计',
+    '金额合计',
+    'total',
+    'sum',
+    'amount',
+  ],
+  aggregate_coefficient: 1,
+  aggregate_result_name: 'B',
+  calculation_value: '',
+  calculation_coefficient: 1,
+  calculation_result_name: 'B',
   outputs: {
     data: {
       type: 'object',
@@ -154,6 +167,53 @@ export const initialExcelProcessorValues = {
       value: '',
     },
     markdown: {
+      type: 'string',
+      value: '',
+    },
+    aggregate: {
+      type: 'object',
+      value: {},
+    },
+    result: {
+      type: 'number',
+      value: 0,
+    },
+    downloads: {
+      type: 'Array<Object>',
+      value: [],
+    },
+    attachment: {
+      type: 'object',
+      value: {},
+    },
+  },
+};
+
+export const initialFileParserValues = {
+  input_files: ['sys.file_assets'],
+  query: AgentGlobalsSysQueryWithBrace,
+  parser_id: 'auto',
+  layout_recognize: 'Plain Text',
+  chunk_token_num: 1200,
+  from_page: 0,
+  to_page: 100000,
+  top_n: 12,
+  context_window: 0,
+  max_content_chars: 12000,
+  outputs: {
+    chunks: {
+      type: 'Array<Object>',
+      value: [],
+    },
+    matches: {
+      type: 'Array<Object>',
+      value: [],
+    },
+    content: {
+      type: 'string',
+      value: '',
+    },
+    summary: {
       type: 'string',
       value: '',
     },
@@ -308,6 +368,18 @@ export const initialExeSqlValues = {
     json: {
       value: [],
       type: 'Array<Object>',
+    },
+    sql_result: {
+      value: {},
+      type: 'SQLResult',
+    },
+    row_count: {
+      value: 0,
+      type: 'number',
+    },
+    truncated: {
+      value: false,
+      type: 'boolean',
     },
   },
 };
@@ -682,9 +754,11 @@ export const RestrictedUpstreamMap = {
   [Operator.TavilyExtract]: [Operator.Begin],
   [Operator.StringTransform]: [Operator.Begin],
   [Operator.UserFillUp]: [Operator.Begin],
+  [Operator.FileParser]: [Operator.Begin],
   [Operator.Tool]: [Operator.Begin],
   [Operator.Placeholder]: [Operator.Begin],
   [Operator.DataOperations]: [Operator.Begin],
+  [Operator.ExcelProcessor]: [Operator.Begin],
   [Operator.ListOperations]: [Operator.Begin],
   [Operator.VariableAssigner]: [Operator.Begin],
   [Operator.VariableAggregator]: [Operator.Begin],
@@ -733,6 +807,7 @@ export const NodeMap = {
   [Operator.TavilySearch]: 'ragNode',
   [Operator.UserFillUp]: 'ragNode',
   [Operator.StringTransform]: 'ragNode',
+  [Operator.FileParser]: 'ragNode',
   [Operator.TavilyExtract]: 'ragNode',
   [Operator.Placeholder]: 'placeholderNode',
   [Operator.File]: 'fileNode',

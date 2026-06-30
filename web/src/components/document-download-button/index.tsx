@@ -4,6 +4,7 @@ import { downloadAgentFile } from '@/services/file-manager-service';
 import { downloadFileFromBlob } from '@/utils/file-util';
 import { Download, FileText } from 'lucide-react';
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export type DocumentDownloadInfo = IDocumentDownloadInfo;
 
@@ -16,6 +17,8 @@ export function DocumentDownloadButton({
   downloadInfo,
   className,
 }: DocumentDownloadButtonProps) {
+  const { t } = useTranslation();
+
   const handleDownload = useCallback(async () => {
     try {
       const ext =
@@ -81,7 +84,7 @@ export function DocumentDownloadButton({
         className="flex items-center gap-2"
       >
         <Download className="w-4 h-4" />
-        Download
+        {t('common.download')}
       </Button>
     </div>
   );

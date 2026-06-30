@@ -1,5 +1,11 @@
 import {
+  IAgentActiveRunsResponse,
   IAgentLogsRequest,
+  IAgentRunArtifactsResponse,
+  IAgentRunEventsResponse,
+  IAgentRunState,
+  IAgentRunTraceResponse,
+  IAgentValidationResponse,
   IPipeLineListRequest,
 } from '@/interfaces/database/agent';
 import { IAgentWebhookTraceRequest } from '@/interfaces/request/agent';
@@ -21,11 +27,19 @@ const {
   fetchVersionList,
   fetchVersion,
   getAgent,
+  validateAgent,
   fetchAgentSessions,
   fetchExternalAgentInputs,
   prompt,
   cancelDataflow,
   cancelCanvas,
+  agentRun,
+  agentRunEvents,
+  agentRunArtifacts,
+  agentRunTrace,
+  createAgentRun,
+  listAgentRuns,
+  cancelAgentRun,
 } = api;
 
 const methods = {
@@ -97,6 +111,10 @@ const methods = {
       api.inputForm(config.agentId, config.componentId),
     method: 'get',
   },
+  validateAgent: {
+    url: validateAgent,
+    method: 'post',
+  },
   fetchAgentLogs: {
     url: fetchAgentSessions,
     method: 'get',
@@ -115,6 +133,34 @@ const methods = {
   },
   cancelCanvas: {
     url: cancelCanvas,
+    method: 'post',
+  },
+  fetchAgentRun: {
+    url: agentRun,
+    method: 'get',
+  },
+  createAgentRun: {
+    url: (config: { agentId: string }) => createAgentRun(config.agentId),
+    method: 'post',
+  },
+  listAgentRuns: {
+    url: (config: { agentId: string }) => listAgentRuns(config.agentId),
+    method: 'get',
+  },
+  fetchAgentRunEvents: {
+    url: agentRunEvents,
+    method: 'get',
+  },
+  fetchAgentRunArtifacts: {
+    url: agentRunArtifacts,
+    method: 'get',
+  },
+  fetchAgentRunTrace: {
+    url: agentRunTrace,
+    method: 'get',
+  },
+  cancelAgentRun: {
+    url: cancelAgentRun,
     method: 'post',
   },
   createAgentSession: {
@@ -144,6 +190,81 @@ export const updateAgentTags = (agentId: string, tags: string[]) => {
     method: 'put',
     data: { tags: tags.join(',') },
   });
+};
+
+export const fetchAgentRun = (runId: string) => {
+  return request<{ data: IAgentRunState }>(api.agentRun(runId), {
+    method: 'get',
+  });
+};
+
+export const createBackgroundAgentRun = (
+  agentId: string,
+  data: Record<string, any>,
+) => {
+  return request<{
+    data: {
+      run_id: string;
+      session_id: string;
+      message_id: string;
+      task_id: string;
+      status: IAgentRunState['status'];
+    };
+  }>(api.createAgentRun(agentId), {
+    method: 'post',
+    data,
+  });
+};
+
+export const listAgentActiveRuns = (agentId: string, sessionId?: string) => {
+  return request<{ data: IAgentActiveRunsResponse }>(
+    api.listAgentRuns(agentId),
+    {
+      method: 'get',
+      params: sessionId ? { session_id: sessionId } : undefined,
+    },
+  );
+};
+
+export const fetchAgentRunEvents = (runId: string, after = -1) => {
+  return request<{ data: IAgentRunEventsResponse }>(api.agentRunEvents(runId), {
+    method: 'get',
+    params: { after },
+  });
+};
+
+export const fetchAgentRunArtifacts = (runId: string) => {
+  return request<{ data: IAgentRunArtifactsResponse }>(
+    api.agentRunArtifacts(runId),
+    {
+      method: 'get',
+    },
+  );
+};
+
+export const fetchAgentRunTrace = (runId: string) => {
+  return request<{ data: IAgentRunTraceResponse }>(api.agentRunTrace(runId), {
+    method: 'get',
+  });
+};
+
+export const cancelAgentRunById = (runId: string) => {
+  return request<{ data: { canceled: boolean } }>(api.cancelAgentRun(runId), {
+    method: 'post',
+  });
+};
+
+export const validateAgentDsl = (
+  agentId: string,
+  dsl?: Record<string, any>,
+) => {
+  return request<{ data: IAgentValidationResponse }>(
+    api.validateAgent(agentId),
+    {
+      method: dsl ? 'post' : 'get',
+      data: dsl ? { dsl } : undefined,
+    },
+  );
 };
 
 export const fetchTrace = (data: { canvas_id: string; message_id: string }) => {

@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useExploreUrlParams } from '../hooks/use-explore-url-params';
 import { useSendSessionMessage } from '../hooks/use-send-session-message';
+import { useExploreRunContext } from '../run-context';
 
 interface SessionChatProps {
   session?: IAgentLogResponse;
@@ -25,6 +26,8 @@ export function SessionChat({ session }: SessionChatProps) {
   const { data: userInfo } = useFetchUserInfo();
   const { sessionId, isNew } = useExploreUrlParams();
   const hasLocalMessageRef = useRef(false);
+  const { getSessionRunId } = useExploreRunContext();
+  const recoveredRunId = getSessionRunId(sessionId);
 
   const sessionLoading = false;
 
@@ -34,6 +37,7 @@ export function SessionChat({ session }: SessionChatProps) {
     scrollRef,
     messageContainerRef,
     sendLoading,
+    backgroundSendLoading,
     handleInputChange,
     handlePressEnter,
     stopOutputMessage,
@@ -46,7 +50,7 @@ export function SessionChat({ session }: SessionChatProps) {
     beginInputs,
     shouldShowParameterDialog,
     setDerivedMessages,
-  } = useSendSessionMessage();
+  } = useSendSessionMessage({ recoveredRunId });
   const hasActiveSession = Boolean(
     sessionId || isNew || hasLocalMessageRef.current,
   );
@@ -153,7 +157,7 @@ export function SessionChat({ session }: SessionChatProps) {
             value={value}
             sendLoading={sendLoading}
             disabled={false}
-            sendDisabled={sendLoading}
+            sendDisabled={sendLoading || backgroundSendLoading}
             isUploading={isUploading}
             onPressEnter={handleSessionPressEnter}
             onInputChange={handleInputChange}

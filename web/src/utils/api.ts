@@ -209,10 +209,19 @@ export default {
     `${restAPIv1}/agents/${agentId}/components/${componentId}/debug`,
   trace: (agentId: string, messageId: string) =>
     `${restAPIv1}/agents/${agentId}/logs/${messageId}`,
+  createAgentRun: (agentId: string) => `${restAPIv1}/agents/${agentId}/runs`,
+  listAgentRuns: (agentId: string) => `${restAPIv1}/agents/${agentId}/runs`,
+  agentRun: (runId: string) => `${restAPIv1}/agents/runs/${runId}`,
+  agentRunEvents: (runId: string) => `${restAPIv1}/agents/runs/${runId}/events`,
+  agentRunTrace: (runId: string) => `${restAPIv1}/agents/runs/${runId}/trace`,
+  agentRunArtifacts: (runId: string) =>
+    `${restAPIv1}/agents/runs/${runId}/artifacts`,
+  cancelAgentRun: (runId: string) => `${restAPIv1}/agents/runs/${runId}/cancel`,
   cancelCanvas: (taskId: string) => `${restAPIv1}/tasks/${taskId}/cancel`,
   // agent
   inputForm: (agentId: string, componentId: string) =>
     `${restAPIv1}/agents/${agentId}/components/${componentId}/input-form`,
+  validateAgent: (agentId: string) => `${restAPIv1}/agents/${agentId}/validate`,
   fetchVersionList: (id: string) => `${restAPIv1}/agents/${id}/versions`,
   fetchVersion: (agentId: string, versionId: string) =>
     `${restAPIv1}/agents/${agentId}/versions/${versionId}`,

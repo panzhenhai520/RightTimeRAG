@@ -92,7 +92,9 @@ export function AccordionOperators({
             operators={[
               Operator.Code,
               Operator.StringTransform,
+              Operator.FileParser,
               Operator.DataOperations,
+              Operator.ExcelProcessor,
               Operator.VariableAssigner,
               Operator.ListOperations,
               Operator.VariableAggregator,

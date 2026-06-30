@@ -21,8 +21,10 @@ import {
   initialDocGeneratorValues,
   initialDuckValues,
   initialEmailValues,
+  initialExcelProcessorValues,
   initialExeSqlValues,
   initialExtractorValues,
+  initialFileParserValues,
   initialGithubValues,
   initialGoogleScholarValues,
   initialGoogleValues,
@@ -143,6 +145,7 @@ export const useInitializeOperatorParams = () => {
       [Operator.Bing]: initialBingValues,
       [Operator.GoogleScholar]: initialGoogleScholarValues,
       [Operator.SearXNG]: initialSearXNGValues,
+      [Operator.FileParser]: initialFileParserValues,
       [Operator.GitHub]: initialGithubValues,
       [Operator.ExeSQL]: initialExeSqlValues,
       [Operator.Switch]: initialSwitchValues,
@@ -183,7 +186,7 @@ export const useInitializeOperatorParams = () => {
       [Operator.ExitLoop]: {},
       [Operator.DocGenerator]: initialDocGeneratorValues,
       [Operator.Browser]: { ...initialBrowserValues, llm_id: llmId },
-      [Operator.ExcelProcessor]: {},
+      [Operator.ExcelProcessor]: initialExcelProcessorValues,
     };
   }, [llmId]);
 

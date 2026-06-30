@@ -23,6 +23,7 @@ import inspect
 import ipaddress
 import json
 import logging
+import os
 import time
 from functools import partial, wraps
 from typing import Set
@@ -36,6 +37,11 @@ from api.apps.services.canvas_replica_service import CanvasReplicaService
 from api.db import CanvasCategory
 from api.db.db_models import Task
 from api.db.services.api_service import API4ConversationService
+from api.db.services.agent_meeting_memory_service import AgentMeetingMemoryService
+from api.db.services.agent_meeting_scheduler_service import AgentMeetingSchedulerService
+from api.db.services.agent_run_queue_service import AgentRunQueueService
+from api.db.services.agent_run_service import AgentRunService, AgentRunStatus
+from api.db.services.agent_validation_service import AgentValidationService
 from api.db.services.canvas_service import (
     CanvasTemplateService,
     UserCanvasService,
@@ -61,6 +67,7 @@ from api.utils.api_utils import (
 from common import settings
 from common.ssrf_guard import assert_host_is_safe
 from common.constants import RetCode
+from common.exceptions import TaskCanceledException
 from common.misc_utils import get_uuid, thread_pool_exec
 from peewee import MySQLDatabase, PostgresqlDatabase
 
@@ -82,6 +89,17 @@ def _request_bool(value, default=False):
         if normalized in {"false", "0", "no", "n", "off", ""}:
             return False
     return bool(value)
+
+
+def _agent_run_queue_enabled(req: dict | None = None) -> bool:
+    """Return whether recoverable Agent runs should go through the queue."""
+    if req and "queue" in req:
+        return _request_bool(req.get("queue"), False)
+    return _request_bool(os.environ.get("AGENT_RUN_QUEUE_ENABLED"), False)
+
+
+def _is_agent_run_canceled(exc: Exception) -> bool:
+    return isinstance(exc, TaskCanceledException) or "has been canceled" in str(exc).lower()
 
 
 def _require_canvas_access_sync(func):
@@ -183,6 +201,17 @@ def _agent_session_list_result(data, total):
     return jsonify({"code": RetCode.SUCCESS, "message": "success", "data": data, "total": total})
 
 
+def _release_validation_error(dsl):
+    validation = AgentValidationService.validate_for_publish(dsl)
+    if validation["ok"]:
+        return None
+    return get_json_result(
+        data=validation,
+        message="Agent publish validation failed.",
+        code=RetCode.ARGUMENT_ERROR,
+    )
+
+
 async def _run_workflow_session(
     tenant_id,
     agent_id,
@@ -199,6 +228,9 @@ async def _run_workflow_session(
     return_trace,
     stream,
     chat_template_kwargs=None,
+    run_id=None,
+    start_run_record=True,
+    return_response=True,
 ):
     async def commit_runtime_replica():
         commit_ok = CanvasReplicaService.commit_after_run(
@@ -235,6 +267,43 @@ async def _run_workflow_session(
     final_ans = {}
     trace_items = []
     structured_output = {}
+    run_id = run_id or get_uuid()
+    setattr(canvas, "_run_id", run_id)
+    tenant_key = str(tenant_id)
+    if start_run_record:
+        AgentRunService.start(
+            tenant_key,
+            run_id,
+            agent_id,
+            session_id,
+            turn_id,
+            getattr(canvas, "task_id", ""),
+            query,
+            status=AgentRunStatus.RUNNING,
+            mode="sse" if stream else "sync",
+        )
+    else:
+        AgentRunService.mark_running(tenant_key, run_id)
+    AgentRunService.append_event(
+        tenant_key,
+        run_id,
+        {
+            "event": "workflow_started",
+            "session_id": session_id,
+            "run_id": run_id,
+            "message_id": turn_id,
+            "task_id": getattr(canvas, "task_id", ""),
+            "created_at": int(time.time()),
+            "data": {
+                "inputs": {
+                    "query": query,
+                    "files": files,
+                    "inputs": inputs,
+                },
+                "created_at": time.time(),
+            },
+        },
+    )
     run_kwargs = {
         "query": query,
         "files": files,
@@ -243,6 +312,12 @@ async def _run_workflow_session(
     }
     if chat_template_kwargs is not None:
         run_kwargs["chat_template_kwargs"] = chat_template_kwargs
+
+    def record_run_event(ans):
+        ans["session_id"] = session_id
+        ans["run_id"] = run_id
+        AgentRunService.append_event(tenant_key, run_id, copy.deepcopy(ans))
+        return ans
 
     async def persist_workflow_session():
         if not final_ans:
@@ -268,7 +343,7 @@ async def _run_workflow_session(
             done_sent = False
             try:
                 async for ans in canvas.run(**run_kwargs):
-                    ans["session_id"] = session_id
+                    ans = record_run_event(ans)
                     if ans.get("event") == "message":
                         full_content += ans.get("data", {}).get("content", "")
                     if ans.get("data", {}).get("reference", None):
@@ -298,13 +373,35 @@ async def _run_workflow_session(
                         final_ans["data"]["structured"] = structured_output
                     if trace_items:
                         final_ans["data"]["trace"] = trace_items
-                await persist_workflow_session()
+                if final_ans and final_ans.get("event") == "workflow_failed":
+                    AgentRunService.fail(tenant_key, run_id, final_ans.get("data", {}).get("error", "Workflow failed."))
+                else:
+                    await persist_workflow_session()
+                    AgentRunService.finish(tenant_key, run_id)
             except Exception as exc:
                 logging.exception(exc)
                 canvas.cancel_task()
+                canceled = _is_agent_run_canceled(exc)
+                AgentRunService.append_event(
+                    tenant_key,
+                    run_id,
+                    {
+                        "event": "workflow_canceled" if canceled else "workflow_failed",
+                        "session_id": session_id,
+                        "run_id": run_id,
+                        "message_id": turn_id,
+                        "task_id": getattr(canvas, "task_id", ""),
+                        "created_at": int(time.time()),
+                        "data": {"error": str(exc), "created_at": time.time()},
+                    },
+                )
+                if canceled:
+                    AgentRunService.finish(tenant_key, run_id, AgentRunStatus.CANCELED, str(exc))
+                else:
+                    AgentRunService.fail(tenant_key, run_id, str(exc))
                 yield (
                     "data:"
-                    + json.dumps({"code": 500, "message": str(exc), "data": False}, ensure_ascii=False)
+                    + json.dumps({"code": 500, "message": str(exc), "data": False, "run_id": run_id, "session_id": session_id}, ensure_ascii=False)
                     + "\n\n"
                 )
             finally:
@@ -316,7 +413,7 @@ async def _run_workflow_session(
 
     try:
         async for ans in canvas.run(**run_kwargs):
-            ans["session_id"] = session_id
+            ans = record_run_event(ans)
             if ans.get("event") == "message":
                 full_content += ans.get("data", {}).get("content", "")
             if ans.get("data", {}).get("reference", None):
@@ -338,11 +435,41 @@ async def _run_workflow_session(
     except Exception as exc:
         logging.exception(exc)
         canvas.cancel_task()
+        canceled = _is_agent_run_canceled(exc)
+        AgentRunService.append_event(
+            tenant_key,
+            run_id,
+            {
+                "event": "workflow_canceled" if canceled else "workflow_failed",
+                "session_id": session_id,
+                "run_id": run_id,
+                "message_id": turn_id,
+                "task_id": getattr(canvas, "task_id", ""),
+                "created_at": int(time.time()),
+                "data": {"error": str(exc), "created_at": time.time()},
+            },
+        )
+        if canceled:
+            AgentRunService.finish(tenant_key, run_id, AgentRunStatus.CANCELED, str(exc))
+        else:
+            AgentRunService.fail(tenant_key, run_id, str(exc))
+        if not return_response:
+            return {"error": str(exc), "run_id": run_id, "session_id": session_id}
         return get_result(data=f"**ERROR**: {str(exc)}")
 
     if not final_ans:
         await commit_runtime_replica()
+        AgentRunService.finish(tenant_key, run_id)
+        if not return_response:
+            return {}
         return get_result(data={})
+
+    if final_ans.get("event") == "workflow_failed":
+        error_message = final_ans.get("data", {}).get("error", "Workflow failed.")
+        AgentRunService.fail(tenant_key, run_id, error_message)
+        if not return_response:
+            return final_ans
+        return get_result(data=f"**ERROR**: {error_message}")
 
     if "data" not in final_ans or not isinstance(final_ans["data"], dict):
         final_ans["data"] = {}
@@ -354,7 +481,75 @@ async def _run_workflow_session(
         final_ans["data"]["trace"] = trace_items
 
     await persist_workflow_session()
+    AgentRunService.finish(tenant_key, run_id)
+    if not return_response:
+        return final_ans
     return get_result(data=final_ans)
+
+
+async def execute_queued_agent_run(payload: dict):
+    """Execute one queued Agent run payload.
+
+    The create-run API persists the user turn before enqueueing. The worker
+    reloads the released/current DSL and the saved session, then delegates to
+    the same workflow runner used by the in-process background mode.
+    """
+    AgentRunQueueService.validate_payload(payload)
+
+    tenant_id = str(payload["tenant_id"])
+    agent_id = payload["agent_id"]
+    session_id = payload["session_id"]
+    query = payload.get("query", "")
+    files = payload.get("files") or []
+    inputs = payload.get("inputs") or {}
+    user_id = str(payload.get("user_id") or tenant_id)
+    release_mode = bool(payload.get("release", False))
+    custom_header = payload.get("custom_header", "")
+    return_trace = bool(payload.get("return_trace", False))
+    chat_template_kwargs = payload.get("chat_template_kwargs")
+    run_id = payload["run_id"]
+
+    from agent.canvas import Canvas
+
+    cvs, dsl = await thread_pool_exec(
+        UserCanvasService.get_agent_dsl_with_release,
+        agent_id,
+        release_mode,
+        tenant_id,
+    )
+    canvas_category = getattr(cvs, "canvas_category", CanvasCategory.Agent)
+    if canvas_category == CanvasCategory.DataFlow:
+        raise ValueError("Queued background runs for DataFlow canvases are not supported yet.")
+
+    canvas = Canvas(dsl, tenant_id, canvas_id=agent_id, custom_header=custom_header)
+    exists, conv = await thread_pool_exec(API4ConversationService.get_by_id, session_id)
+    if not exists:
+        raise ValueError("Session not found!")
+
+    workflow_conv = conv.to_dict()
+    if not isinstance(workflow_conv.get("message"), list) or not workflow_conv["message"]:
+        raise ValueError("Queued Agent run session has no user message.")
+
+    return await _run_workflow_session(
+        tenant_id=tenant_id,
+        agent_id=agent_id,
+        workflow_conv=workflow_conv,
+        canvas=canvas,
+        query=query,
+        files=files,
+        inputs=inputs,
+        user_id=user_id,
+        session_id=session_id,
+        custom_header=custom_header,
+        canvas_title=getattr(cvs, "title", ""),
+        canvas_category=canvas_category,
+        return_trace=return_trace,
+        stream=False,
+        chat_template_kwargs=chat_template_kwargs,
+        run_id=run_id,
+        start_run_record=False,
+        return_response=False,
+    )
 
 
 @manager.route("/agents/<agent_id>/sessions", methods=["GET"])  # noqa: F821
@@ -456,6 +651,479 @@ def delete_agent_session_item(agent_id, session_id, tenant_id):
     return get_json_result(data=API4ConversationService.delete_by_id(session_id))
 
 
+@manager.route("/agents/<agent_id>/runs", methods=["POST"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+@_require_canvas_access_async
+async def create_agent_background_run(agent_id, tenant_id):
+    """Create a recoverable Agent run and execute it in a server-side task.
+
+    This is the first background execution mode for ordinary Agent canvases. It
+    intentionally does not replace the existing SSE endpoint yet; callers can
+    opt in and poll `/agents/runs/<run_id>/events`.
+    """
+    req = await get_request_json()
+    query = req.get("query", "") or req.get("question", "")
+    files = req.get("files", [])
+    inputs = req.get("inputs", {})
+    session_id = req.get("session_id")
+    runtime_user_id = req.get("user_id") or tenant_id
+    user_id = str(runtime_user_id)
+    release_mode = _request_bool(req.get("release", request.args.get("release")), False)
+    custom_header = req.get("custom_header", "")
+    return_trace = bool(req.get("return_trace", False))
+    chat_template_kwargs = req.get("chat_template_kwargs")
+
+    try:
+        from agent.canvas import Canvas
+
+        cvs, dsl = await thread_pool_exec(
+            UserCanvasService.get_agent_dsl_with_release,
+            agent_id,
+            release_mode,
+            tenant_id,
+        )
+    except LookupError:
+        return get_data_error_result(message="Agent not found.")
+    except PermissionError as exc:
+        return get_data_error_result(message=str(exc))
+    except Exception as exc:
+        return server_error_response(exc)
+
+    canvas_category = getattr(cvs, "canvas_category", CanvasCategory.Agent)
+    if canvas_category == CanvasCategory.DataFlow:
+        return get_data_error_result(message="Background runs for DataFlow canvases are not supported yet.")
+
+    try:
+        canvas = Canvas(dsl, str(tenant_id), canvas_id=agent_id, custom_header=custom_header)
+    except Exception as exc:
+        return server_error_response(exc)
+
+    turn_id = get_uuid()
+    now = time.time()
+    if session_id:
+        exists, conv = await thread_pool_exec(API4ConversationService.get_by_id, session_id)
+        if not exists:
+            return get_data_error_result(message="Session not found!")
+        workflow_conv = conv.to_dict()
+        if not isinstance(workflow_conv.get("message"), list):
+            workflow_conv["message"] = []
+        workflow_conv["message"].append(
+            {
+                "role": "user",
+                "content": query,
+                "id": turn_id,
+                "files": files,
+                "created_at": now,
+            }
+        )
+        await thread_pool_exec(API4ConversationService.update_by_id, session_id, workflow_conv)
+    else:
+        session_id = get_uuid()
+        version_title = await thread_pool_exec(
+            UserCanvasVersionService.get_latest_version_title,
+            cvs.id,
+            release_mode=release_mode,
+        )
+        workflow_conv = {
+            "id": session_id,
+            "dialog_id": cvs.id,
+            "user_id": user_id,
+            "exp_user_id": user_id,
+            "name": req.get("name", "") or str(query or "New Session")[:80],
+            "message": [
+                {
+                    "role": "user",
+                    "content": query,
+                    "id": turn_id,
+                    "files": files,
+                    "created_at": now,
+                }
+            ],
+            "reference": [],
+            "source": "workflow",
+            "dsl": json.loads(dsl) if isinstance(dsl, str) else dsl,
+            "version_title": version_title,
+        }
+        await thread_pool_exec(API4ConversationService.save, **workflow_conv)
+
+    run_id = get_uuid()
+    AgentRunService.start(
+        str(tenant_id),
+        run_id,
+        agent_id,
+        session_id,
+        turn_id,
+        getattr(canvas, "task_id", ""),
+        query,
+        status=AgentRunStatus.QUEUED,
+        mode="background_queue" if _agent_run_queue_enabled(req) else "background",
+    )
+
+    if _agent_run_queue_enabled(req):
+        payload = AgentRunQueueService.build_payload(
+            run_id=run_id,
+            tenant_id=str(tenant_id),
+            agent_id=agent_id,
+            session_id=session_id,
+            message_id=turn_id,
+            query=query,
+            files=files,
+            inputs=inputs,
+            user_id=user_id,
+            release=release_mode,
+            return_trace=return_trace,
+            custom_header=custom_header,
+            chat_template_kwargs=chat_template_kwargs,
+        )
+        if not AgentRunQueueService.enqueue(payload):
+            AgentRunService.fail(str(tenant_id), run_id, "Failed to enqueue Agent run.")
+            return get_data_error_result(message="Failed to enqueue Agent run.")
+        return get_json_result(
+            data={
+                "run_id": run_id,
+                "session_id": session_id,
+                "message_id": turn_id,
+                "task_id": getattr(canvas, "task_id", ""),
+                "status": AgentRunStatus.QUEUED,
+                "queued": True,
+            }
+        )
+
+    async def _background_run():
+        try:
+            await _run_workflow_session(
+                tenant_id=tenant_id,
+                agent_id=agent_id,
+                workflow_conv=workflow_conv,
+                canvas=canvas,
+                query=query,
+                files=files,
+                inputs=inputs,
+                user_id=user_id,
+                session_id=session_id,
+                custom_header=custom_header,
+                canvas_title=getattr(cvs, "title", ""),
+                canvas_category=canvas_category,
+                return_trace=return_trace,
+                stream=False,
+                chat_template_kwargs=chat_template_kwargs,
+                run_id=run_id,
+                start_run_record=False,
+                return_response=False,
+            )
+        except Exception as exc:
+            logging.exception("Background agent run failed. run_id=%s", run_id)
+            AgentRunService.fail(str(tenant_id), run_id, str(exc))
+
+    task = asyncio.create_task(_background_run())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+    return get_json_result(
+        data={
+            "run_id": run_id,
+            "session_id": session_id,
+            "message_id": turn_id,
+            "task_id": getattr(canvas, "task_id", ""),
+            "status": AgentRunStatus.QUEUED,
+        }
+    )
+
+
+async def _prepare_meeting_agent_sessions(tenant_id, req, normalized_agents, meeting_id, turn_id, query, files, release_mode, user_id):
+    prepared_agents = []
+    now = time.time()
+    for spec in normalized_agents:
+        agent_id = spec["agent_id"]
+        if not await thread_pool_exec(UserCanvasService.accessible, agent_id, tenant_id):
+            raise PermissionError(f"Make sure you have permission to access the agent: {agent_id}.")
+        cvs, dsl = await thread_pool_exec(
+            UserCanvasService.get_agent_dsl_with_release,
+            agent_id,
+            release_mode,
+            tenant_id,
+        )
+        if getattr(cvs, "canvas_category", CanvasCategory.Agent) == CanvasCategory.DataFlow:
+            raise ValueError(f"Meeting runs for DataFlow canvases are not supported yet: {agent_id}.")
+
+        session_id = spec.get("session_id")
+        message_id = spec.get("message_id") or get_uuid()
+        if session_id:
+            exists, conv = await thread_pool_exec(API4ConversationService.get_by_id, session_id)
+            if not exists:
+                raise ValueError(f"Session not found for agent {agent_id}: {session_id}.")
+            if getattr(conv, "dialog_id", None) != agent_id:
+                raise ValueError(f"Session does not belong to agent {agent_id}: {session_id}.")
+            workflow_conv = conv.to_dict()
+            if not isinstance(workflow_conv.get("message"), list):
+                workflow_conv["message"] = []
+            workflow_conv["message"].append(
+                {
+                    "role": "user",
+                    "content": query,
+                    "id": message_id,
+                    "files": files,
+                    "created_at": now,
+                    "meeting_id": meeting_id,
+                    "meeting_turn_id": turn_id,
+                }
+            )
+            await thread_pool_exec(API4ConversationService.update_by_id, session_id, workflow_conv)
+        else:
+            session_id = get_uuid()
+            version_title = await thread_pool_exec(
+                UserCanvasVersionService.get_latest_version_title,
+                cvs.id,
+                release_mode=release_mode,
+            )
+            workflow_conv = {
+                "id": session_id,
+                "dialog_id": cvs.id,
+                "user_id": user_id,
+                "exp_user_id": user_id,
+                "name": req.get("name", "") or f"{str(query or 'Meeting turn')[:60]} - {spec.get('role') or agent_id}",
+                "message": [
+                    {
+                        "role": "user",
+                        "content": query,
+                        "id": message_id,
+                        "files": files,
+                        "created_at": now,
+                        "meeting_id": meeting_id,
+                        "meeting_turn_id": turn_id,
+                    }
+                ],
+                "reference": [],
+                "source": "workflow",
+                "dsl": json.loads(dsl) if isinstance(dsl, str) else dsl,
+                "version_title": version_title,
+            }
+            await thread_pool_exec(API4ConversationService.save, **workflow_conv)
+
+        prepared = {**spec}
+        prepared["session_id"] = session_id
+        prepared["message_id"] = message_id
+        if not prepared.get("custom_header") and req.get("custom_header"):
+            prepared["custom_header"] = req.get("custom_header")
+        prepared_agents.append(prepared)
+    return prepared_agents
+
+
+@manager.route("/agents/meetings/runs", methods=["POST"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+async def create_agent_meeting_runs(tenant_id):
+    """Create one meeting turn and fan it out to multiple Agent runs."""
+    req = await get_request_json()
+    query = req.get("query", "") or req.get("question", "") or req.get("text", "")
+    if not query:
+        return get_data_error_result(message="`query` is required.")
+
+    try:
+        normalized_agents = AgentMeetingSchedulerService.normalize_agents(req.get("agents", []))
+    except ValueError as exc:
+        return get_data_error_result(message=str(exc))
+
+    meeting_id = str(req.get("meeting_id") or get_uuid())
+    turn_id = str(req.get("turn_id") or get_uuid())
+    files = req.get("files", [])
+    user_id = str(req.get("user_id") or tenant_id)
+    release_mode = _request_bool(req.get("release", request.args.get("release")), True)
+
+    try:
+        prepared_agents = await _prepare_meeting_agent_sessions(
+            tenant_id=tenant_id,
+            req=req,
+            normalized_agents=normalized_agents,
+            meeting_id=meeting_id,
+            turn_id=turn_id,
+            query=query,
+            files=files,
+            release_mode=release_mode,
+            user_id=user_id,
+        )
+        AgentMeetingMemoryService.append_shared(
+            str(tenant_id),
+            meeting_id,
+            turn_id=turn_id,
+            content=query,
+            source="user",
+            metadata={"files": files},
+        )
+        result = AgentMeetingSchedulerService.start_parallel_runs(
+            tenant_id=str(tenant_id),
+            meeting_id=meeting_id,
+            turn_id=turn_id,
+            query=query,
+            agents=prepared_agents,
+            files=files,
+            shared_context=req.get("shared_context", ""),
+            shared_memory=req.get("shared_memory") if isinstance(req.get("shared_memory"), list) else [],
+            base_inputs=req.get("inputs") if isinstance(req.get("inputs"), dict) else {},
+            user_id=user_id,
+            release=release_mode,
+            return_trace=_request_bool(req.get("return_trace"), True),
+            enqueue=True,
+        )
+        return get_json_result(data=result)
+    except LookupError:
+        return get_data_error_result(message="Agent not found.")
+    except PermissionError as exc:
+        return get_data_error_result(message=str(exc))
+    except ValueError as exc:
+        return get_data_error_result(message=str(exc))
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+@manager.route("/agents/meetings/<meeting_id>/memory", methods=["POST"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+async def append_agent_meeting_memory(meeting_id, tenant_id):
+    """Append shared or per-agent memory for a meeting."""
+    req = await get_request_json()
+    content = str(req.get("content") or "").strip()
+    if not content:
+        return get_data_error_result(message="`content` is required.")
+
+    turn_id = str(req.get("turn_id") or get_uuid())
+    metadata = req.get("metadata") if isinstance(req.get("metadata"), dict) else {}
+    scope = str(req.get("scope") or "shared").lower()
+    if scope == "agent":
+        agent_id = str(req.get("agent_id") or "").strip()
+        if not agent_id:
+            return get_data_error_result(message="`agent_id` is required for agent memory.")
+        if not await thread_pool_exec(UserCanvasService.accessible, agent_id, tenant_id):
+            return get_data_error_result(message="Make sure you have permission to access the agent.")
+        record = AgentMeetingMemoryService.append_agent(
+            str(tenant_id),
+            meeting_id,
+            agent_id,
+            turn_id=turn_id,
+            content=content,
+            run_id=req.get("run_id"),
+            role=str(req.get("role") or ""),
+            metadata=metadata,
+        )
+    else:
+        record = AgentMeetingMemoryService.append_shared(
+            str(tenant_id),
+            meeting_id,
+            turn_id=turn_id,
+            content=content,
+            source=str(req.get("source") or "voice_service"),
+            metadata=metadata,
+        )
+    return get_json_result(data={"meeting_id": meeting_id, "turn_id": turn_id, "memory": record})
+
+
+@manager.route("/agents/meetings/results", methods=["POST"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+async def get_agent_meeting_results(tenant_id):
+    """Return fan-in summaries for a set of meeting Agent run ids."""
+    req = await get_request_json()
+    run_ids = req.get("run_ids", [])
+    if not isinstance(run_ids, list) or not run_ids:
+        return get_data_error_result(message="`run_ids` must contain at least one run id.")
+
+    clean_run_ids = [str(run_id) for run_id in run_ids if str(run_id or "").strip()]
+    for run_id in clean_run_ids:
+        state = AgentRunService.get_state(str(tenant_id), run_id)
+        if not state:
+            return get_data_error_result(message=f"Agent run not found: {run_id}.")
+        if not await thread_pool_exec(UserCanvasService.accessible, state.get("agent_id"), tenant_id):
+            return get_data_error_result(message="Make sure you have permission to access the agent run.")
+    return get_json_result(data=AgentMeetingSchedulerService.summarize_turn_results(tenant_id=str(tenant_id), run_ids=clean_run_ids))
+
+
+@manager.route("/agents/<agent_id>/runs", methods=["GET"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+@_require_canvas_access_sync
+def list_agent_active_runs(agent_id, tenant_id):
+    session_id = request.args.get("session_id")
+    runs = AgentRunService.list_active(str(tenant_id), agent_id, session_id=session_id)
+    return get_json_result(data={"runs": runs, "total": len(runs)})
+
+
+def _get_accessible_agent_run(tenant_id, run_id):
+    state = AgentRunService.get_state(tenant_id, run_id)
+    if not state:
+        return None
+    if not UserCanvasService.accessible(state.get("agent_id"), tenant_id):
+        return None
+    return state
+
+
+@manager.route("/agents/runs/<run_id>", methods=["GET"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+def get_agent_run(run_id, tenant_id):
+    state = _get_accessible_agent_run(tenant_id, run_id)
+    if not state:
+        return get_data_error_result(message="run not found.")
+    return get_json_result(data=state)
+
+
+@manager.route("/agents/runs/<run_id>/events", methods=["GET"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+def get_agent_run_events(run_id, tenant_id):
+    state = _get_accessible_agent_run(tenant_id, run_id)
+    if not state:
+        return get_data_error_result(message="run not found.")
+    try:
+        after_seq = int(request.args.get("after", -1))
+    except Exception:
+        after_seq = -1
+    events = AgentRunService.get_events(tenant_id, run_id, after_seq)
+    return get_json_result(
+        data={
+            "state": state,
+            "events": events,
+            "next_seq": events[-1]["seq"] if events else after_seq,
+        }
+    )
+
+
+@manager.route("/agents/runs/<run_id>/trace", methods=["GET"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+def get_agent_run_trace(run_id, tenant_id):
+    state = _get_accessible_agent_run(tenant_id, run_id)
+    if not state:
+        return get_data_error_result(message="run not found.")
+    trace = AgentRunService.get_trace(tenant_id, run_id)
+    if not trace:
+        return get_data_error_result(message="run not found.")
+    return get_json_result(data=trace)
+
+
+@manager.route("/agents/runs/<run_id>/artifacts", methods=["GET"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+def get_agent_run_artifacts(run_id, tenant_id):
+    state = _get_accessible_agent_run(tenant_id, run_id)
+    if not state:
+        return get_data_error_result(message="run not found.")
+    artifacts = AgentRunService.get_artifacts(tenant_id, run_id)
+    if artifacts is None:
+        return get_data_error_result(message="run not found.")
+    return get_json_result(data={"run_id": run_id, "artifacts": artifacts})
+
+
+@manager.route("/agents/runs/<run_id>/cancel", methods=["POST"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+def cancel_agent_run(run_id, tenant_id):
+    state = _get_accessible_agent_run(tenant_id, run_id)
+    if not state:
+        return get_data_error_result(message="run not found.")
+    return get_json_result(data={"canceled": AgentRunService.request_cancel(tenant_id, run_id)})
+
+
 @manager.route("/agents/download", methods=["GET"])  # noqa: F821
 @login_required
 @add_tenant_id_to_kwargs
@@ -499,7 +1167,7 @@ async def _iter_session_completion_events(tenant_id, agent_id, req, return_trace
 @manager.route("/agents/templates", methods=["GET"])  # noqa: F821
 @login_required
 def list_agent_template():
-    return get_json_result(data=[item.to_dict() for item in CanvasTemplateService.get_all()])
+    return get_json_result(data=CanvasTemplateService.get_all_with_builtin())
 
 
 @manager.route("/agents/prompts", methods=["GET"])  # noqa: F821
@@ -669,6 +1337,11 @@ async def create_agent(tenant_id):
     ):
         return get_data_error_result(message=f"{req['title']} already exists.")
 
+    if req.get("release") is True:
+        validation_error = _release_validation_error(req["dsl"])
+        if validation_error:
+            return validation_error
+
     req["id"] = get_uuid()
     if not UserCanvasService.save(**req):
         return get_data_error_result(message="Fail to create agent.")
@@ -742,6 +1415,51 @@ def get_agent_component_input_form(agent_id, component_id, tenant_id):
             return get_data_error_result(message="canvas not found.")
         canvas = Canvas(json.dumps(user_canvas.dsl), tenant_id, canvas_id=user_canvas.id)
         return get_json_result(data=canvas.get_component_input_form(component_id))
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+@manager.route("/agents/<agent_id>/components/<component_id>/contract", methods=["GET"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+@_require_canvas_access_sync
+def get_agent_component_contract(agent_id, component_id, tenant_id):
+    try:
+        from agent.canvas import Canvas
+
+        exists, user_canvas = UserCanvasService.get_by_id(agent_id)
+        if not exists:
+            return get_data_error_result(message="canvas not found.")
+        canvas = Canvas(json.dumps(user_canvas.dsl), tenant_id, canvas_id=user_canvas.id)
+        return get_json_result(data=canvas.get_component_contract(component_id))
+    except Exception as exc:
+        return server_error_response(exc)
+
+
+@manager.route("/agents/<agent_id>/validate", methods=["GET", "POST"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+@_require_canvas_access_async
+async def validate_agent(agent_id, tenant_id):
+    try:
+        dsl = None
+        if request.method == "POST":
+            req = await get_request_json()
+            dsl = req.get("dsl")
+            if dsl is not None:
+                dsl = CanvasReplicaService.normalize_dsl(dsl)
+        if dsl is None:
+            exists, user_canvas = UserCanvasService.get_by_id(agent_id)
+            if not exists:
+                return get_data_error_result(message="canvas not found.")
+            dsl = user_canvas.dsl
+        return get_json_result(data=AgentValidationService.validate_for_publish(dsl))
+    except ValueError as exc:
+        return get_json_result(
+            data=False,
+            message=str(exc),
+            code=RetCode.ARGUMENT_ERROR,
+        )
     except Exception as exc:
         return server_error_response(exc)
 
@@ -918,6 +1636,13 @@ async def update_agent(agent_id, tenant_id):
         or (current_agent.canvas_category if current_agent else CanvasCategory.Agent)
     )
     owner_nickname = _get_user_nickname(tenant_id)
+
+    if release_value is True:
+        version_dsl = req.get("dsl") if req.get("dsl") is not None else current_agent.dsl
+        validation_error = _release_validation_error(version_dsl)
+        if validation_error:
+            return validation_error
+
     UserCanvasService.update_by_id(agent_id, req)
 
     if req.get("dsl") is not None or release_value is True:

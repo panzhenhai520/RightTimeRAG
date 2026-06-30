@@ -1,0 +1,559 @@
+{
+  "id": 42,
+  "title": {
+    "en": "Excel and SQL analysis assistant",
+    "de": "Excel- und SQL-Analyseassistent",
+    "zh": "Excel 汇总与 SQL 分析助手"
+  },
+  "description": {
+    "en": "Upload an Excel or CSV file, calculate a business value from total columns and a coefficient, query a database with that value, then generate a downloadable analysis report.",
+    "de": "Laden Sie eine Excel- oder CSV-Datei hoch, berechnen Sie aus Summenspalten und einem Koeffizienten einen Geschaftswert, fragen Sie damit eine Datenbank ab und erzeugen Sie einen Analysebericht.",
+    "zh": "上传 Excel 或 CSV 后，自动识别合计类字段并乘以手工输入系数得到 B，再用 B 执行只读 SQL 查询，最终生成分析报告和下载文档。"
+  },
+  "canvas_type": "Recommended",
+  "canvas_types": ["Recommended", "Agent", "Other"],
+  "canvas_category": "agent_canvas",
+  "dsl": {
+    "components": {
+      "begin": {
+        "downstream": ["ExcelProcessor:Aggregate"],
+        "obj": {
+          "component_name": "Begin",
+          "params": {
+            "enablePrologue": true,
+            "inputs": {
+              "source_file": {
+                "name": "Excel 或 CSV 文件",
+                "type": "file",
+                "optional": false,
+                "options": []
+              },
+              "coefficient": {
+                "name": "计算系数",
+                "type": "integer",
+                "optional": false,
+                "options": []
+              }
+            },
+            "mode": "conversational",
+            "prologue": "你好！请上传 Excel 或 CSV 文件，并填写计算系数。创建后请在 ExeSQL 节点中配置数据库连接和业务 SQL。"
+          }
+        },
+        "upstream": []
+      },
+      "ExcelProcessor:Aggregate": {
+        "downstream": ["ExcelProcessor:CalculateB", "Agent:ExplainData"],
+        "obj": {
+          "component_name": "ExcelProcessor",
+          "params": {
+            "aggregate_coefficient": 1,
+            "aggregate_column_keywords": ["合计", "总计", "金额合计", "total", "sum", "amount"],
+            "aggregate_result_name": "合计值",
+            "input_files": ["sys.file_assets", "begin@source_file_file_assets"],
+            "join_on": "",
+            "merge_strategy": "concat",
+            "operation": "aggregate",
+            "output_filename": "excel_aggregate_result",
+            "output_format": "xlsx",
+            "outputs": {
+              "aggregate": {
+                "type": "object",
+                "value": {}
+              },
+              "attachment": {
+                "type": "object",
+                "value": {}
+              },
+              "data": {
+                "type": "object",
+                "value": {}
+              },
+              "downloads": {
+                "type": "Array<Object>",
+                "value": []
+              },
+              "markdown": {
+                "type": "string",
+                "value": ""
+              },
+              "result": {
+                "type": "number",
+                "value": 0
+              },
+              "summary": {
+                "type": "string",
+                "value": ""
+              }
+            },
+            "sheet_selection": "all",
+            "transform_data": "",
+            "transform_instructions": ""
+          }
+        },
+        "upstream": ["begin"]
+      },
+      "ExcelProcessor:CalculateB": {
+        "downstream": ["ExeSQL:QueryRecords", "Agent:ExplainData"],
+        "obj": {
+          "component_name": "ExcelProcessor",
+          "params": {
+            "aggregate_column_keywords": ["合计", "总计", "金额合计", "total", "sum", "amount"],
+            "aggregate_coefficient": 1,
+            "aggregate_result_name": "B",
+            "calculation_value": "{ExcelProcessor:Aggregate@result}",
+            "calculation_coefficient": "{begin@coefficient}",
+            "calculation_result_name": "B",
+            "input_files": [],
+            "join_on": "",
+            "merge_strategy": "concat",
+            "operation": "calculate",
+            "output_filename": "excel_calculation_result",
+            "output_format": "xlsx",
+            "outputs": {
+              "aggregate": {
+                "type": "object",
+                "value": {}
+              },
+              "attachment": {
+                "type": "object",
+                "value": {}
+              },
+              "data": {
+                "type": "object",
+                "value": {}
+              },
+              "downloads": {
+                "type": "Array<Object>",
+                "value": []
+              },
+              "markdown": {
+                "type": "string",
+                "value": ""
+              },
+              "result": {
+                "type": "number",
+                "value": 0
+              },
+              "summary": {
+                "type": "string",
+                "value": ""
+              }
+            },
+            "sheet_selection": "all",
+            "transform_data": "",
+            "transform_instructions": ""
+          }
+        },
+        "upstream": ["ExcelProcessor:Aggregate"]
+      },
+      "ExeSQL:QueryRecords": {
+        "downstream": ["Agent:ExplainData"],
+        "obj": {
+          "component_name": "ExeSQL",
+          "params": {
+            "database": "",
+            "db_type": "mysql",
+            "host": "",
+            "max_records": 1024,
+            "outputs": {
+              "formalized_content": {
+                "type": "string",
+                "value": ""
+              },
+              "json": {
+                "type": "Array<Object>",
+                "value": []
+              }
+            },
+            "password": "",
+            "port": 3306,
+            "sql": "SELECT * FROM your_table WHERE A > {ExcelProcessor:CalculateB@result}",
+            "username": ""
+          }
+        },
+        "upstream": ["ExcelProcessor:CalculateB"]
+      },
+      "Agent:ExplainData": {
+        "downstream": ["DocGenerator:DataReportDoc"],
+        "obj": {
+          "component_name": "Agent",
+          "params": {
+            "delay_after_error": 1,
+            "description": "",
+            "exception_default_value": "",
+            "exception_goto": [],
+            "exception_method": "",
+            "frequencyPenaltyEnabled": false,
+            "frequency_penalty": 0.7,
+            "llm_id": "qwen-max@Tongyi-Qianwen",
+            "maxTokensEnabled": false,
+            "max_retries": 3,
+            "max_rounds": 5,
+            "max_tokens": 2048,
+            "mcp": [],
+            "message_history_window_size": 8,
+            "outputs": {
+              "content": {
+                "type": "string",
+                "value": ""
+              }
+            },
+            "presencePenaltyEnabled": false,
+            "presence_penalty": 0.4,
+            "prompts": [
+              {
+                "content": "用户需求：{sys.query}\n\nExcel 合计字段汇总结果：\n{ExcelProcessor:Aggregate@markdown}\n\nB 的计算结果：\n{ExcelProcessor:CalculateB@markdown}\n\nSQL 查询结果：\n{ExeSQL:QueryRecords@formalized_content}\n\n请基于上面的真实计算和查询结果做业务解读。",
+                "role": "user"
+              }
+            ],
+            "sys_prompt": "你是数据分析助手。你需要基于代码节点和 SQL 节点已经计算出的真实结果进行分析，不要自己猜测数据。\n\n输出要求：\n1. 先说明 B 的计算过程和数值。\n2. 概述 SQL 返回记录的数量、关键字段和异常点。\n3. 给出可执行的业务观察和建议。\n4. 如果 SQL 没有返回数据或数据库未配置，明确提示需要配置 ExeSQL 节点。",
+            "temperature": 0.1,
+            "temperatureEnabled": false,
+            "tools": [],
+            "topPEnabled": false,
+            "top_p": 0.3,
+            "user_prompt": "",
+            "visual_files_var": ""
+          }
+        },
+        "upstream": ["ExeSQL:QueryRecords", "ExcelProcessor:Aggregate", "ExcelProcessor:CalculateB"]
+      },
+      "DocGenerator:DataReportDoc": {
+        "downstream": ["Message:DataAnswer"],
+        "obj": {
+          "component_name": "DocGenerator",
+          "params": {
+            "add_page_numbers": true,
+            "add_timestamp": true,
+            "content": "{Agent:ExplainData@content}",
+            "filename": "数据分析报告",
+            "font_size": 12,
+            "footer_text": "",
+            "header_text": "数据分析报告",
+            "include_download_info_in_content": false,
+            "output_format": "docx",
+            "outputs": {
+              "attachment": {
+                "type": "object",
+                "value": {}
+              },
+              "doc_id": {
+                "type": "string",
+                "value": ""
+              },
+              "download": {
+                "type": "string",
+                "value": ""
+              },
+              "downloads": {
+                "type": "Array<Object>",
+                "value": []
+              },
+              "filename": {
+                "type": "string",
+                "value": ""
+              },
+              "mime_type": {
+                "type": "string",
+                "value": ""
+              },
+              "size": {
+                "type": "number",
+                "value": 0
+              }
+            },
+            "watermark_text": ""
+          }
+        },
+        "upstream": ["Agent:ExplainData"]
+      },
+      "Message:DataAnswer": {
+        "downstream": [],
+        "obj": {
+          "component_name": "Message",
+          "params": {
+            "content": [
+              "{Agent:ExplainData@content}\n\n报告文档：{DocGenerator:DataReportDoc@download}"
+            ]
+          }
+        },
+        "upstream": ["DocGenerator:DataReportDoc"]
+      }
+    },
+    "globals": {
+      "sys.conversation_turns": 0,
+      "sys.date": "",
+      "sys.file_assets": [],
+      "sys.files": [],
+      "sys.history": [],
+      "sys.query": "",
+      "sys.user_id": ""
+    },
+    "graph": {
+      "edges": [
+        {
+          "data": {
+            "isHovered": false
+          },
+          "id": "xy-edge__beginstart-ExcelProcessor:Aggregateend",
+          "source": "begin",
+          "sourceHandle": "start",
+          "target": "ExcelProcessor:Aggregate",
+          "targetHandle": "end"
+        },
+        {
+          "data": {
+            "isHovered": false
+          },
+          "id": "xy-edge__ExcelProcessor:Aggregatestart-ExcelProcessor:CalculateBend",
+          "source": "ExcelProcessor:Aggregate",
+          "sourceHandle": "start",
+          "target": "ExcelProcessor:CalculateB",
+          "targetHandle": "end"
+        },
+        {
+          "data": {
+            "isHovered": false
+          },
+          "id": "xy-edge__ExcelProcessor:CalculateBstart-ExeSQL:QueryRecordsend",
+          "source": "ExcelProcessor:CalculateB",
+          "sourceHandle": "start",
+          "target": "ExeSQL:QueryRecords",
+          "targetHandle": "end"
+        },
+        {
+          "data": {
+            "isHovered": false
+          },
+          "id": "xy-edge__ExeSQL:QueryRecordsstart-Agent:ExplainDataend",
+          "source": "ExeSQL:QueryRecords",
+          "sourceHandle": "start",
+          "target": "Agent:ExplainData",
+          "targetHandle": "end"
+        },
+        {
+          "data": {
+            "isHovered": false
+          },
+          "id": "xy-edge__ExcelProcessor:CalculateBstart-Agent:ExplainDataend",
+          "source": "ExcelProcessor:CalculateB",
+          "sourceHandle": "start",
+          "target": "Agent:ExplainData",
+          "targetHandle": "end"
+        },
+        {
+          "data": {
+            "isHovered": false
+          },
+          "id": "xy-edge__ExcelProcessor:Aggregatestart-Agent:ExplainDataend",
+          "source": "ExcelProcessor:Aggregate",
+          "sourceHandle": "start",
+          "target": "Agent:ExplainData",
+          "targetHandle": "end"
+        },
+        {
+          "data": {
+            "isHovered": false
+          },
+          "id": "xy-edge__Agent:ExplainDatastart-DocGenerator:DataReportDocend",
+          "source": "Agent:ExplainData",
+          "sourceHandle": "start",
+          "target": "DocGenerator:DataReportDoc",
+          "targetHandle": "end"
+        },
+        {
+          "data": {
+            "isHovered": false
+          },
+          "id": "xy-edge__DocGenerator:DataReportDocstart-Message:DataAnswerend",
+          "source": "DocGenerator:DataReportDoc",
+          "sourceHandle": "start",
+          "target": "Message:DataAnswer",
+          "targetHandle": "end"
+        }
+      ],
+      "nodes": [
+        {
+          "data": {
+            "form": {
+              "enablePrologue": true,
+              "inputs": [
+                {
+                  "key": "source_file",
+                  "name": "Excel 或 CSV 文件",
+                  "optional": false,
+                  "options": [],
+                  "type": "file"
+                },
+                {
+                  "key": "coefficient",
+                  "name": "计算系数",
+                  "optional": false,
+                  "options": [],
+                  "type": "integer"
+                }
+              ],
+              "mode": "conversational",
+              "prologue": "你好！请上传 Excel 或 CSV 文件，并填写计算系数。创建后请在 ExeSQL 节点中配置数据库连接和业务 SQL。"
+            },
+            "label": "Begin",
+            "name": "begin"
+          },
+          "id": "begin",
+          "position": {
+            "x": 50,
+            "y": 240
+          },
+          "sourcePosition": "right",
+          "targetPosition": "left",
+          "type": "beginNode"
+        },
+        {
+          "data": {
+            "form": {
+              "aggregate_coefficient": 1,
+              "aggregate_column_keywords": ["合计", "总计", "金额合计", "total", "sum", "amount"],
+              "aggregate_result_name": "合计值",
+              "input_files": ["sys.file_assets", "begin@source_file_file_assets"],
+              "operation": "aggregate",
+              "output_filename": "excel_aggregate_result",
+              "output_format": "xlsx",
+              "sheet_selection": "all"
+            },
+            "label": "ExcelProcessor",
+            "name": "识别合计字段并汇总"
+          },
+          "id": "ExcelProcessor:Aggregate",
+          "position": {
+            "x": 360,
+            "y": 240
+          },
+          "sourcePosition": "right",
+          "targetPosition": "left",
+          "type": "ragNode"
+        },
+        {
+          "data": {
+            "form": {
+              "aggregate_column_keywords": ["合计", "总计", "金额合计", "total", "sum", "amount"],
+              "aggregate_coefficient": 1,
+              "aggregate_result_name": "B",
+              "calculation_value": "{ExcelProcessor:Aggregate@result}",
+              "calculation_coefficient": "{begin@coefficient}",
+              "calculation_result_name": "B",
+              "input_files": [],
+              "operation": "calculate",
+              "output_filename": "excel_calculation_result",
+              "output_format": "xlsx",
+              "sheet_selection": "all"
+            },
+            "label": "ExcelProcessor",
+            "name": "计算 B"
+          },
+          "id": "ExcelProcessor:CalculateB",
+          "position": {
+            "x": 670,
+            "y": 240
+          },
+          "sourcePosition": "right",
+          "targetPosition": "left",
+          "type": "ragNode"
+        },
+        {
+          "data": {
+            "form": {
+              "database": "",
+              "db_type": "mysql",
+              "host": "",
+              "max_records": 1024,
+              "password": "",
+              "port": 3306,
+              "sql": "SELECT * FROM your_table WHERE A > {ExcelProcessor:CalculateB@result}",
+              "username": ""
+            },
+            "label": "ExeSQL",
+            "name": "按 B 查询数据库"
+          },
+          "id": "ExeSQL:QueryRecords",
+          "position": {
+            "x": 980,
+            "y": 240
+          },
+          "sourcePosition": "right",
+          "targetPosition": "left",
+          "type": "ragNode"
+        },
+        {
+          "data": {
+            "form": {
+              "llm_id": "qwen-max@Tongyi-Qianwen",
+              "prompts": [
+                {
+                  "content": "用户需求：{sys.query}\n\nExcel 合计字段汇总结果：\n{ExcelProcessor:Aggregate@markdown}\n\nB 的计算结果：\n{ExcelProcessor:CalculateB@markdown}\n\nSQL 查询结果：\n{ExeSQL:QueryRecords@formalized_content}\n\n请基于上面的真实计算和查询结果做业务解读。",
+                  "role": "user"
+                }
+              ],
+              "sys_prompt": "你是数据分析助手。你需要基于代码节点和 SQL 节点已经计算出的真实结果进行分析，不要自己猜测数据。",
+              "temperature": 0.1
+            },
+            "label": "Agent",
+            "name": "生成数据解读"
+          },
+          "id": "Agent:ExplainData",
+          "position": {
+            "x": 1290,
+            "y": 240
+          },
+          "sourcePosition": "right",
+          "targetPosition": "left",
+          "type": "agentNode"
+        },
+        {
+          "data": {
+            "form": {
+              "content": "{Agent:ExplainData@content}",
+              "filename": "数据分析报告",
+              "font_size": 12,
+              "header_text": "数据分析报告",
+              "output_format": "docx"
+            },
+            "label": "DocGenerator",
+            "name": "生成 Word 报告"
+          },
+          "id": "DocGenerator:DataReportDoc",
+          "position": {
+            "x": 1600,
+            "y": 240
+          },
+          "sourcePosition": "right",
+          "targetPosition": "left",
+          "type": "ragNode"
+        },
+        {
+          "data": {
+            "form": {
+              "content": [
+                "{Agent:ExplainData@content}\n\n报告文档：{DocGenerator:DataReportDoc@download}"
+              ]
+            },
+            "label": "Message",
+            "name": "输出回答"
+          },
+          "id": "Message:DataAnswer",
+          "position": {
+            "x": 1910,
+            "y": 240
+          },
+          "sourcePosition": "right",
+          "targetPosition": "left",
+          "type": "messageNode"
+        }
+      ]
+    },
+    "history": [],
+    "messages": [],
+    "path": [],
+    "retrieval": [],
+    "variables": []
+  }
+}

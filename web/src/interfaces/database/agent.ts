@@ -285,6 +285,156 @@ export interface IAgentLogsRequest {
   exp_user_id?: string; // tenant id
 }
 
+export interface IAgentRunState {
+  run_id: string;
+  agent_id: string;
+  session_id: string;
+  message_id: string;
+  task_id: string;
+  status:
+    | 'queued'
+    | 'running'
+    | 'succeeded'
+    | 'failed'
+    | 'cancel_requested'
+    | 'canceled';
+  mode?: 'sse' | 'sync' | 'background' | string;
+  query: string;
+  created_at: number;
+  updated_at: number;
+  finished_at?: number | null;
+  event_count: number;
+  error?: string;
+  progress?: {
+    percent?: number;
+    total_nodes?: number;
+    succeeded_nodes?: number;
+    failed_nodes?: number;
+    running_nodes?: number;
+    current_nodes?: Array<{
+      component_id?: string;
+      component_name?: string;
+      component_type?: string;
+      thoughts?: string;
+    }>;
+    last_event_seq?: number | null;
+    last_event_type?: string | null;
+  };
+  downloads?: Array<{
+    artifact_id?: string;
+    doc_id: string;
+    filename?: string;
+    mime_type?: string;
+    size?: number;
+    download_url?: string;
+    run_id?: string;
+    node_id?: string;
+    metadata?: Record<string, unknown>;
+  }>;
+}
+
+export interface IAgentRunStoredEvent {
+  seq: number;
+  stored_at: number;
+  event: Record<string, any>;
+}
+
+export interface IAgentRunEventsResponse {
+  state: IAgentRunState;
+  events: IAgentRunStoredEvent[];
+  next_seq: number;
+}
+
+export interface IAgentActiveRunsResponse {
+  runs: IAgentRunState[];
+  total: number;
+}
+
+export interface IAgentRunArtifactsResponse {
+  run_id: string;
+  artifacts: Array<{
+    artifact_id?: string;
+    doc_id: string;
+    filename?: string;
+    mime_type?: string;
+    size?: number;
+    download_url?: string;
+    run_id?: string;
+    node_id?: string;
+    metadata?: Record<string, unknown>;
+  }>;
+}
+
+export interface IAgentRunTraceNode {
+  component_id: string;
+  component_name?: string;
+  component_type?: string;
+  status?: 'running' | 'succeeded' | 'failed';
+  started_at?: number;
+  created_at?: number;
+  elapsed_time?: number;
+  thoughts?: string;
+  inputs?: Record<string, any>;
+  outputs?: Record<string, any>;
+  error?: string;
+  start_seq?: number;
+  finish_seq?: number;
+}
+
+export interface IAgentRunTimelineItem {
+  seq?: number;
+  event_type: string;
+  component_id?: string;
+  component_name?: string;
+  component_type?: string;
+  status?: 'running' | 'succeeded' | 'failed' | 'canceled' | null;
+  stored_at?: number;
+  created_at?: number;
+  message?: string;
+  error?: string;
+}
+
+export interface IAgentRunTraceResponse {
+  state: IAgentRunState;
+  event_count: number;
+  nodes: IAgentRunTraceNode[];
+  timeline?: IAgentRunTimelineItem[];
+  duration?: number | null;
+  messages: Array<{ seq?: number; length: number; preview: string }>;
+  downloads: Array<{
+    artifact_id?: string;
+    doc_id: string;
+    filename?: string;
+    mime_type?: string;
+    size?: number;
+    download_url?: string;
+    run_id?: string;
+    node_id?: string;
+    metadata?: Record<string, unknown>;
+  }>;
+  workflow: Record<string, any>;
+  errors: Array<{
+    component_id?: string;
+    component_name?: string;
+    error: string;
+  }>;
+}
+
+export interface IAgentValidationIssue {
+  severity: 'error' | 'warning';
+  code: string;
+  message: string;
+  component_id?: string;
+  component_name?: string;
+}
+
+export interface IAgentValidationResponse {
+  ok: boolean;
+  errors: IAgentValidationIssue[];
+  warnings: IAgentValidationIssue[];
+  issues: IAgentValidationIssue[];
+}
+
 export interface IAgentLogMessage {
   content: string;
   role: 'user' | 'assistant';

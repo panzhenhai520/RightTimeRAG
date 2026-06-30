@@ -11,8 +11,10 @@ import DataOperationsForm from '../form/data-operations-form';
 import DocGeneratorForm from '../form/doc-generator-form';
 import DuckDuckGoForm from '../form/duckduckgo-form';
 import EmailForm from '../form/email-form';
+import ExcelProcessorForm from '../form/excel-processor-form';
 import ExeSQLForm from '../form/exesql-form';
 import ExtractorForm from '../form/extractor-form';
+import FileParserForm from '../form/file-parser-form';
 import GithubForm from '../form/github-form';
 import GoogleForm from '../form/google-form';
 import GoogleScholarForm from '../form/google-scholar-form';
@@ -112,6 +114,9 @@ export const FormConfigMap = {
   [Operator.SearXNG]: {
     component: SearXNGForm,
   },
+  [Operator.FileParser]: {
+    component: FileParserForm,
+  },
   [Operator.DocGenerator]: {
     component: DocGeneratorForm,
   },
@@ -189,6 +194,6 @@ export const FormConfigMap = {
     component: () => <></>,
   },
   [Operator.ExcelProcessor]: {
-    component: () => <></>,
+    component: ExcelProcessorForm,
   },
 };

@@ -98,7 +98,7 @@ export default function Agent() {
   useAgentHistoryManager();
 
   const { handleExportJson } = useHandleExportJsonFile();
-  const { saveGraph, loading } = useSaveGraph();
+  const { saveGraph, validateGraph, loading } = useSaveGraph();
   const { flowDetail: agentDetail } = useFetchDataOnMount();
   const { buildDslData } = useBuildDslData();
   const { setAgent, loading: savingWidgetSettings } = useSetAgent(false);
@@ -329,6 +329,7 @@ export default function Agent() {
             agentDetail={agentDetail}
             loading={loading}
             onPublish={handlePublish}
+            onValidate={validateGraph}
           />
           <Button
             data-testid="agent-run"

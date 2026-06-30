@@ -2269,6 +2269,9 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取实体和关系
       searXNG: 'SearXNG',
       searXNGDescription:
         '该组件通过您提供的 SearXNG 实例地址进行搜索。请设置 Top N 和实例 URL。',
+      fileParser: '文件解析器',
+      fileParserDescription:
+        '将上传文件解析为临时切片，并选择与问题相关的片段供后续大模型节点使用。',
       docGenerator: '文档生成器',
       docGeneratorDescription: `从 Markdown 内容生成文件。`,
       browser: 'Browser',
@@ -2758,6 +2761,12 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取实体和关系
       publishAgent: '您即将发布此智能体',
       publishSuccess: '发布成功',
       publishRunPrompt: '智能体已发布成功，是否立即运行？',
+      publishValidation: '发布前校验',
+      publishValidating: '正在检查流程配置...',
+      publishValidationPassed: '校验通过，可以发布。',
+      publishValidationErrors: '必须修复的问题',
+      publishValidationWarnings: '建议检查的问题',
+      publishValidationFailed: '发布前校验失败，请稍后重试。',
       linkedDataset: '已关联的知识库：',
       lastPublished: '上次发布时间',
       createFromBlank: '从空白创建',

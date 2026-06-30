@@ -15,6 +15,7 @@
 #
 import json
 import logging
+import os
 import time
 from functools import reduce
 from operator import or_
@@ -22,17 +23,60 @@ from uuid import uuid4
 from agent.canvas import Canvas
 from api.db import CanvasCategory, TenantPermission
 from api.db.db_models import DB, CanvasTemplate, User, UserCanvas, API4Conversation, UserCanvasVersion
+from api.db.services.agent_run_service import AgentRunService
 from api.db.services.api_service import API4ConversationService
 from api.db.services.common_service import CommonService
 from api.db.services.user_canvas_version import UserCanvasVersionService
-from common.misc_utils import get_uuid, thread_pool_exec
+from api.db.template_utils import normalize_canvas_template_categories
 from api.utils.api_utils import get_data_openai
+from common.misc_utils import get_project_base_directory, get_uuid, thread_pool_exec
 import tiktoken
 from peewee import fn
 
 
 class CanvasTemplateService(CommonService):
     model = CanvasTemplate
+
+    @classmethod
+    def load_builtin_templates(cls):
+        template_dir = os.path.join(get_project_base_directory(), "agent", "templates")
+        templates = []
+        if not os.path.exists(template_dir):
+            logging.warning("Missing agent templates directory: %s", template_dir)
+            return templates
+
+        for filename in sorted(os.listdir(template_dir)):
+            if not filename.endswith(".json"):
+                continue
+            template_path = os.path.join(template_dir, filename)
+            try:
+                with open(template_path, "r", encoding="utf-8") as template_file:
+                    templates.append(normalize_canvas_template_categories(json.load(template_file)))
+            except Exception:
+                logging.exception("Failed to load builtin agent template: %s", template_path)
+        return templates
+
+    @classmethod
+    def get_all_with_builtin(cls):
+        templates = {}
+        try:
+            for item in cls.get_all():
+                data = item.to_dict()
+                templates[str(data.get("id"))] = data
+        except Exception:
+            logging.exception("Failed to load agent templates from database.")
+
+        for item in cls.load_builtin_templates():
+            templates[str(item.get("id"))] = item
+
+        def sort_key(item):
+            value = item.get("id")
+            try:
+                return (0, int(value))
+            except Exception:
+                return (1, str(value or ""))
+
+        return sorted(templates.values(), key=sort_key)
 
 class DataFlowTemplateService(CommonService):
     """
@@ -318,6 +362,7 @@ async def completion(tenant_id, agent_id, session_id=None, **kwargs):
     chat_template_kwargs = kwargs.get("chat_template_kwargs")
     custom_header = kwargs.get("custom_header", "")
     release_mode = str(kwargs.get("release", "")).strip().lower()
+    message_id = str(uuid4())
 
     if session_id:
         e, conv = await thread_pool_exec(API4ConversationService.get_by_id, session_id)
@@ -327,12 +372,12 @@ async def completion(tenant_id, agent_id, session_id=None, **kwargs):
             conv.message = []
         if not isinstance(conv.dsl, str):
             conv.dsl = json.dumps(conv.dsl, ensure_ascii=False)
-        canvas = Canvas(conv.dsl, tenant_id, agent_id, canvas_id=agent_id, custom_header=custom_header)
+        canvas = Canvas(conv.dsl, tenant_id, message_id, canvas_id=agent_id, custom_header=custom_header)
     else:
         cvs, dsl = await thread_pool_exec(UserCanvasService.get_agent_dsl_with_release, agent_id, release_mode=release_mode == "true", tenant_id=tenant_id)
 
         session_id = get_uuid()
-        canvas = Canvas(dsl, tenant_id, agent_id, canvas_id=cvs.id, custom_header=custom_header)
+        canvas = Canvas(dsl, tenant_id, message_id, canvas_id=cvs.id, custom_header=custom_header)
         canvas.reset()
         # Get the version title based on release_mode
         version_title = await thread_pool_exec(UserCanvasVersionService.get_latest_version_title, cvs.id, release_mode=release_mode == "true")
@@ -340,7 +385,16 @@ async def completion(tenant_id, agent_id, session_id=None, **kwargs):
         await thread_pool_exec(API4ConversationService.save, **conv)
         conv = API4Conversation(**conv)
 
-    message_id = str(uuid4())
+    run_id = message_id
+    AgentRunService.start(
+        tenant_id=tenant_id,
+        run_id=run_id,
+        agent_id=agent_id,
+        session_id=session_id,
+        message_id=message_id,
+        task_id=canvas.task_id,
+        query=query,
+    )
     conv.message.append({
         "role": "user",
         "content": query,
@@ -357,15 +411,21 @@ async def completion(tenant_id, agent_id, session_id=None, **kwargs):
     if chat_template_kwargs is not None:
         run_kwargs["chat_template_kwargs"] = chat_template_kwargs
 
-    async for ans in canvas.run(**run_kwargs):
-        ans["session_id"] = session_id
-        if ans["event"] == "message":
-            txt += ans["data"]["content"]
-            if ans["data"].get("start_to_think", False):
-                txt += "<think>"
-            elif ans["data"].get("end_to_think", False):
-                txt += "</think>"
-        yield "data:" + json.dumps(ans, ensure_ascii=False) + "\n\n"
+    try:
+        async for ans in canvas.run(**run_kwargs):
+            ans["session_id"] = session_id
+            ans["run_id"] = run_id
+            if ans["event"] == "message":
+                txt += ans["data"]["content"]
+                if ans["data"].get("start_to_think", False):
+                    txt += "<think>"
+                elif ans["data"].get("end_to_think", False):
+                    txt += "</think>"
+            AgentRunService.append_event(tenant_id, run_id, ans)
+            yield "data:" + json.dumps(ans, ensure_ascii=False) + "\n\n"
+    except Exception as e:
+        AgentRunService.fail(tenant_id, run_id, str(e))
+        raise
 
     conv.message.append({"role": "assistant", "content": txt, "created_at": time.time(), "id": message_id})
     conv.reference = canvas.get_reference()
@@ -373,6 +433,7 @@ async def completion(tenant_id, agent_id, session_id=None, **kwargs):
     conv.dsl = str(canvas)
     conv = conv.to_dict()
     await thread_pool_exec(API4ConversationService.append_message, conv["id"], conv)
+    AgentRunService.finish(tenant_id, run_id)
 
 
 async def completion_openai(tenant_id, agent_id, question, session_id=None, stream=True, **kwargs):

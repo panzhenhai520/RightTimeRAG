@@ -86,7 +86,10 @@ class Graph:
                 "sys.query": "",
                 "sys.user_id": tenant_id,
                 "sys.conversation_turns": 0,
-                "sys.files": []
+                "sys.files": [],
+                "sys.file_assets": [],
+                "sys.file_texts": [],
+                "sys.file_chunks": []
             }
         }
         """
@@ -171,6 +174,9 @@ class Graph:
 
     def get_component_input_form(self, cpn_id) -> dict:
         return self.components.get(cpn_id)["obj"].get_input_form()
+
+    def get_component_contract(self, cpn_id) -> dict:
+        return self.components.get(cpn_id)["obj"].get_contract()
 
     def get_tenant_id(self):
         return self._tenant_id
@@ -300,6 +306,9 @@ class Canvas(Graph):
             "sys.user_id": tenant_id,
             "sys.conversation_turns": 0,
             "sys.files": [],
+            "sys.file_assets": [],
+            "sys.file_texts": [],
+            "sys.file_chunks": [],
             "sys.history": [],
             "sys.date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         }
@@ -316,12 +325,21 @@ class Canvas(Graph):
                 self.globals["sys.history"] = []
             if "sys.date" not in self.globals:
                 self.globals["sys.date"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            if "sys.file_assets" not in self.globals:
+                self.globals["sys.file_assets"] = []
+            if "sys.file_texts" not in self.globals:
+                self.globals["sys.file_texts"] = []
+            if "sys.file_chunks" not in self.globals:
+                self.globals["sys.file_chunks"] = []
         else:
             self.globals = {
             "sys.query": "",
             "sys.user_id": "",
             "sys.conversation_turns": 0,
             "sys.files": [],
+            "sys.file_assets": [],
+            "sys.file_texts": [],
+            "sys.file_chunks": [],
             "sys.history": [],
             "sys.date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         }
@@ -436,7 +454,11 @@ class Canvas(Graph):
         for k in kwargs.keys():
             if k in ["query", "user_id", "files", "chat_template_kwargs"] and kwargs[k]:
                 if k == "files":
-                    self.globals[f"sys.{k}"] = await self.get_files_async(kwargs[k], layout_recognize)
+                    file_assets = await self.get_file_assets_async(kwargs[k], layout_recognize)
+                    self.globals["sys.file_assets"] = file_assets
+                    self.globals["sys.file_texts"] = FileService.file_assets_to_text_documents(file_assets)
+                    self.globals["sys.file_chunks"] = FileService.file_assets_to_text_chunks(file_assets)
+                    self.globals[f"sys.{k}"] = FileService.file_assets_to_texts(file_assets)
                 else:
                     self.globals[f"sys.{k}"] = kwargs[k]
         if not self.globals["sys.conversation_turns"] :
@@ -520,6 +542,18 @@ class Canvas(Graph):
 
         def _node_finished(cpn_obj):
             return decorate("node_finished",{
+                           "inputs": cpn_obj.get_input_values(),
+                           "outputs": cpn_obj.output(),
+                           "component_id": cpn_obj._id,
+                           "component_name": self.get_component_name(cpn_obj._id),
+                           "component_type": self.get_component_type(cpn_obj._id),
+                           "error": cpn_obj.error(),
+                           "elapsed_time": time.perf_counter() - cpn_obj.output("_created_time"),
+                           "created_at": cpn_obj.output("_created_time"),
+                       })
+
+        def _node_failed(cpn_obj):
+            return decorate("node_failed", {
                            "inputs": cpn_obj.get_input_values(),
                            "outputs": cpn_obj.output(),
                            "component_id": cpn_obj._id,
@@ -622,6 +656,7 @@ class Canvas(Graph):
                         yield decorate("message_end", {})
                     else:
                         self.error = cpn_obj.error()
+                        yield _node_failed(cpn_obj)
 
                 if cpn_obj.component_name.lower() not in ("iteration","loop"):
                     if isinstance(cpn_obj.output("content"), partial):
@@ -702,6 +737,14 @@ class Canvas(Graph):
                        {
                            "inputs": kwargs.get("inputs"),
                            "outputs": "Task has been canceled",
+                           "elapsed_time": time.perf_counter() - st,
+                           "created_at": st,
+                       })
+        else:
+            yield decorate("workflow_failed",
+                       {
+                           "inputs": kwargs.get("inputs"),
+                           "error": self.error,
                            "elapsed_time": time.perf_counter() - st,
                            "created_at": st,
                        })
@@ -810,6 +853,12 @@ class Canvas(Graph):
                 continue
             tasks.append(loop.run_in_executor(self._thread_pool, parse_file, file))
         return await asyncio.gather(*tasks)
+
+    async def get_file_assets_async(self, files: Union[None, list[dict]], layout_recognize: str = None) -> list[dict]:
+        if not files:
+            return []
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._thread_pool, FileService.get_file_assets, files, layout_recognize)
 
     def get_files(self, files: Union[None, list[dict]], layout_recognize: str = None) -> list[str]:
         """

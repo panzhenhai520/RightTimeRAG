@@ -10,6 +10,7 @@ import { get, isEmpty } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { BeginId } from '../../constant';
+import { useExploreRunContext } from '../run-context';
 import { useExploreUrlParams } from './use-explore-url-params';
 
 export const useGetBeginNodePrologue = () => {
@@ -25,7 +26,9 @@ export const useGetBeginNodePrologue = () => {
   }, [nodes]);
 };
 
-export const useSendSessionMessage = () => {
+export const useSendSessionMessage = ({
+  recoveredRunId,
+}: { recoveredRunId?: string } = {}) => {
   const { setSessionId, sessionId, isNew } = useExploreUrlParams();
 
   const { data: canvasInfo } = useFetchAgent();
@@ -39,6 +42,7 @@ export const useSendSessionMessage = () => {
   const [beginParams, setBeginParams] = useState<any[]>([]);
 
   const prologue = useGetBeginNodePrologue();
+  const { setSessionRunning } = useExploreRunContext();
 
   const {
     visible: parameterDialogVisible,
@@ -63,6 +67,10 @@ export const useSendSessionMessage = () => {
     ...chatLogic
   } = useSendAgentMessage({
     beginParams,
+    activeSessionId: sessionId,
+    recoveredRunId,
+    onRunStatusChange: setSessionRunning,
+    useBackgroundRun: true,
   });
 
   const handleParametersOk = useCallback(

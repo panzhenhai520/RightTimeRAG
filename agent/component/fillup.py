@@ -73,7 +73,20 @@ class UserFillUp(ComponentBase):
                     file_value = v["value"]
                     # Support both single file (backward compatibility) and multiple files
                     files = file_value if isinstance(file_value, list) else [file_value]
-                    v = FileService.get_files(files, layout_recognize=layout_recognize)
+                    file_assets = FileService.get_file_assets(files, layout_recognize=layout_recognize)
+                    file_texts = FileService.file_assets_to_text_documents(file_assets)
+                    file_chunks = FileService.file_assets_to_text_chunks(file_assets)
+                    v = FileService.file_assets_to_texts(file_assets)
+                    self.set_output(f"{k}_files", file_assets)
+                    self.set_output(f"{k}_file_assets", file_assets)
+                    self.set_output(f"{k}_file_texts", file_texts)
+                    self.set_output(f"{k}_file_chunks", file_chunks)
+                    self.set_output(f"{k}_text", v)
+                    self.set_input_value(f"{k}_files", file_assets)
+                    self.set_input_value(f"{k}_file_assets", file_assets)
+                    self.set_input_value(f"{k}_file_texts", file_texts)
+                    self.set_input_value(f"{k}_file_chunks", file_chunks)
+                    self.set_input_value(f"{k}_text", v)
             else:
                 v = v.get("value")
             self.set_output(k, v)

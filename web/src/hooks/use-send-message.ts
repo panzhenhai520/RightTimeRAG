@@ -23,6 +23,7 @@ export enum MessageEventType {
 export interface IAnswerEvent<T> {
   event: MessageEventType;
   message_id: string;
+  run_id?: string;
   session_id: string;
   created_at: number;
   task_id: string;
@@ -110,6 +111,10 @@ export const useSendMessageBySSE = (url: string) => {
     }, 1000);
   }, []);
 
+  const replaceAnswerList = useCallback((events: IEventList) => {
+    setAnswerList(events);
+  }, []);
+
   const send = useCallback(
     async (
       body: any,
@@ -194,6 +199,7 @@ export const useSendMessageBySSE = (url: string) => {
     done,
     setDone,
     resetAnswerList,
+    replaceAnswerList,
     stopOutputMessage,
   };
 };

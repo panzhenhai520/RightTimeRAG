@@ -15,6 +15,7 @@
 #
 import asyncio
 import base64
+import importlib
 import logging
 import re
 import sys
@@ -597,6 +598,77 @@ class FileService(CommonService):
         return f"\n -----------------\nFile: {filename}\nContent as following: \n" + "\n".join([ck["content_with_weight"] for ck in cks])
 
     @staticmethod
+    def parse_file_to_chunks(
+        filename: str,
+        blob: bytes,
+        tenant_id: str | None = None,
+        layout_recognize: str | None = None,
+        parser_id: str | None = None,
+        chunk_token_num: int = 1200,
+        from_page: int = 0,
+        to_page: int = MAXIMUM_PAGE_NUMBER,
+        lang: str = "Chinese",
+    ) -> list[dict]:
+        from rag.app import naive
+        from api.apps import current_user
+
+        def dummy(prog=None, msg=""):
+            pass
+
+        parser_config = {
+            "chunk_token_num": max(100, int(chunk_token_num or 1200)),
+            "delimiter": "\n!?;。；！？",
+            "layout_recognize": layout_recognize or "Plain Text",
+        }
+        parser_name = parser_id or "auto"
+        if parser_name == "auto":
+            parser_name = FileService.get_parser(filename_type(filename), filename, "naive")
+        try:
+            parser_module = importlib.import_module(f"rag.app.{parser_name}") if parser_name else naive
+        except Exception:
+            logging.warning("FileService.parse_file_to_chunks fallback to naive parser: %s", parser_name)
+            parser_module = naive
+
+        kwargs = {
+            "lang": lang or "Chinese",
+            "callback": dummy,
+            "parser_config": parser_config,
+            "from_page": max(0, int(from_page or 0)),
+            "to_page": min(MAXIMUM_PAGE_NUMBER, int(to_page or MAXIMUM_PAGE_NUMBER)),
+            "tenant_id": current_user.id if current_user else tenant_id,
+        }
+        chunks = parser_module.chunk(filename, blob, **kwargs) or []
+        normalized = []
+        for idx, chunk in enumerate(chunks):
+            content = str(
+                chunk.get("content_with_weight")
+                or chunk.get("content")
+                or chunk.get("text")
+                or ""
+            ).strip()
+            if not content:
+                continue
+            page_nums = chunk.get("page_num_int") or chunk.get("page_nums") or chunk.get("page_num")
+            if isinstance(page_nums, int):
+                page_nums = [page_nums]
+            elif not isinstance(page_nums, list):
+                page_nums = []
+
+            normalized_chunk = {
+                **chunk,
+                "id": chunk.get("id") or f"{filename}:{idx}",
+                "chunk_id": chunk.get("chunk_id") or chunk.get("id") or f"{filename}:{idx}",
+                "docnm_kwd": chunk.get("docnm_kwd") or filename,
+                "document_name": chunk.get("document_name") or chunk.get("docnm_kwd") or filename,
+                "content": content,
+                "content_with_weight": content,
+                "page_num_int": page_nums,
+                "page": page_nums[0] if page_nums else None,
+            }
+            normalized.append(normalized_chunk)
+        return normalized
+
+    @staticmethod
     def get_parser(doc_type, filename, default):
         if doc_type == FileType.VISUAL:
             return ParserType.PICTURE.value
@@ -816,3 +888,140 @@ class FileService(CommonService):
                 return [th.result() for th in threads], imgs
             else:
                 return [th.result() for th in threads]
+
+    @staticmethod
+    def build_file_asset(file: dict, text: str | None = None) -> dict:
+        asset = {
+            "type": "file_asset",
+            "id": file.get("id"),
+            "name": file.get("name"),
+            "size": file.get("size"),
+            "extension": file.get("extension"),
+            "mime_type": file.get("mime_type"),
+            "created_by": file.get("created_by"),
+            "created_at": file.get("created_at"),
+            "preview_url": file.get("preview_url"),
+        }
+        if text is not None:
+            asset["text"] = text
+            asset["parsed_text"] = text
+        return asset
+
+    @staticmethod
+    def file_assets_to_texts(file_assets: Union[None, list[dict]]) -> list[str]:
+        if not file_assets:
+            return []
+        return [
+            asset.get("text") or asset.get("parsed_text") or ""
+            for asset in file_assets
+            if isinstance(asset, dict)
+        ]
+
+    @staticmethod
+    def file_assets_to_text_documents(file_assets: Union[None, list[dict]]) -> list[dict]:
+        if not file_assets:
+            return []
+        documents = []
+        for asset in file_assets:
+            if not isinstance(asset, dict):
+                continue
+            content = asset.get("text") or asset.get("parsed_text") or ""
+            documents.append(
+                {
+                    "type": "text_document",
+                    "file_id": asset.get("id"),
+                    "name": asset.get("name"),
+                    "mime_type": asset.get("mime_type"),
+                    "size": asset.get("size"),
+                    "content": content,
+                    "char_count": len(content),
+                }
+            )
+        return documents
+
+    @staticmethod
+    def text_document_to_chunks(document: dict, max_chars: int = 4000, overlap: int = 200) -> list[dict]:
+        content = str((document or {}).get("content") or "")
+        if not content:
+            return []
+        max_chars = max(1, int(max_chars or 4000))
+        overlap = max(0, min(int(overlap or 0), max_chars - 1))
+        chunks = []
+        start = 0
+        index = 0
+        while start < len(content):
+            end = min(len(content), start + max_chars)
+            chunk_text = content[start:end]
+            file_id = document.get("file_id")
+            chunks.append(
+                {
+                    "type": "text_chunk",
+                    "chunk_id": f"{file_id or 'file'}:{index}",
+                    "file_id": file_id,
+                    "name": document.get("name"),
+                    "mime_type": document.get("mime_type"),
+                    "chunk_index": index,
+                    "start_char": start,
+                    "end_char": end,
+                    "content": chunk_text,
+                    "char_count": len(chunk_text),
+                }
+            )
+            if end >= len(content):
+                break
+            start = max(0, end - overlap)
+            index += 1
+        return chunks
+
+    @staticmethod
+    def file_assets_to_text_chunks(
+        file_assets: Union[None, list[dict]],
+        max_chars: int = 4000,
+        overlap: int = 200,
+    ) -> list[dict]:
+        chunks = []
+        for document in FileService.file_assets_to_text_documents(file_assets):
+            chunks.extend(FileService.text_document_to_chunks(document, max_chars=max_chars, overlap=overlap))
+        return chunks
+
+    @staticmethod
+    def get_file_assets(files: Union[None, list[dict]], layout_recognize: str = None, include_text: bool = True) -> list[dict]:
+        if not files:
+            return []
+
+        def image_to_base64(file):
+            return "data:{};base64,{}".format(
+                file["mime_type"],
+                base64.b64encode(FileService.get_blob(file["created_by"], file["id"])).decode("utf-8"),
+            )
+
+        assets = [FileService.build_file_asset(file) for file in files]
+        if not include_text:
+            return assets
+
+        with ThreadPoolExecutor(max_workers=5) as exe:
+            threads = []
+            for index, file in enumerate(files):
+                if file["mime_type"].find("image") >= 0:
+                    threads.append((index, exe.submit(image_to_base64, file)))
+                    continue
+                threads.append(
+                    (
+                        index,
+                        exe.submit(
+                            FileService.parse,
+                            file["name"],
+                            FileService.get_blob(file["created_by"], file["id"]),
+                            True,
+                            file["created_by"],
+                            layout_recognize,
+                        ),
+                    )
+                )
+
+            for index, thread in threads:
+                text = thread.result()
+                assets[index]["text"] = text
+                assets[index]["parsed_text"] = text
+
+        return assets

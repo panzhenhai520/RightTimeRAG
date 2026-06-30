@@ -3,6 +3,7 @@ import SvgIcon from '@/components/svg-icon';
 import { cn } from '@/lib/utils';
 import {
   FileCode,
+  FileSearch,
   FileText,
   Globe,
   HousePlus,
@@ -55,6 +56,7 @@ export const SVGIconMap = {
 };
 export const LucideIconMap = {
   [Operator.DataOperations]: FileCode,
+  [Operator.FileParser]: FileSearch,
   [Operator.Loop]: InfinityIcon,
   [Operator.ExitLoop]: LogOut,
   [Operator.DocGenerator]: FileText,

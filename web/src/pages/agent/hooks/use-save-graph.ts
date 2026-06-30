@@ -5,8 +5,10 @@ import {
 } from '@/hooks/use-agent-request';
 import {
   GlobalVariableType,
+  IAgentValidationResponse,
   RAGFlowNodeType,
 } from '@/interfaces/database/agent';
+import { validateAgentDsl } from '@/services/agent-service';
 import { formatDate } from '@/utils/date';
 import { useDebounceEffect } from 'ahooks';
 import { useCallback, useEffect, useState } from 'react';
@@ -43,7 +45,23 @@ export const useSaveGraph = (showMessage: boolean = true) => {
     [setAgent, data, id, buildDslData],
   );
 
-  return { saveGraph, loading };
+  const validateGraph = useCallback(
+    async (
+      currentNodes?: RAGFlowNodeType[],
+      otherParam?: {
+        globalVariables: Record<string, GlobalVariableType>;
+      },
+    ): Promise<IAgentValidationResponse> => {
+      const ret = await validateAgentDsl(
+        id!,
+        buildDslData(currentNodes, otherParam),
+      );
+      return ret.data.data;
+    },
+    [buildDslData, id],
+  );
+
+  return { saveGraph, validateGraph, loading };
 };
 
 export const useSaveGraphBeforeOpeningDebugDrawer = (show: () => void) => {

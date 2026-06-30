@@ -1,4 +1,3 @@
-import base64
 import logging
 import json
 import os
@@ -11,10 +10,9 @@ from functools import partial
 from io import BytesIO
 from xml.sax.saxutils import escape
 
+from agent.artifact_service import ArtifactService
 from agent.component.base import ComponentParamBase
 from api.utils.api_utils import timeout
-from common import settings
-from common.misc_utils import get_uuid
 from .message import Message
 
 
@@ -57,6 +55,8 @@ class DocGeneratorParam(ComponentParamBase):
             "mime_type": {"value": "", "type": "string"},
             "size": {"value": 0, "type": "number"},
             "download": {"value": "", "type": "string"},
+            "downloads": {"value": [], "type": "Array<Artifact>"},
+            "attachment": {"value": {}, "type": "Artifact"},
         }
 
     def check(self):
@@ -119,9 +119,6 @@ class DocGenerator(Message, ABC):
                     raise Exception("Document file is empty")
 
                 file_size = len(file_bytes)
-                file_base64 = base64.b64encode(file_bytes).decode("utf-8")
-                doc_id = get_uuid()
-                settings.STORAGE_IMPL.put(self._canvas.get_tenant_id(), doc_id, file_bytes)
 
                 logging.info(
                     "Successfully generated %s: %s (Size: %s bytes)",
@@ -130,19 +127,24 @@ class DocGenerator(Message, ABC):
                     file_size,
                 )
 
-                download_info = {
-                    "doc_id": doc_id,
-                    "filename": filename,
-                    "mime_type": mime_type,
-                    "size": file_size,
-                    "base64": file_base64,
-                    "include_download_info_in_content": self._param.include_download_info_in_content,
-                }
-                self.set_output("doc_id", doc_id)
+                download_info = ArtifactService.create_download_info(
+                    self._canvas.get_tenant_id(),
+                    file_bytes,
+                    filename,
+                    mime_type=mime_type,
+                    run_id=getattr(self._canvas, "_run_id", None),
+                    node_id=getattr(self, "_id", None),
+                    include_base64=True,
+                    include_download_info_in_content=self._param.include_download_info_in_content,
+                )
+                attachment = ArtifactService.attachment_from_download(download_info)
+                self.set_output("doc_id", download_info["doc_id"])
                 self.set_output("filename", filename)
                 self.set_output("mime_type", mime_type)
                 self.set_output("size", file_size)
                 self.set_output("download", json.dumps(download_info))
+                self.set_output("downloads", [download_info])
+                self.set_output("attachment", attachment)
                 return download_info
 
             except Exception as e:

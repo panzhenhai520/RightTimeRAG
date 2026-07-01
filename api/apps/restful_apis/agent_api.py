@@ -26,12 +26,15 @@ import logging
 import os
 import time
 from functools import partial, wraps
-from typing import Set
+from typing import Any, Set
 
 from api.utils.web_utils import CONTENT_TYPE_MAP, apply_safe_file_response_headers
+from agent.component.file_parser import FileParser
+from agent.component.schema import list_operator_manifests
 import jwt
 from quart import Response, jsonify, request, make_response
 
+from agent.artifact_registry_service import AgentArtifactRegistryService, ArtifactPermissionError
 from api.apps import current_user, login_required
 from api.apps.services.canvas_replica_service import CanvasReplicaService
 from api.db import CanvasCategory
@@ -39,9 +42,17 @@ from api.db.db_models import Task
 from api.db.services.api_service import API4ConversationService
 from api.db.services.agent_meeting_memory_service import AgentMeetingMemoryService
 from api.db.services.agent_meeting_scheduler_service import AgentMeetingSchedulerService
+from api.db.services.agent_document_write_coordinator_service import (
+    AgentDocumentWriteCoordinatorService,
+    DocumentWriteCoordinatorError,
+)
+from api.db.services.agent_public_response_service import AgentPublicResponseService
 from api.db.services.agent_run_queue_service import AgentRunQueueService
 from api.db.services.agent_run_service import AgentRunService, AgentRunStatus
+from api.db.services.agent_teacher_registry_service import AgentTeacherRegistryService
+from api.db.services.agent_turn_context_service import AgentTurnContextService
 from api.db.services.agent_validation_service import AgentValidationService
+from api.db.services.workspace_file_service import WorkspaceFileService
 from api.db.services.canvas_service import (
     CanvasTemplateService,
     UserCanvasService,
@@ -89,6 +100,18 @@ def _request_bool(value, default=False):
         if normalized in {"false", "0", "no", "n", "off", ""}:
             return False
     return bool(value)
+
+
+def _request_deadline_ms(value) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        deadline_ms = int(float(value))
+    except Exception:
+        raise ValueError("`deadline_ms` must be a positive integer.")
+    if deadline_ms <= 0:
+        raise ValueError("`deadline_ms` must be a positive integer.")
+    return deadline_ms
 
 
 def _agent_run_queue_enabled(req: dict | None = None) -> bool:
@@ -201,6 +224,193 @@ def _agent_session_list_result(data, total):
     return jsonify({"code": RetCode.SUCCESS, "message": "success", "data": data, "total": total})
 
 
+def _normalize_public_dataset_ids(req: dict[str, Any]) -> list[str]:
+    raw = req.get("request_dataset_ids")
+    if raw is None:
+        raw = req.get("dataset_ids")
+    if raw is None:
+        raw = req.get("kb_ids")
+    if raw in (None, ""):
+        return []
+    if isinstance(raw, str):
+        values = [raw]
+    elif isinstance(raw, list):
+        values = raw
+    else:
+        raise ValueError("`dataset_ids` must be a string array.")
+    dataset_ids = []
+    seen = set()
+    for item in values:
+        dataset_id = str(item or "").strip()
+        if not dataset_id or dataset_id in seen:
+            continue
+        seen.add(dataset_id)
+        dataset_ids.append(dataset_id)
+    return dataset_ids
+
+
+def _as_canvas_dict(canvas_obj) -> dict[str, Any]:
+    if isinstance(canvas_obj, dict):
+        return canvas_obj
+    if hasattr(canvas_obj, "to_dict"):
+        return canvas_obj.to_dict()
+    result = {}
+    for key in ("id", "user_id", "title", "canvas_category"):
+        if hasattr(canvas_obj, key):
+            result[key] = getattr(canvas_obj, key)
+    return result
+
+
+def _loads_dsl_dict(dsl: Any) -> dict[str, Any]:
+    if isinstance(dsl, dict):
+        return dsl
+    if isinstance(dsl, str):
+        try:
+            parsed = json.loads(dsl)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _collect_workflow_binding_ids(value: Any) -> set[str]:
+    """Collect explicit workflow binding ids from an Agent DSL.
+
+    The platform does not yet have a dedicated binding table. This supports a
+    few stable metadata keys so bindings can be declared without a migration.
+    """
+    binding_keys = {
+        "workflow_id",
+        "workflow_ids",
+        "bound_workflow_id",
+        "bound_workflow_ids",
+        "allowed_workflow_id",
+        "allowed_workflow_ids",
+        "workflow_bindings",
+        "bound_workflows",
+    }
+    found: set[str] = set()
+
+    def visit(item: Any, key: str = "") -> None:
+        if isinstance(item, dict):
+            for child_key, child_value in item.items():
+                normalized_key = str(child_key or "").lower()
+                if normalized_key in binding_keys:
+                    visit(child_value, normalized_key)
+                elif normalized_key in {"metadata", "agent_metadata", "settings", "config"}:
+                    visit(child_value, normalized_key)
+        elif isinstance(item, list):
+            for child in item:
+                visit(child, key)
+        elif key in binding_keys and item not in (None, ""):
+            found.add(str(item).strip())
+
+    visit(value)
+    return {item for item in found if item}
+
+
+def _workflow_binding_allowed(agent_cvs: Any, agent_dsl: Any, workflow_id: str, workflow_cvs: Any) -> bool:
+    agent_info = _as_canvas_dict(agent_cvs)
+    workflow_info = _as_canvas_dict(workflow_cvs)
+    if str(agent_info.get("id") or "") == str(workflow_id):
+        return True
+    explicit_bindings = _collect_workflow_binding_ids(_loads_dsl_dict(agent_dsl))
+    if str(workflow_id) in explicit_bindings:
+        return True
+    # Until a dedicated binding table exists, same-owner canvases are treated as
+    # an implicit binding after access checks pass. Team-shared cross-owner
+    # workflows still require an explicit DSL binding.
+    return bool(agent_info.get("user_id") and agent_info.get("user_id") == workflow_info.get("user_id"))
+
+
+async def _resolve_agent_workflow(agent_id: str, req: dict[str, Any], tenant_id: str, release_mode: bool):
+    workflow_id = str(req.get("workflow_id") or agent_id)
+    agent_cvs, agent_dsl = await thread_pool_exec(
+        UserCanvasService.get_agent_dsl_with_release,
+        agent_id,
+        release_mode,
+        tenant_id,
+    )
+    if workflow_id == agent_id:
+        return {
+            "agent_cvs": agent_cvs,
+            "workflow_cvs": agent_cvs,
+            "agent_dsl": agent_dsl,
+            "workflow_dsl": agent_dsl,
+            "workflow_id": workflow_id,
+            "explicit_workflow": False,
+        }
+
+    if not await thread_pool_exec(UserCanvasService.accessible, workflow_id, tenant_id):
+        raise PermissionError("Make sure you have permission to access the workflow.")
+
+    workflow_cvs, workflow_dsl = await thread_pool_exec(
+        UserCanvasService.get_agent_dsl_with_release,
+        workflow_id,
+        release_mode,
+        tenant_id,
+    )
+    if not _workflow_binding_allowed(agent_cvs, agent_dsl, workflow_id, workflow_cvs):
+        raise PermissionError("Workflow is not bound to the requested agent.")
+
+    return {
+        "agent_cvs": agent_cvs,
+        "workflow_cvs": workflow_cvs,
+        "agent_dsl": agent_dsl,
+        "workflow_dsl": workflow_dsl,
+        "workflow_id": workflow_id,
+        "explicit_workflow": True,
+    }
+
+
+def _agent_run_public_status(state: dict[str, Any] | None) -> str:
+    if not isinstance(state, dict):
+        return "failed"
+    status = str(state.get("status") or "").lower()
+    if status in {"queued", "running", "succeeded", "failed", "canceled", "timeout"}:
+        return status
+    return status or "running"
+
+
+def _extract_public_session_answer(conv: dict[str, Any], message_id: str | None = None) -> dict[str, Any]:
+    messages = conv.get("message") or []
+    if not isinstance(messages, list):
+        return {"answer": "", "references": []}
+    references = conv.get("reference") or []
+    if isinstance(references, dict):
+        if "chunks" in references:
+            references = [references]
+        else:
+            references = [value for _, value in sorted(references.items(), key=lambda item: int(item[0]))]
+    if not isinstance(references, list):
+        references = []
+    references = [_normalize_agent_reference_entry(reference) for reference in references]
+
+    assistant_messages = [
+        message
+        for index, message in enumerate(messages)
+        if isinstance(message, dict) and index != 0 and message.get("role") != "user"
+    ]
+    selected_index = None
+    selected_message = None
+    if message_id:
+        for index, message in enumerate(assistant_messages):
+            if str(message.get("id") or "") == str(message_id):
+                selected_index = index
+                selected_message = message
+                break
+    if selected_message is None and assistant_messages:
+        selected_index = len(assistant_messages) - 1
+        selected_message = assistant_messages[-1]
+    if selected_message is None:
+        return {"answer": "", "references": []}
+    return {
+        "answer": selected_message.get("content", ""),
+        "references": references[selected_index] if selected_index is not None and selected_index < len(references) else [],
+        "message_id": selected_message.get("id") or message_id or "",
+    }
+
+
 def _release_validation_error(dsl):
     validation = AgentValidationService.validate_for_publish(dsl)
     if validation["ok"]:
@@ -210,6 +420,374 @@ def _release_validation_error(dsl):
         message="Agent publish validation failed.",
         code=RetCode.ARGUMENT_ERROR,
     )
+
+
+def _ensure_default_agent_workspace(dsl: dict, agent_id: str, tenant_id: str = "", title: str = "") -> None:
+    if not isinstance(dsl, dict) or not str(agent_id or "").strip():
+        return
+    workspace = dsl.get("workspace")
+    if isinstance(workspace, dict) and workspace.get("managed"):
+        return
+    dsl["workspace"] = WorkspaceFileService.ensure_agent_workspace(
+        str(agent_id),
+        tenant_id=str(tenant_id or ""),
+        title=str(title or ""),
+    )
+
+
+def _ensure_agent_workspace_file(agent_id: str, relative_path: str, content: str = "") -> None:
+    workspace = WorkspaceFileService.ensure_agent_workspace(str(agent_id))
+    root_path = workspace.get("root_path")
+    if not root_path:
+        return
+    target = os.path.join(root_path, relative_path)
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    if not os.path.exists(target):
+        with open(target, "w", encoding="utf-8") as file:
+            file.write(content)
+
+
+CASE_DOCUMENT_REVIEW_AGENT_ID = "6f6145de757a11f1b4075dddb426bed0"
+CASE_DOCUMENT_REVIEW_AGENT_TITLE = "\u6587\u6863\u6838\u5bf9\u6848\u4f8b\u667a\u80fd\u4f53"
+CASE_DOCUMENT_REVIEW_AGENT_LEGACY_TITLE = (
+    "\u590d\u6742\u4efb\u52a1\u8d44\u6599\u6574\u7406\u4e0e"
+    "\u6587\u6863\u6838\u5bf9\u6848\u4f8b\u667a\u80fd\u4f53"
+)
+CASE_DOCUMENT_REVIEW_LLM_ID = "deepseek-v4-flash___OpenAI-API@OpenAI-API-Compatible"
+CASE_DOCUMENT_REVIEW_OUTPUT_PATH = "output/document-review-report.md"
+CASE_DOCUMENT_REVIEW_NOTES = [
+    {
+        "id": "Note:CaseInputGuide",
+        "name": "1. 输入说明",
+        "text": "用户只需要提供任务说明、文件 A、文件 B 和可选输出格式。文件路径可以在运行页点浏览选择；工作区和报告输出空间由智能体配置负责。",
+        "x": 40,
+        "y": 40,
+    },
+    {
+        "id": "Note:CasePlanningGuide",
+        "name": "2. 任务理解与规划",
+        "text": "GoalIntentClassifier 先识别目标类型；TaskContextCollector 搜集工作区上下文；TaskPlanner 拆解子任务；PreconditionChecker 检查路径、文件和执行条件。",
+        "x": 620,
+        "y": -80,
+    },
+    {
+        "id": "Note:CaseFileGuide",
+        "name": "3. 文件读取与结构化",
+        "text": "DocumentNormalizer 分别读取两个文件并规范化为统一文档对象；ClauseExtractor 把段落、条款或要点抽出来，供后续精确比对和冲突判断使用。",
+        "x": 40,
+        "y": 450,
+    },
+    {
+        "id": "Note:CaseCompareGuide",
+        "name": "4. 差异、包含与冲突",
+        "text": "DocumentDiff 做逐段差异；DocumentSemanticComparer 做语义匹配；DocumentConflictDetector 判断缺失要求、包含关系和可能冲突条款。",
+        "x": 1040,
+        "y": 760,
+    },
+    {
+        "id": "Note:CaseLlmGuide",
+        "name": "5. 大模型综合分析",
+        "text": "Agent:Synthesis 已接入本机大模型 deepseek-v4-flash。它读取任务规划、文件差异、语义匹配、冲突结果和基础报告，输出结构化分析正文 content。",
+        "x": 1740,
+        "y": 80,
+    },
+    {
+        "id": "Note:CaseOutputGuide",
+        "name": "6. 报告、文件和审计",
+        "text": "DocGenerator 把大模型正文生成可下载报告；TaskExecutionReportComposer 输出审计摘要；Message 节点把正文、审计摘要和下载链接统一返回给用户。",
+        "x": 2140,
+        "y": 80,
+    },
+    {
+        "id": "Note:CaseWriteGuide",
+        "name": "7. 输出空间与受控改写",
+        "text": "普通报告自动写入智能体专用输出空间 output/document-review-report.md；只有修改用户原文件或应用 patch 时才需要 ManualApprove/HumanReview 审批。",
+        "x": 1820,
+        "y": 900,
+    },
+]
+
+
+def _normalize_case_agent_title(agent_id: str, req: dict):
+    """Keep the bundled training case name stable while old editors auto-save."""
+    if agent_id == CASE_DOCUMENT_REVIEW_AGENT_ID and req.get("title") == CASE_DOCUMENT_REVIEW_AGENT_LEGACY_TITLE:
+        req["title"] = CASE_DOCUMENT_REVIEW_AGENT_TITLE
+
+
+def _case_note_node(note: dict):
+    return {
+        "data": {
+            "form": {"text": note["text"]},
+            "label": "Note",
+            "name": note["name"],
+        },
+        "dragHandle": ".note-drag-handle",
+        "height": 170,
+        "id": note["id"],
+        "measured": {"height": 170, "width": 360},
+        "position": {"x": note["x"], "y": note["y"]},
+        "selected": False,
+        "sourcePosition": "right",
+        "targetPosition": "left",
+        "type": "noteNode",
+        "width": 360,
+    }
+
+
+def _append_unique(items: list, value: str) -> None:
+    if value not in items:
+        items.append(value)
+
+
+def _ensure_case_component_link(components: dict, source_id: str, target_id: str) -> None:
+    source = components.get(source_id)
+    target = components.get(target_id)
+    if not isinstance(source, dict) or not isinstance(target, dict):
+        return
+    source_downstream = source.setdefault("downstream", [])
+    target_upstream = target.setdefault("upstream", [])
+    if isinstance(source_downstream, list):
+        _append_unique(source_downstream, target_id)
+    if isinstance(target_upstream, list):
+        _append_unique(target_upstream, source_id)
+
+
+def _ensure_case_graph_edge(graph: dict, edge_id: str, source_id: str, target_id: str) -> None:
+    edges = graph.setdefault("edges", [])
+    if not isinstance(edges, list):
+        graph["edges"] = edges = []
+    if any(edge.get("source") == source_id and edge.get("target") == target_id for edge in edges if isinstance(edge, dict)):
+        return
+    edges.append(
+        {
+            "data": {"isHovered": False},
+            "id": edge_id,
+            "source": source_id,
+            "sourceHandle": "start",
+            "target": target_id,
+            "targetHandle": "end",
+        }
+    )
+
+
+def _remove_case_optional_write_nodes(components: dict, graph: dict) -> None:
+    optional_ids = {"ManualApprove:WriteGate", "WorkspacePatchApply:DryRun"}
+    for optional_id in optional_ids:
+        components.pop(optional_id, None)
+
+    for component in components.values():
+        if not isinstance(component, dict):
+            continue
+        for key in ("upstream", "downstream"):
+            if isinstance(component.get(key), list):
+                component[key] = [item for item in component[key] if item not in optional_ids]
+
+    nodes = graph.get("nodes")
+    if isinstance(nodes, list):
+        graph["nodes"] = [node for node in nodes if node.get("id") not in optional_ids]
+    edges = graph.get("edges")
+    if isinstance(edges, list):
+        graph["edges"] = [
+            edge
+            for edge in edges
+            if edge.get("source") not in optional_ids and edge.get("target") not in optional_ids
+        ]
+
+
+def _replace_case_begin_refs(value: Any) -> Any:
+    if isinstance(value, str):
+        return value.replace("{begin@workspace_root}", "").replace(
+            "{begin@write_target_path}",
+            CASE_DOCUMENT_REVIEW_OUTPUT_PATH,
+        )
+    if isinstance(value, list):
+        return [_replace_case_begin_refs(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _replace_case_begin_refs(item) for key, item in value.items()}
+    return value
+
+
+def _normalize_case_agent_dsl(agent_id: str, req: dict):
+    if agent_id != CASE_DOCUMENT_REVIEW_AGENT_ID or not isinstance(req.get("dsl"), dict):
+        return
+
+    dsl = req["dsl"]
+    _ensure_default_agent_workspace(dsl, agent_id, title=req.get("title") or CASE_DOCUMENT_REVIEW_AGENT_TITLE)
+    _ensure_agent_workspace_file(
+        agent_id,
+        CASE_DOCUMENT_REVIEW_OUTPUT_PATH,
+        "# 文档核对案例智能体输出\n",
+    )
+    components = dsl.setdefault("components", {})
+    graph = dsl.setdefault("graph", {})
+    nodes = graph.setdefault("nodes", [])
+    _remove_case_optional_write_nodes(components, graph)
+    nodes = graph.setdefault("nodes", [])
+
+    begin_params = {
+        "enablePrologue": True,
+        "inputs": {
+            "task_request": {"name": "任务说明", "type": "paragraph", "optional": False, "options": []},
+            "file_a_path": {"name": "文件 A", "type": "line", "optional": False, "options": []},
+            "file_b_path": {"name": "文件 B", "type": "line", "optional": False, "options": []},
+            "output_formats": {"name": "输出格式", "type": "line", "optional": True, "options": []},
+        },
+        "mode": "conversational",
+        "prologue": (
+            "请输入任务说明，并通过浏览按钮选择文件 A 和文件 B。"
+            "智能体会读取文件、抽取结构、比对差异、调用大模型综合分析，并生成报告。"
+        ),
+    }
+    begin_component = components.get("begin")
+    if isinstance(begin_component, dict):
+        begin_component.setdefault("obj", {})["component_name"] = "Begin"
+        begin_component["obj"]["params"] = begin_params
+
+    agent_params = {
+        "cite": True,
+        "delay_after_error": 1,
+        "description": "复杂任务资料整理、文件比对和报告生成案例智能体",
+        "frequency_penalty": 0.3,
+        "llm_id": CASE_DOCUMENT_REVIEW_LLM_ID,
+        "max_retries": 3,
+        "max_rounds": 4,
+        "max_tokens": 4096,
+        "mcp": [],
+        "message_history_window_size": 10,
+        "outputs": {"content": {"type": "string", "value": ""}},
+        "presence_penalty": 0.2,
+        "prompts": [
+            {
+                "role": "user",
+                "content": (
+                    "用户任务：{begin@task_request}\n\n"
+                    "工作区：系统配置的智能体工作区\n"
+                    "文件 A：{begin@file_a_path}\n"
+                    "文件 B：{begin@file_b_path}\n\n"
+                    "任务意图：{GoalIntentClassifier:Intent@goal_intent}\n\n"
+                    "候选上下文：{TaskContextCollector:Context@context_bundle}\n\n"
+                    "任务规划：{TaskPlanner:Plan@task_plan}\n\n"
+                    "前置条件检查：{PreconditionChecker:Check@precondition_result}\n\n"
+                    "文件 A 条款：{ClauseExtractor:A@clauses}\n\n"
+                    "文件 B 条款：{ClauseExtractor:B@clauses}\n\n"
+                    "文件差异：{DocumentDiff:Text@diff}\n\n"
+                    "语义匹配：{DocumentSemanticComparer:Compare@matches}\n\n"
+                    "冲突和缺失：{DocumentConflictDetector:Conflict@conflicts}\n\n"
+                    "基础比对报告：{DocumentCompareReportComposer:CompareReport@markdown}\n\n"
+                    "请输出：\n"
+                    "1. 任务理解和执行路径。\n"
+                    "2. 文件读取、结构抽取和比对过程摘要。\n"
+                    "3. 差异、包含、缺失和冲突清单。\n"
+                    "4. 风险等级表格。\n"
+                    "5. 最终报告摘要。\n"
+                    "6. 普通报告会自动写入智能体输出空间；如果需要改用户原文件，只给出 dry-run 和人工审批建议。"
+                ),
+            }
+        ],
+        "sys_prompt": (
+            "你是复杂任务资料整理与文档核对智能体。你必须基于上游节点输出进行综合分析，"
+            "先解释任务目标，再按文件读取、结构抽取、差异比对、冲突判断、报告输出和受控写回建议组织答案。"
+            "普通报告可以进入智能体输出空间；涉及修改用户原文件时，只提出 dry-run 和人工审批建议。"
+        ),
+        "temperature": 0.15,
+        "tools": [],
+        "top_p": 0.35,
+    }
+
+    agent_component = components.get("Agent:Synthesis")
+    if isinstance(agent_component, dict):
+        agent_component.setdefault("obj", {})["component_name"] = "Agent"
+        agent_component["obj"]["params"] = agent_params
+
+    write_params = {
+        "root": "",
+        "path": CASE_DOCUMENT_REVIEW_OUTPUT_PATH,
+        "content": "\n\n---\n\n{Agent:Synthesis@content}",
+        "mode": "append",
+        "encoding": "utf-8",
+        "expected_hash": "",
+        "dry_run": False,
+        "require_approval": False,
+        "approval_id": "",
+        "approved": True,
+        "task_id": "",
+        "max_bytes": 2097152,
+        "reason": "写入文档核对案例智能体专用输出空间。",
+        "outputs": {
+            "write": {"type": "object", "value": {}},
+            "file": {"type": "object", "value": {}},
+            "diff": {"type": "string", "value": ""},
+            "changed": {"type": "boolean", "value": False},
+            "dry_run": {"type": "boolean", "value": False},
+            "approval": {"type": "object", "value": {}},
+            "audit": {"type": "object", "value": {}},
+        },
+    }
+    write_component = components.get("WorkspaceFileWrite:WriteReport")
+    if isinstance(write_component, dict):
+        write_component.setdefault("obj", {})["component_name"] = "WorkspaceFileWrite"
+        write_component["obj"]["params"] = write_params
+
+    for node in nodes:
+        if node.get("id") == "begin":
+            data = node.setdefault("data", {})
+            data["form"] = begin_params
+            data["label"] = "Begin"
+            data["name"] = "Begin"
+        if node.get("id") == "Agent:Synthesis":
+            data = node.setdefault("data", {})
+            data["form"] = agent_params
+            data["label"] = "Agent"
+            data["name"] = "Agent:Synthesis"
+            node["type"] = "agentNode"
+        if node.get("id") == "WorkspaceFileWrite:WriteReport":
+            data = node.setdefault("data", {})
+            data["form"] = write_params
+            data["label"] = "WorkspaceFileWrite"
+            data["name"] = "WorkspaceFileWrite:WriteReport"
+
+    by_id = {node.get("id"): node for node in nodes}
+    for note in CASE_DOCUMENT_REVIEW_NOTES:
+        next_note = _case_note_node(note)
+        current = by_id.get(note["id"])
+        if isinstance(current, dict):
+            current.update(next_note)
+        else:
+            nodes.append(next_note)
+
+    for component_id, component in components.items():
+        if not isinstance(component, dict):
+            continue
+        obj = component.get("obj")
+        if isinstance(obj, dict):
+            params = obj.get("params")
+            if isinstance(params, dict):
+                obj["params"] = _replace_case_begin_refs(params)
+    for node in nodes:
+        data = node.get("data")
+        if isinstance(data, dict) and isinstance(data.get("form"), dict):
+            data["form"] = _replace_case_begin_refs(data["form"])
+
+    message_component = components.get("Message:Answer")
+    if isinstance(message_component, dict):
+        params = message_component.setdefault("obj", {}).setdefault("params", {})
+        params["content"] = [
+            "{Agent:Synthesis@content}\n\n"
+            "审计摘要：\n{TaskExecutionReportComposer:AuditReport@markdown}\n\n"
+            "报告文档：{DocGenerator:ReportDoc@download}\n\n"
+            "工作区输出：{WorkspaceFileWrite:WriteReport@file}"
+        ]
+        for node in nodes:
+            if node.get("id") == "Message:Answer":
+                data = node.setdefault("data", {})
+                data["form"] = params
+                data["label"] = "Message"
+                data["name"] = "Message:Answer"
+
+    _ensure_case_component_link(components, "Agent:Synthesis", "WorkspaceFileWrite:WriteReport")
+    _ensure_case_component_link(components, "WorkspaceFileWrite:WriteReport", "Message:Answer")
+    _ensure_case_graph_edge(graph, "e_case_report_write", "Agent:Synthesis", "WorkspaceFileWrite:WriteReport")
+    _ensure_case_graph_edge(graph, "e_case_write_message", "WorkspaceFileWrite:WriteReport", "Message:Answer")
 
 
 async def _run_workflow_session(
@@ -228,13 +806,20 @@ async def _run_workflow_session(
     return_trace,
     stream,
     chat_template_kwargs=None,
+    external_context=None,
+    request_dataset_ids=None,
     run_id=None,
+    workflow_id=None,
+    workflow_version_title=None,
+    deadline_ms=None,
     start_run_record=True,
     return_response=True,
 ):
+    workflow_id = workflow_id or agent_id
+
     async def commit_runtime_replica():
         commit_ok = CanvasReplicaService.commit_after_run(
-            canvas_id=agent_id,
+            canvas_id=workflow_id,
             tenant_id=str(tenant_id),
             runtime_user_id=user_id,
             dsl=json.loads(str(canvas)),
@@ -244,7 +829,7 @@ async def _run_workflow_session(
         if not commit_ok:
             logging.error(
                 "Canvas runtime replica commit failed: canvas_id=%s tenant_id=%s runtime_user_id=%s",
-                agent_id,
+                workflow_id,
                 tenant_id,
                 user_id,
             )
@@ -267,6 +852,13 @@ async def _run_workflow_session(
     final_ans = {}
     trace_items = []
     structured_output = {}
+    turn_context = AgentTurnContextService.normalize_request(
+        inputs=inputs,
+        external_context=external_context,
+        query=query,
+        agent_id=agent_id,
+    )
+    inputs = AgentTurnContextService.inject_inputs(inputs, turn_context)
     run_id = run_id or get_uuid()
     setattr(canvas, "_run_id", run_id)
     tenant_key = str(tenant_id)
@@ -281,6 +873,7 @@ async def _run_workflow_session(
             query,
             status=AgentRunStatus.RUNNING,
             mode="sse" if stream else "sync",
+            metadata={"workflow_id": workflow_id, "workflow_version": workflow_version_title or "", "deadline_ms": deadline_ms},
         )
     else:
         AgentRunService.mark_running(tenant_key, run_id)
@@ -295,6 +888,13 @@ async def _run_workflow_session(
             "task_id": getattr(canvas, "task_id", ""),
             "created_at": int(time.time()),
             "data": {
+                "workflow_id": workflow_id,
+                "workflow_version": workflow_version_title or "",
+                "deadline_ms": deadline_ms,
+                "context_hash": turn_context["context_hash"],
+                "constraint_hash": turn_context["constraint_hash"],
+                "context_missing": turn_context["context_missing"],
+                "context_issues": turn_context["issues"],
                 "inputs": {
                     "query": query,
                     "files": files,
@@ -312,6 +912,10 @@ async def _run_workflow_session(
     }
     if chat_template_kwargs is not None:
         run_kwargs["chat_template_kwargs"] = chat_template_kwargs
+    if external_context is not None:
+        run_kwargs["external_context"] = external_context
+    if request_dataset_ids is not None:
+        run_kwargs["request_dataset_ids"] = request_dataset_ids
 
     def record_run_event(ans):
         ans["session_id"] = session_id
@@ -411,7 +1015,8 @@ async def _run_workflow_session(
 
         return _build_sse_response(sse())
 
-    try:
+    async def run_canvas_non_stream():
+        nonlocal full_content, reference, final_ans, trace_items, structured_output
         async for ans in canvas.run(**run_kwargs):
             ans = record_run_event(ans)
             if ans.get("event") == "message":
@@ -432,6 +1037,34 @@ async def _run_workflow_session(
                         }
                     )
             final_ans = ans
+
+    try:
+        if deadline_ms:
+            async with asyncio.timeout(float(deadline_ms) / 1000.0):
+                await run_canvas_non_stream()
+        else:
+            await run_canvas_non_stream()
+    except TimeoutError as exc:
+        error_message = f"Agent run exceeded deadline_ms={deadline_ms}."
+        logging.warning("Agent workflow timed out. run_id=%s deadline_ms=%s", run_id, deadline_ms)
+        canvas.cancel_task()
+        AgentRunService.append_event(
+            tenant_key,
+            run_id,
+            {
+                "event": "workflow_timeout",
+                "session_id": session_id,
+                "run_id": run_id,
+                "message_id": turn_id,
+                "task_id": getattr(canvas, "task_id", ""),
+                "created_at": int(time.time()),
+                "data": {"error": error_message, "created_at": time.time(), "deadline_ms": deadline_ms},
+            },
+        )
+        AgentRunService.timeout(tenant_key, run_id, error_message)
+        if not return_response:
+            return {"error": error_message, "run_id": run_id, "session_id": session_id, "error_code": "AGENT_TIMEOUT"}
+        return get_result(data=f"**ERROR**: {error_message}")
     except Exception as exc:
         logging.exception(exc)
         canvas.cancel_task()
@@ -498,6 +1131,7 @@ async def execute_queued_agent_run(payload: dict):
 
     tenant_id = str(payload["tenant_id"])
     agent_id = payload["agent_id"]
+    workflow_id = str(payload.get("workflow_id") or agent_id)
     session_id = payload["session_id"]
     query = payload.get("query", "")
     files = payload.get("files") or []
@@ -507,28 +1141,41 @@ async def execute_queued_agent_run(payload: dict):
     custom_header = payload.get("custom_header", "")
     return_trace = bool(payload.get("return_trace", False))
     chat_template_kwargs = payload.get("chat_template_kwargs")
+    external_context = payload.get("external_context")
+    request_dataset_ids = payload.get("request_dataset_ids") or []
+    deadline_ms = payload.get("deadline_ms")
     run_id = payload["run_id"]
 
     from agent.canvas import Canvas
 
-    cvs, dsl = await thread_pool_exec(
-        UserCanvasService.get_agent_dsl_with_release,
+    workflow_ref = await _resolve_agent_workflow(
         agent_id,
-        release_mode,
+        {"workflow_id": workflow_id},
         tenant_id,
+        release_mode,
     )
-    canvas_category = getattr(cvs, "canvas_category", CanvasCategory.Agent)
+    workflow_cvs = workflow_ref["workflow_cvs"]
+    dsl = workflow_ref["workflow_dsl"]
+    canvas_category = getattr(workflow_cvs, "canvas_category", CanvasCategory.Agent)
     if canvas_category == CanvasCategory.DataFlow:
         raise ValueError("Queued background runs for DataFlow canvases are not supported yet.")
 
-    canvas = Canvas(dsl, tenant_id, canvas_id=agent_id, custom_header=custom_header)
+    canvas = Canvas(dsl, tenant_id, canvas_id=workflow_id, custom_header=custom_header)
     exists, conv = await thread_pool_exec(API4ConversationService.get_by_id, session_id)
     if not exists:
         raise ValueError("Session not found!")
+    if getattr(conv, "dialog_id", None) != agent_id:
+        raise ValueError("Session does not belong to the requested agent.")
 
     workflow_conv = conv.to_dict()
     if not isinstance(workflow_conv.get("message"), list) or not workflow_conv["message"]:
         raise ValueError("Queued Agent run session has no user message.")
+
+    workflow_version_title = await thread_pool_exec(
+        UserCanvasVersionService.get_latest_version_title,
+        workflow_cvs.id,
+        release_mode=release_mode,
+    )
 
     return await _run_workflow_session(
         tenant_id=tenant_id,
@@ -541,12 +1188,17 @@ async def execute_queued_agent_run(payload: dict):
         user_id=user_id,
         session_id=session_id,
         custom_header=custom_header,
-        canvas_title=getattr(cvs, "title", ""),
+        canvas_title=getattr(workflow_cvs, "title", ""),
         canvas_category=canvas_category,
         return_trace=return_trace,
         stream=False,
         chat_template_kwargs=chat_template_kwargs,
+        external_context=external_context,
+        request_dataset_ids=request_dataset_ids,
         run_id=run_id,
+        workflow_id=workflow_id,
+        workflow_version_title=workflow_version_title,
+        deadline_ms=deadline_ms,
         start_run_record=False,
         return_response=False,
     )
@@ -640,6 +1292,8 @@ def get_agent_session(agent_id, session_id, tenant_id):
     exists, conv = API4ConversationService.get_by_id(session_id)
     if not exists:
         return get_data_error_result(message="Session not found!")
+    if getattr(conv, "dialog_id", None) != agent_id:
+        return get_data_error_result(message="Session does not belong to the requested agent.")
     return get_json_result(data=conv.to_dict())
 
 
@@ -648,6 +1302,11 @@ def get_agent_session(agent_id, session_id, tenant_id):
 @add_tenant_id_to_kwargs
 @_require_canvas_access_sync
 def delete_agent_session_item(agent_id, session_id, tenant_id):
+    exists, conv = API4ConversationService.get_by_id(session_id)
+    if not exists:
+        return get_data_error_result(message="Session not found!")
+    if getattr(conv, "dialog_id", None) != agent_id:
+        return get_data_error_result(message="Session does not belong to the requested agent.")
     return get_json_result(data=API4ConversationService.delete_by_id(session_id))
 
 
@@ -673,15 +1332,22 @@ async def create_agent_background_run(agent_id, tenant_id):
     custom_header = req.get("custom_header", "")
     return_trace = bool(req.get("return_trace", False))
     chat_template_kwargs = req.get("chat_template_kwargs")
+    external_context = req.get("external_context")
+    workflow_id = str(req.get("workflow_id") or agent_id)
+    try:
+        request_dataset_ids = _normalize_public_dataset_ids(req)
+        deadline_ms = _request_deadline_ms(req.get("deadline_ms"))
+    except ValueError as exc:
+        return get_data_error_result(message=str(exc))
 
     try:
         from agent.canvas import Canvas
 
-        cvs, dsl = await thread_pool_exec(
-            UserCanvasService.get_agent_dsl_with_release,
+        workflow_ref = await _resolve_agent_workflow(
             agent_id,
-            release_mode,
+            req,
             tenant_id,
+            release_mode,
         )
     except LookupError:
         return get_data_error_result(message="Agent not found.")
@@ -690,12 +1356,15 @@ async def create_agent_background_run(agent_id, tenant_id):
     except Exception as exc:
         return server_error_response(exc)
 
-    canvas_category = getattr(cvs, "canvas_category", CanvasCategory.Agent)
+    agent_cvs = workflow_ref["agent_cvs"]
+    workflow_cvs = workflow_ref["workflow_cvs"]
+    dsl = workflow_ref["workflow_dsl"]
+    canvas_category = getattr(workflow_cvs, "canvas_category", CanvasCategory.Agent)
     if canvas_category == CanvasCategory.DataFlow:
         return get_data_error_result(message="Background runs for DataFlow canvases are not supported yet.")
 
     try:
-        canvas = Canvas(dsl, str(tenant_id), canvas_id=agent_id, custom_header=custom_header)
+        canvas = Canvas(dsl, str(tenant_id), canvas_id=workflow_id, custom_header=custom_header)
     except Exception as exc:
         return server_error_response(exc)
 
@@ -705,6 +1374,8 @@ async def create_agent_background_run(agent_id, tenant_id):
         exists, conv = await thread_pool_exec(API4ConversationService.get_by_id, session_id)
         if not exists:
             return get_data_error_result(message="Session not found!")
+        if getattr(conv, "dialog_id", None) != agent_id:
+            return get_data_error_result(message="Session does not belong to the requested agent.")
         workflow_conv = conv.to_dict()
         if not isinstance(workflow_conv.get("message"), list):
             workflow_conv["message"] = []
@@ -722,12 +1393,12 @@ async def create_agent_background_run(agent_id, tenant_id):
         session_id = get_uuid()
         version_title = await thread_pool_exec(
             UserCanvasVersionService.get_latest_version_title,
-            cvs.id,
+            workflow_cvs.id,
             release_mode=release_mode,
         )
         workflow_conv = {
             "id": session_id,
-            "dialog_id": cvs.id,
+            "dialog_id": agent_cvs.id,
             "user_id": user_id,
             "exp_user_id": user_id,
             "name": req.get("name", "") or str(query or "New Session")[:80],
@@ -747,6 +1418,12 @@ async def create_agent_background_run(agent_id, tenant_id):
         }
         await thread_pool_exec(API4ConversationService.save, **workflow_conv)
 
+    workflow_version_title = await thread_pool_exec(
+        UserCanvasVersionService.get_latest_version_title,
+        workflow_cvs.id,
+        release_mode=release_mode,
+    )
+
     run_id = get_uuid()
     AgentRunService.start(
         str(tenant_id),
@@ -758,6 +1435,7 @@ async def create_agent_background_run(agent_id, tenant_id):
         query,
         status=AgentRunStatus.QUEUED,
         mode="background_queue" if _agent_run_queue_enabled(req) else "background",
+        metadata={"workflow_id": workflow_id, "workflow_version": workflow_version_title or "", "deadline_ms": deadline_ms},
     )
 
     if _agent_run_queue_enabled(req):
@@ -768,6 +1446,7 @@ async def create_agent_background_run(agent_id, tenant_id):
             session_id=session_id,
             message_id=turn_id,
             query=query,
+            workflow_id=workflow_id,
             files=files,
             inputs=inputs,
             user_id=user_id,
@@ -775,6 +1454,9 @@ async def create_agent_background_run(agent_id, tenant_id):
             return_trace=return_trace,
             custom_header=custom_header,
             chat_template_kwargs=chat_template_kwargs,
+            external_context=external_context,
+            request_dataset_ids=request_dataset_ids,
+            deadline_ms=deadline_ms,
         )
         if not AgentRunQueueService.enqueue(payload):
             AgentRunService.fail(str(tenant_id), run_id, "Failed to enqueue Agent run.")
@@ -785,6 +1467,7 @@ async def create_agent_background_run(agent_id, tenant_id):
                 "session_id": session_id,
                 "message_id": turn_id,
                 "task_id": getattr(canvas, "task_id", ""),
+                "workflow_id": workflow_id,
                 "status": AgentRunStatus.QUEUED,
                 "queued": True,
             }
@@ -803,12 +1486,17 @@ async def create_agent_background_run(agent_id, tenant_id):
                 user_id=user_id,
                 session_id=session_id,
                 custom_header=custom_header,
-                canvas_title=getattr(cvs, "title", ""),
+                canvas_title=getattr(workflow_cvs, "title", ""),
                 canvas_category=canvas_category,
                 return_trace=return_trace,
                 stream=False,
                 chat_template_kwargs=chat_template_kwargs,
+                external_context=external_context,
+                request_dataset_ids=request_dataset_ids,
                 run_id=run_id,
+                workflow_id=workflow_id,
+                workflow_version_title=workflow_version_title,
+                deadline_ms=deadline_ms,
                 start_run_record=False,
                 return_response=False,
             )
@@ -826,6 +1514,7 @@ async def create_agent_background_run(agent_id, tenant_id):
             "session_id": session_id,
             "message_id": turn_id,
             "task_id": getattr(canvas, "task_id", ""),
+            "workflow_id": workflow_id,
             "status": AgentRunStatus.QUEUED,
         }
     )
@@ -838,13 +1527,17 @@ async def _prepare_meeting_agent_sessions(tenant_id, req, normalized_agents, mee
         agent_id = spec["agent_id"]
         if not await thread_pool_exec(UserCanvasService.accessible, agent_id, tenant_id):
             raise PermissionError(f"Make sure you have permission to access the agent: {agent_id}.")
-        cvs, dsl = await thread_pool_exec(
-            UserCanvasService.get_agent_dsl_with_release,
+        workflow_ref = await _resolve_agent_workflow(
             agent_id,
-            release_mode,
+            {"workflow_id": spec.get("workflow_id") or agent_id},
             tenant_id,
+            release_mode,
         )
-        if getattr(cvs, "canvas_category", CanvasCategory.Agent) == CanvasCategory.DataFlow:
+        agent_cvs = workflow_ref["agent_cvs"]
+        workflow_cvs = workflow_ref["workflow_cvs"]
+        dsl = workflow_ref["workflow_dsl"]
+        workflow_id = workflow_ref["workflow_id"]
+        if getattr(workflow_cvs, "canvas_category", CanvasCategory.Agent) == CanvasCategory.DataFlow:
             raise ValueError(f"Meeting runs for DataFlow canvases are not supported yet: {agent_id}.")
 
         session_id = spec.get("session_id")
@@ -874,12 +1567,12 @@ async def _prepare_meeting_agent_sessions(tenant_id, req, normalized_agents, mee
             session_id = get_uuid()
             version_title = await thread_pool_exec(
                 UserCanvasVersionService.get_latest_version_title,
-                cvs.id,
+                workflow_cvs.id,
                 release_mode=release_mode,
             )
             workflow_conv = {
                 "id": session_id,
-                "dialog_id": cvs.id,
+                "dialog_id": agent_cvs.id,
                 "user_id": user_id,
                 "exp_user_id": user_id,
                 "name": req.get("name", "") or f"{str(query or 'Meeting turn')[:60]} - {spec.get('role') or agent_id}",
@@ -904,6 +1597,7 @@ async def _prepare_meeting_agent_sessions(tenant_id, req, normalized_agents, mee
         prepared = {**spec}
         prepared["session_id"] = session_id
         prepared["message_id"] = message_id
+        prepared["workflow_id"] = workflow_id
         if not prepared.get("custom_header") and req.get("custom_header"):
             prepared["custom_header"] = req.get("custom_header")
         prepared_agents.append(prepared)
@@ -1038,6 +1732,19 @@ async def get_agent_meeting_results(tenant_id):
     return get_json_result(data=AgentMeetingSchedulerService.summarize_turn_results(tenant_id=str(tenant_id), run_ids=clean_run_ids))
 
 
+@manager.route("/agents/teachers/defaults", methods=["GET"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+def list_default_ai_teachers(tenant_id):
+    validation = AgentTeacherRegistryService.validate_registry()
+    return get_json_result(
+        data={
+            "teachers": AgentTeacherRegistryService.list_default_teachers(),
+            "validation": validation,
+        }
+    )
+
+
 @manager.route("/agents/<agent_id>/runs", methods=["GET"])  # noqa: F821
 @login_required
 @add_tenant_id_to_kwargs
@@ -1124,14 +1831,449 @@ def cancel_agent_run(run_id, tenant_id):
     return get_json_result(data={"canceled": AgentRunService.request_cancel(tenant_id, run_id)})
 
 
+def _document_write_error_response(exc: DocumentWriteCoordinatorError):
+    code = RetCode.ARGUMENT_ERROR if exc.code in {"INVALID_ARGUMENT", "INVALID_PATCH"} else RetCode.OPERATING_ERROR
+    return get_json_result(data=exc.to_dict(), code=code, message=str(exc))
+
+
+def _request_dict(req: dict, key: str) -> dict[str, Any]:
+    value = req.get(key)
+    return value if isinstance(value, dict) else {}
+
+
+def _request_list(req: dict, key: str) -> list[Any]:
+    value = req.get(key)
+    return value if isinstance(value, list) else []
+
+
+@manager.route("/agents/documents/<document_id>/snapshots", methods=["POST"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+async def publish_agent_document_snapshot(document_id, tenant_id):
+    req = await get_request_json()
+    try:
+        snapshot = AgentDocumentWriteCoordinatorService.publish_snapshot(
+            tenant_id=str(tenant_id),
+            document_id=document_id,
+            content=req.get("content", ""),
+            version=req.get("version"),
+            metadata=_request_dict(req, "metadata"),
+            source=str(req.get("source") or "api_snapshot_publish"),
+            audit=_request_dict(req, "audit"),
+        )
+    except DocumentWriteCoordinatorError as exc:
+        return _document_write_error_response(exc)
+    except Exception as exc:
+        return server_error_response(exc)
+    return get_json_result(data=snapshot)
+
+
+@manager.route("/agents/documents/<document_id>/snapshots/<int:version>", methods=["GET"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+def get_agent_document_snapshot(document_id, version, tenant_id):
+    try:
+        snapshot = AgentDocumentWriteCoordinatorService.get_snapshot(
+            tenant_id=str(tenant_id),
+            document_id=document_id,
+            version=version,
+        )
+    except DocumentWriteCoordinatorError as exc:
+        return _document_write_error_response(exc)
+    except Exception as exc:
+        return server_error_response(exc)
+    return get_json_result(data=snapshot)
+
+
+@manager.route("/agents/documents/<document_id>/snapshots/current", methods=["GET"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+def get_current_agent_document_snapshot(document_id, tenant_id):
+    try:
+        snapshot = AgentDocumentWriteCoordinatorService.get_snapshot(
+            tenant_id=str(tenant_id),
+            document_id=document_id,
+        )
+    except DocumentWriteCoordinatorError as exc:
+        return _document_write_error_response(exc)
+    except Exception as exc:
+        return server_error_response(exc)
+    return get_json_result(data=snapshot)
+
+
+@manager.route("/agents/documents/<document_id>/patch-proposals", methods=["POST"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+async def submit_agent_document_patch_proposal(document_id, tenant_id):
+    req = await get_request_json()
+    proposal = _request_dict(req, "proposal") or req
+    proposal = {**proposal, "base_document_id": document_id}
+    try:
+        stored = AgentDocumentWriteCoordinatorService.submit_patch_proposal(
+            tenant_id=str(tenant_id),
+            proposal=proposal,
+            authorized_agent_ids=_request_list(req, "authorized_agent_ids") or None,
+        )
+    except DocumentWriteCoordinatorError as exc:
+        return _document_write_error_response(exc)
+    except Exception as exc:
+        return server_error_response(exc)
+    return get_json_result(data=stored)
+
+
+@manager.route("/agents/documents/<document_id>/writes", methods=["POST"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+async def apply_agent_document_write(document_id, tenant_id):
+    req = await get_request_json()
+    try:
+        result = AgentDocumentWriteCoordinatorService.apply_write_request(
+            tenant_id=str(tenant_id),
+            document_id=document_id,
+            expected_version=int(req.get("expected_version") or 0),
+            selected_proposals=[str(item) for item in _request_list(req, "selected_proposals")],
+            merge_strategy=str(req.get("merge_strategy") or "single_writer"),
+            source=str(req.get("source") or "api_write_coordinator"),
+            audit=_request_dict(req, "audit"),
+            authorized_agent_ids=_request_list(req, "authorized_agent_ids") or None,
+        )
+    except DocumentWriteCoordinatorError as exc:
+        return _document_write_error_response(exc)
+    except Exception as exc:
+        return server_error_response(exc)
+    return get_json_result(data=result)
+
+
+@manager.route("/agents/documents/<document_id>/rollback", methods=["POST"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+async def rollback_agent_document(document_id, tenant_id):
+    req = await get_request_json()
+    try:
+        result = AgentDocumentWriteCoordinatorService.rollback(
+            tenant_id=str(tenant_id),
+            document_id=document_id,
+            target_version=int(req.get("target_version") or 0),
+            expected_version=int(req["expected_version"]) if req.get("expected_version") is not None else None,
+            source=str(req.get("source") or "api_rollback"),
+            audit=_request_dict(req, "audit"),
+        )
+    except DocumentWriteCoordinatorError as exc:
+        return _document_write_error_response(exc)
+    except Exception as exc:
+        return server_error_response(exc)
+    return get_json_result(data=result)
+
+
+@manager.route("/agents/documents/<document_id>/audit", methods=["GET"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+def list_agent_document_audit(document_id, tenant_id):
+    try:
+        audit = AgentDocumentWriteCoordinatorService.list_audit(
+            tenant_id=str(tenant_id),
+            document_id=document_id,
+        )
+    except DocumentWriteCoordinatorError as exc:
+        return _document_write_error_response(exc)
+    except Exception as exc:
+        return server_error_response(exc)
+    return get_json_result(data={"document_id": document_id, "audit": audit})
+
+
+@manager.route("/agents/<agent_id>/invoke", methods=["POST"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+@_require_canvas_access_async
+async def invoke_agent_public(agent_id, tenant_id):
+    """Run an Agent through the stable external response adapter."""
+    req = await get_request_json()
+    query = str(req.get("query", "") or req.get("question", "") or "").strip()
+    if not query:
+        return get_json_result(
+            data=AgentPublicResponseService.build_response(
+                agent_id=agent_id,
+                workflow_id=str(req.get("workflow_id") or agent_id),
+                status="failed",
+                error=AgentPublicResponseService.normalize_error("INVALID_ARGUMENT", "`query` is required."),
+            ),
+            code=RetCode.ARGUMENT_ERROR,
+            message="`query` is required.",
+        )
+
+    workflow_id = str(req.get("workflow_id") or agent_id)
+    if _request_bool(req.get("stream"), False):
+        return get_json_result(
+            data=AgentPublicResponseService.build_response(
+                agent_id=agent_id,
+                workflow_id=workflow_id,
+                status="failed",
+                error=AgentPublicResponseService.normalize_error(
+                    "UNSUPPORTED_STREAM",
+                    "The public invoke endpoint returns a standard non-stream result. Use background runs for async execution.",
+                ),
+            ),
+            code=RetCode.ARGUMENT_ERROR,
+            message="The public invoke endpoint does not support stream output.",
+        )
+    try:
+        request_dataset_ids = _normalize_public_dataset_ids(req)
+        deadline_ms = _request_deadline_ms(req.get("deadline_ms"))
+    except ValueError as exc:
+        return get_json_result(
+            data=AgentPublicResponseService.build_response(
+                agent_id=agent_id,
+                workflow_id=workflow_id,
+                status="failed",
+                error=AgentPublicResponseService.normalize_error("INVALID_ARGUMENT", str(exc)),
+            ),
+            code=RetCode.ARGUMENT_ERROR,
+            message=str(exc),
+        )
+
+    release_mode = _request_bool(req.get("release", request.args.get("release")), True)
+    files = req.get("files", [])
+    inputs = req.get("inputs", {})
+    session_id = req.get("session_id")
+    user_id = str(req.get("user_id") or tenant_id)
+    custom_header = req.get("custom_header", "")
+    return_trace = bool(req.get("return_trace", False))
+    chat_template_kwargs = req.get("chat_template_kwargs")
+
+    try:
+        from agent.canvas import Canvas
+
+        workflow_ref = await _resolve_agent_workflow(
+            agent_id,
+            req,
+            tenant_id,
+            release_mode,
+        )
+    except LookupError:
+        return get_data_error_result(message="Agent not found.")
+    except PermissionError as exc:
+        return get_data_error_result(message=str(exc))
+    except Exception as exc:
+        return server_error_response(exc)
+
+    agent_cvs = workflow_ref["agent_cvs"]
+    workflow_cvs = workflow_ref["workflow_cvs"]
+    dsl = workflow_ref["workflow_dsl"]
+    canvas_category = getattr(workflow_cvs, "canvas_category", CanvasCategory.Agent)
+    if canvas_category == CanvasCategory.DataFlow:
+        return get_json_result(
+            data=AgentPublicResponseService.build_response(
+                agent_id=agent_id,
+                workflow_id=workflow_id,
+                status="failed",
+                error=AgentPublicResponseService.normalize_error(
+                    "UNSUPPORTED_CANVAS_TYPE",
+                    "The public invoke endpoint does not support DataFlow canvases.",
+                ),
+            ),
+            code=RetCode.ARGUMENT_ERROR,
+            message="The public invoke endpoint does not support DataFlow canvases.",
+        )
+
+    try:
+        canvas = Canvas(dsl, str(tenant_id), canvas_id=workflow_id, custom_header=custom_header)
+    except Exception as exc:
+        return server_error_response(exc)
+
+    turn_id = get_uuid()
+    now = time.time()
+    if session_id:
+        exists, conv = await thread_pool_exec(API4ConversationService.get_by_id, session_id)
+        if not exists:
+            return get_data_error_result(message="Session not found!")
+        if getattr(conv, "dialog_id", None) != agent_id:
+            return get_data_error_result(message="Session does not belong to the requested agent.")
+        workflow_conv = conv.to_dict()
+        if not isinstance(workflow_conv.get("message"), list):
+            workflow_conv["message"] = []
+        workflow_conv["message"].append(
+            {
+                "role": "user",
+                "content": query,
+                "id": turn_id,
+                "files": files,
+                "created_at": now,
+            }
+        )
+        await thread_pool_exec(API4ConversationService.update_by_id, session_id, workflow_conv)
+    else:
+        session_id = get_uuid()
+        version_title = await thread_pool_exec(
+            UserCanvasVersionService.get_latest_version_title,
+            workflow_cvs.id,
+            release_mode=release_mode,
+        )
+        workflow_conv = {
+            "id": session_id,
+            "dialog_id": agent_cvs.id,
+            "user_id": user_id,
+            "exp_user_id": user_id,
+            "name": req.get("name", "") or str(query or "New Session")[:80],
+            "message": [
+                {
+                    "role": "user",
+                    "content": query,
+                    "id": turn_id,
+                    "files": files,
+                    "created_at": now,
+                }
+            ],
+            "reference": [],
+            "source": "workflow",
+            "dsl": json.loads(dsl) if isinstance(dsl, str) else dsl,
+            "version_title": version_title,
+        }
+        await thread_pool_exec(API4ConversationService.save, **workflow_conv)
+
+    workflow_version_title = await thread_pool_exec(
+        UserCanvasVersionService.get_latest_version_title,
+        workflow_cvs.id,
+        release_mode=release_mode,
+    )
+
+    run_id = get_uuid()
+    final_ans = await _run_workflow_session(
+        tenant_id=tenant_id,
+        agent_id=agent_id,
+        workflow_conv=workflow_conv,
+        canvas=canvas,
+        query=query,
+        files=files,
+        inputs=inputs,
+        user_id=user_id,
+        session_id=session_id,
+        custom_header=custom_header,
+        canvas_title=getattr(workflow_cvs, "title", ""),
+        canvas_category=canvas_category,
+        return_trace=return_trace,
+        stream=False,
+        chat_template_kwargs=chat_template_kwargs,
+        external_context=req.get("external_context"),
+        request_dataset_ids=request_dataset_ids,
+        run_id=run_id,
+        workflow_id=workflow_id,
+        workflow_version_title=workflow_version_title,
+        deadline_ms=deadline_ms,
+        return_response=False,
+    )
+    trace = AgentRunService.get_trace(str(tenant_id), run_id) or {}
+    error = None
+    if isinstance(final_ans, dict) and final_ans.get("error"):
+        error = AgentPublicResponseService.normalize_error("AGENT_RUN_FAILED", final_ans.get("error"))
+    public_response = AgentPublicResponseService.from_final_answer(
+        agent_id=agent_id,
+        workflow_id=workflow_id,
+        run_id=run_id,
+        session_id=session_id,
+        message_id=turn_id,
+        final_answer=final_ans,
+        trace=trace,
+        status="failed" if error else None,
+        error=error,
+    )
+    return get_json_result(data=public_response)
+
+
+@manager.route("/agents/runs/<run_id>/result", methods=["GET"])  # noqa: F821
+@login_required
+@add_tenant_id_to_kwargs
+def get_agent_run_public_result(run_id, tenant_id):
+    state = _get_accessible_agent_run(str(tenant_id), run_id)
+    if not state:
+        return get_data_error_result(message="run not found.")
+    trace = AgentRunService.get_trace(str(tenant_id), run_id) or {}
+    session_answer = {"answer": "", "references": [], "message_id": state.get("message_id", "")}
+    session_id = state.get("session_id")
+    if session_id:
+        exists, conv = API4ConversationService.get_by_id(session_id)
+        if exists and getattr(conv, "dialog_id", None) == state.get("agent_id"):
+            session_answer = _extract_public_session_answer(conv.to_dict(), state.get("message_id"))
+    status = _agent_run_public_status(state)
+    error = None
+    if status in {"failed", "canceled", "timeout"}:
+        trace_workflow = trace.get("workflow") if isinstance(trace.get("workflow"), dict) else {}
+        error_code = "AGENT_TIMEOUT" if status == "timeout" else "AGENT_RUN_" + status.upper()
+        error = AgentPublicResponseService.normalize_error(
+            error_code,
+            state.get("error") or trace_workflow.get("error") or status,
+            retryable=status in {"timeout"},
+        )
+    metadata = state.get("metadata") if isinstance(state.get("metadata"), dict) else {}
+    return get_json_result(
+        data=AgentPublicResponseService.build_response(
+            agent_id=state.get("agent_id", ""),
+            workflow_id=metadata.get("workflow_id") or state.get("agent_id", ""),
+            run_id=run_id,
+            session_id=session_id or "",
+            message_id=session_answer.get("message_id") or state.get("message_id", ""),
+            status=status,
+            answer=session_answer.get("answer", ""),
+            references=session_answer.get("references"),
+            downloads=trace.get("downloads"),
+            trace=trace,
+            error=error,
+        )
+    )
+
+
 @manager.route("/agents/download", methods=["GET"])  # noqa: F821
 @login_required
 @add_tenant_id_to_kwargs
 async def download_agent_file(tenant_id):
     id = request.args.get("id")
-    logging.info("Agent file download requested: tenant_id=%s file_id=%s", tenant_id, id)
-    blob = await thread_pool_exec(FileService.get_blob, tenant_id, id)
-    return Response(blob)
+    run_id = request.args.get("run_id") or ""
+    session_id = request.args.get("session_id") or ""
+    logging.info("Agent file download requested: tenant_id=%s file_id=%s run_id=%s", tenant_id, id, run_id)
+    try:
+        artifact = AgentArtifactRegistryService.authorize_download(
+            tenant_id=str(tenant_id),
+            artifact_id=str(id or ""),
+            requested_run_id=run_id,
+            requested_session_id=session_id,
+        )
+        if run_id:
+            state = _get_accessible_agent_run(str(tenant_id), run_id)
+            if not state:
+                AgentArtifactRegistryService.record_audit(
+                    tenant_id=str(tenant_id),
+                    artifact_id=str(id or ""),
+                    event="permission_denied",
+                    payload={"action": "artifact_download", "reason": "run_not_accessible", "requested_run_id": run_id},
+                )
+                return get_json_result(data=False, message="No authorization.", code=RetCode.AUTHENTICATION_ERROR)
+            if session_id and state.get("session_id") != session_id:
+                AgentArtifactRegistryService.record_audit(
+                    tenant_id=str(tenant_id),
+                    artifact_id=str(id or ""),
+                    event="permission_denied",
+                    payload={
+                        "action": "artifact_download",
+                        "reason": "session_id_mismatch",
+                        "requested_session_id": session_id,
+                        "run_session_id": state.get("session_id"),
+                    },
+                )
+                return get_json_result(data=False, message="No authorization.", code=RetCode.AUTHENTICATION_ERROR)
+        blob = await thread_pool_exec(FileService.get_blob, tenant_id, id)
+        AgentArtifactRegistryService.record_audit(
+            tenant_id=str(tenant_id),
+            artifact_id=str(id or ""),
+            event="artifact_downloaded",
+            payload={"run_id": run_id, "session_id": session_id},
+        )
+        response = await make_response(blob)
+        mime_type = artifact.get("mime_type") or "application/octet-stream"
+        ext = (artifact.get("filename") or "").rsplit(".", 1)[-1] if "." in (artifact.get("filename") or "") else ""
+        apply_safe_file_response_headers(response, mime_type, ext)
+        return response
+    except ArtifactPermissionError as exc:
+        logging.warning("Agent artifact download denied. tenant_id=%s artifact_id=%s error=%s", tenant_id, id, exc.code)
+        return get_json_result(data=exc.to_dict(), message=str(exc), code=RetCode.AUTHENTICATION_ERROR)
 
 
 async def _iter_session_completion_events(tenant_id, agent_id, req, return_trace):
@@ -1168,6 +2310,20 @@ async def _iter_session_completion_events(tenant_id, agent_id, req, return_trace
 @login_required
 def list_agent_template():
     return get_json_result(data=CanvasTemplateService.get_all_with_builtin())
+
+
+@manager.route("/agents/operators/schema", methods=["GET"])  # noqa: F821
+@login_required
+def list_agent_operator_schema():
+    return get_json_result(data={"operators": list_operator_manifests()})
+
+
+@manager.route("/agents/file-parser/health", methods=["GET"])  # noqa: F821
+@login_required
+def file_parser_health():
+    layout_recognize = request.args.get("layout_recognize", "DeepDOC")
+    deep = _request_bool(request.args.get("deep"), False)
+    return get_json_result(data=FileParser.local_ocr_deepdoc_health(layout_recognize=layout_recognize, deep=deep))
 
 
 @manager.route("/agents/prompts", methods=["GET"])  # noqa: F821
@@ -1337,12 +2493,14 @@ async def create_agent(tenant_id):
     ):
         return get_data_error_result(message=f"{req['title']} already exists.")
 
+    req["id"] = get_uuid()
+    _ensure_default_agent_workspace(req["dsl"], req["id"], tenant_id=tenant_id, title=req["title"])
+
     if req.get("release") is True:
         validation_error = _release_validation_error(req["dsl"])
         if validation_error:
             return validation_error
 
-    req["id"] = get_uuid()
     if not UserCanvasService.save(**req):
         return get_data_error_result(message="Fail to create agent.")
 
@@ -1628,6 +2786,8 @@ async def update_agent(agent_id, tenant_id):
 
     if req.get("title") is not None:
         req["title"] = req["title"].strip()
+    _normalize_case_agent_title(agent_id, req)
+    _normalize_case_agent_dsl(agent_id, req)
 
     _, current_agent = UserCanvasService.get_by_id(agent_id)
     agent_title_for_version = req.get("title") or (current_agent.title if current_agent else "")
@@ -1907,6 +3067,10 @@ async def agent_chat_completion(tenant_id, agent_id=None):
     req = dict(req)
     req.pop("agent_id", None)
     req.pop("openai-compatible", None)
+    try:
+        request_dataset_ids = _normalize_public_dataset_ids(req)
+    except ValueError as exc:
+        return get_data_error_result(message=str(exc))
     session_id = req.get("session_id")
     workflow_session = False
     workflow_conv = None
@@ -2025,6 +3189,8 @@ async def agent_chat_completion(tenant_id, agent_id=None):
             return_trace=bool(req.get("return_trace", False)),
             stream=req.get("stream", True),
             chat_template_kwargs=req.get("chat_template_kwargs"),
+            external_context=req.get("external_context"),
+            request_dataset_ids=request_dataset_ids,
         )
 
     if not session_id:
@@ -2172,6 +3338,8 @@ async def agent_chat_completion(tenant_id, agent_id=None):
             return_trace=bool(req.get("return_trace", False)),
             stream=req.get("stream", True),
             chat_template_kwargs=req.get("chat_template_kwargs"),
+            external_context=req.get("external_context"),
+            request_dataset_ids=request_dataset_ids,
         )
 
     return_trace = bool(req.get("return_trace", False))

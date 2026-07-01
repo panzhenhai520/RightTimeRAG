@@ -1,6 +1,7 @@
 import { useSetModalState } from '@/hooks/common-hooks';
 import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { useFetchAgentTemplates, useSetAgent } from '@/hooks/use-agent-request';
+import { useFetchTenantInfo } from '@/hooks/use-user-setting-request';
 
 import { CardContainer } from '@/components/card-container';
 import { AgentCategory, resolveAgentAvatar } from '@/constants/agent';
@@ -10,9 +11,64 @@ import { CreateAgentDialog } from './create-agent-dialog';
 import { TemplateCard } from './template-card';
 import { MenuItemKey, SideBar } from './template-sidebar';
 
+const ModelFieldMap: Record<string, string> = {
+  llm_id: 'llm_id',
+  embd_id: 'embd_id',
+  asr_id: 'asr_id',
+  img2txt_id: 'img2txt_id',
+  rerank_id: 'rerank_id',
+  tts_id: 'tts_id',
+};
+
+const TenantModelFields = new Set([
+  'tenant_llm_id',
+  'tenant_embd_id',
+  'tenant_asr_id',
+  'tenant_img2txt_id',
+  'tenant_rerank_id',
+  'tenant_tts_id',
+]);
+
+function normalizeTemplateDslForTenant<T>(
+  dsl: T,
+  tenantInfo?: Record<string, any>,
+): T {
+  if (!dsl) return dsl;
+
+  const normalized = JSON.parse(JSON.stringify(dsl));
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+
+    if (!value || typeof value !== 'object') return;
+
+    Object.entries(value as Record<string, any>).forEach(([key, child]) => {
+      if (TenantModelFields.has(key)) {
+        delete (value as Record<string, any>)[key];
+        return;
+      }
+
+      const tenantField = ModelFieldMap[key];
+      const tenantModelId = tenantField ? tenantInfo?.[tenantField] : undefined;
+      if (tenantModelId && typeof child === 'string') {
+        (value as Record<string, any>)[key] = tenantModelId;
+        return;
+      }
+
+      visit(child);
+    });
+  };
+
+  visit(normalized);
+  return normalized;
+}
+
 export default function AgentTemplates() {
   const list = useFetchAgentTemplates();
   const { loading, setAgent } = useSetAgent();
+  const { data: tenantInfo } = useFetchTenantInfo(true);
   const [templateList, setTemplateList] = useState<IFlowTemplate[]>([]);
   const [selectMenuItem, setSelectMenuItem] = useState<string>(
     MenuItemKey.Recommended,
@@ -42,7 +98,7 @@ export default function AgentTemplates() {
 
   const handleOk = useCallback(
     async (payload: any) => {
-      const dsl = template?.dsl;
+      const dsl = normalizeTemplateDslForTenant(template?.dsl, tenantInfo);
       const canvasCategory = template?.canvas_category;
 
       const ret = await setAgent({
@@ -65,6 +121,7 @@ export default function AgentTemplates() {
       hideCreatingModal,
       navigateToAgent,
       setAgent,
+      tenantInfo,
       template?.avatar,
       template?.canvas_category,
       template?.dsl,

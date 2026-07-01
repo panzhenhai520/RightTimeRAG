@@ -2602,6 +2602,30 @@ Best for: Documents with flowing, contextually connected content — such as boo
       fileParser: 'File Parser',
       fileParserDescription:
         'Parse uploaded files into temporary chunks and select relevant chunks for downstream LLM nodes.',
+      workspaceFileWrite: 'Workspace File Write',
+      workspaceFileWriteDescription:
+        'Create, overwrite, or append files in an allowlisted workspace path with dry-run, expected hash, approval, and audit support.',
+      workspacePatchApply: 'Workspace Patch Apply',
+      workspacePatchApplyDescription:
+        'Preview and apply structured patches or unified diffs to allowlisted workspace files with approval, rollback, and audit support.',
+      contractClauseExtractor: 'Contract Clause Extractor',
+      contractClauseExtractorDescription:
+        'Extract uploaded contracts into a clause tree with clause IDs, pages, entities, obligations, amounts, and terms.',
+      complianceChecklistGenerator: 'Compliance Checklist',
+      complianceChecklistGeneratorDescription:
+        'Generate auditable checklist items from bound knowledge base standards.',
+      clauseMatcher: 'Clause Matcher',
+      clauseMatcherDescription:
+        'Match each checklist item to contract clauses with confidence scores.',
+      complianceVerifier: 'Compliance Verifier',
+      complianceVerifierDescription:
+        'Verify each item as compliant, non-compliant, missing, ambiguous, or not applicable with evidence references.',
+      riskScorer: 'Risk Scorer',
+      riskScorerDescription:
+        'Score verification results into high, medium, low, or no-risk items.',
+      complianceReportComposer: 'Compliance Report',
+      complianceReportComposerDescription:
+        'Compose a stable markdown report from verification results, risks, and references.',
       docGenerator: 'Doc Generator',
       docGeneratorDescription: `Generate a file from Markdown content.`,
       browser: 'Browser',

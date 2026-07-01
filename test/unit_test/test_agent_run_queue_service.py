@@ -23,6 +23,7 @@ def make_payload(**overrides):
         run_id="run-1",
         tenant_id="tenant-1",
         agent_id="agent-1",
+        workflow_id="workflow-1",
         session_id="session-1",
         message_id="message-1",
         query="hello",
@@ -33,6 +34,7 @@ def make_payload(**overrides):
         return_trace=True,
         custom_header="x-test",
         chat_template_kwargs={"temperature": 0},
+        deadline_ms=3000,
         metadata={"meeting_id": "meeting-1"},
     )
     payload.update(overrides)
@@ -47,11 +49,27 @@ def test_agent_run_queue_payload_is_stable_and_serializable():
     assert payload["schema_version"] == 1
     assert payload["run_id"] == "run-1"
     assert payload["tenant_id"] == "tenant-1"
+    assert payload["agent_id"] == "agent-1"
+    assert payload["workflow_id"] == "workflow-1"
     assert payload["files"] == [{"id": "file-1"}]
     assert payload["inputs"] == {"focus": "law"}
     assert payload["release"] is True
     assert payload["return_trace"] is True
+    assert payload["deadline_ms"] == 3000
     assert payload["metadata"] == {"meeting_id": "meeting-1"}
+
+
+def test_agent_run_queue_defaults_workflow_id_to_agent_id():
+    payload = AgentRunQueueService.build_payload(
+        run_id="run-1",
+        tenant_id="tenant-1",
+        agent_id="agent-1",
+        session_id="session-1",
+        message_id="message-1",
+        query="hello",
+    )
+
+    assert payload["workflow_id"] == "agent-1"
 
 
 def test_agent_run_queue_rejects_missing_required_fields():

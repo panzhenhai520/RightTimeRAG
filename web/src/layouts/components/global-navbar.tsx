@@ -12,7 +12,12 @@ const PathMap = {
   [Routes.Datasets]: [Routes.Datasets, Routes.DatasetBase],
   [Routes.Chats]: [Routes.Chats, Routes.Chat],
   [Routes.Searches]: [Routes.Searches, Routes.Search],
-  [Routes.Agents]: [Routes.Agents, Routes.AgentTemplates],
+  [Routes.Agents]: [
+    Routes.Agents,
+    Routes.AgentTemplates,
+    Routes.AgentCreationGuide,
+    Routes.AgentCreationCase,
+  ],
   [Routes.Memories]: [Routes.Memories, Routes.Memory, Routes.MemoryMessage],
   [Routes.Files]: [Routes.Files],
 } as const;

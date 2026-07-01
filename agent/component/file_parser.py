@@ -23,13 +23,27 @@ from api.db.services.file_service import FileService
 from api.utils.api_utils import timeout
 
 
+FILE_PARSER_LAYOUT_RECOGNIZE_OPTIONS = [
+    {"label": "Plain Text", "value": "Plain Text", "description": "Use embedded PDF/text extraction without OCR."},
+    {"label": "DeepDOC", "value": "DeepDOC", "description": "Use local OCR and layout recognition models."},
+    {"label": "Docling", "value": "Docling", "description": "Use the configured Docling parser service."},
+    {"label": "OpenDataLoader", "value": "OpenDataLoader", "description": "Use the configured OpenDataLoader OCR service."},
+    {"label": "TCADP Parser", "value": "TCADP Parser", "description": "Use the configured TCADP parser."},
+]
+
+
+def _default_layout_recognize() -> str:
+    value = os.environ.get("AGENT_FILE_PARSER_LAYOUT_RECOGNIZE", "Plain Text")
+    return value.strip() or "Plain Text"
+
+
 class FileParserParam(ComponentParamBase):
     def __init__(self):
         super().__init__()
         self.input_files = ["sys.file_assets"]
         self.query = "{sys.query}"
         self.parser_id = "auto"
-        self.layout_recognize = "Plain Text"
+        self.layout_recognize = _default_layout_recognize()
         self.chunk_token_num = 1200
         self.from_page = 0
         self.to_page = 100000
@@ -40,11 +54,45 @@ class FileParserParam(ComponentParamBase):
             "chunks": {"type": "Array<TextChunk>", "value": []},
             "matches": {"type": "Array<TextChunk>", "value": []},
             "references": {"type": "Array<JSON>", "value": []},
+            "file_info": {"type": "Array<JSON>", "value": []},
             "content": {"type": "string", "value": ""},
             "summary": {"type": "string", "value": ""},
         }
+        self.config_schema = {
+            "layout_recognize": {
+                "type": "string",
+                "ui": "select-with-search",
+                "label": "Layout recognize",
+                "default": self.layout_recognize,
+                "allow_custom": True,
+                "options": FILE_PARSER_LAYOUT_RECOGNIZE_OPTIONS,
+                "health_check": {
+                    "type": "local_ocr_deepdoc",
+                    "method": "GET",
+                    "endpoint": "/api/v1/agents/file-parser/health",
+                    "param": "layout_recognize",
+                },
+            },
+            "parser_id": {
+                "type": "string",
+                "ui": "select",
+                "label": "Parser",
+                "default": self.parser_id,
+                "options": [
+                    {"label": "Auto", "value": "auto"},
+                    {"label": "Naive", "value": "naive"},
+                    {"label": "Laws", "value": "laws"},
+                    {"label": "Paper", "value": "paper"},
+                    {"label": "Book", "value": "book"},
+                    {"label": "Manual", "value": "manual"},
+                    {"label": "One", "value": "one"},
+                ],
+            },
+        }
 
     def check(self):
+        if not isinstance(self.layout_recognize, str) or not self.layout_recognize.strip():
+            raise ValueError("[FileParser] Layout recognize should be a non-empty string")
         self.check_positive_integer(self.chunk_token_num, "[FileParser] Chunk token number")
         self.check_positive_integer(self.top_n, "[FileParser] Top N")
         self.check_nonnegative_number(self.context_window, "[FileParser] Context window")
@@ -55,6 +103,15 @@ class FileParserParam(ComponentParamBase):
 
 class FileParser(ComponentBase, ABC):
     component_name = "FileParser"
+    _local_deepdoc_layouts = {"deepdoc"}
+    _deepdoc_required_files = (
+        "det.onnx",
+        "rec.onnx",
+        "ocr.res",
+        "layout.onnx",
+        "tsr.onnx",
+        "updown_concat_xgb.model",
+    )
     _noise_terms = {
         "有关",
         "相关",
@@ -131,6 +188,126 @@ class FileParser(ComponentBase, ABC):
             for k, o in self.get_input_elements_from_text(self._param.query).items():
                 res[k] = {"name": o.get("name", ""), "type": "line"}
         return res
+
+    @staticmethod
+    def _normalize_layout_recognize(layout_recognize) -> str:
+        if isinstance(layout_recognize, bool):
+            return "DeepDOC" if layout_recognize else "Plain Text"
+        return str(layout_recognize or _default_layout_recognize()).strip() or "Plain Text"
+
+    @classmethod
+    def local_ocr_deepdoc_health(cls, layout_recognize: str = "DeepDOC", deep: bool = False) -> dict:
+        layout = cls._normalize_layout_recognize(layout_recognize)
+        layout_key = layout.lower()
+        layout_type = os.environ.get("LAYOUT_RECOGNIZER_TYPE", "onnx").strip().lower() or "onnx"
+        checks: list[dict] = []
+
+        def add_check(name: str, ok: bool, message: str, severity: str = "error", details: dict | None = None):
+            item = {"name": name, "ok": bool(ok), "message": message, "severity": severity}
+            if details:
+                item["details"] = details
+            checks.append(item)
+
+        if layout_key in {"plain text", "plaintext"}:
+            add_check("layout_mode", True, "Plain Text does not use local OCR or DeepDOC.", "info")
+            return {
+                "status": "ok",
+                "healthy": True,
+                "layout_recognize": layout,
+                "local_ocr_required": False,
+                "checks": checks,
+                "env": {"LAYOUT_RECOGNIZER_TYPE": layout_type},
+            }
+
+        if layout_key not in cls._local_deepdoc_layouts:
+            add_check("layout_mode", True, f"{layout} is not the local DeepDOC parser; use its own service/provider check.", "info")
+            return {
+                "status": "not_applicable",
+                "healthy": True,
+                "layout_recognize": layout,
+                "local_ocr_required": False,
+                "checks": checks,
+                "env": {"LAYOUT_RECOGNIZER_TYPE": layout_type},
+            }
+
+        try:
+            import importlib
+
+            importlib.import_module("deepdoc.parser.pdf_parser")
+            vision_module = importlib.import_module("deepdoc.vision")
+            for attr in ("OCR", "LayoutRecognizer", "TableStructureRecognizer"):
+                getattr(vision_module, attr)
+            add_check("deepdoc_imports", True, "DeepDOC parser and vision classes are importable.", "error")
+        except Exception as exc:
+            add_check("deepdoc_imports", False, f"DeepDOC import failed: {exc}", "error")
+
+        add_check(
+            "layout_recognizer_type",
+            layout_type in {"onnx", "ascend"},
+            f"LAYOUT_RECOGNIZER_TYPE={layout_type}",
+            "error",
+        )
+
+        if os.environ.get("DEEPDOC_URL") or os.environ.get("TENSORRT_DLA_SVR"):
+            add_check(
+                "layout_service_mode",
+                True,
+                "Remote DLA layout service is configured; OCR still uses local DeepDOC resources.",
+                "warning",
+                {
+                    "DEEPDOC_URL": bool(os.environ.get("DEEPDOC_URL")),
+                    "TENSORRT_DLA_SVR": bool(os.environ.get("TENSORRT_DLA_SVR")),
+                },
+            )
+
+        try:
+            from common.file_utils import get_project_base_directory
+
+            model_dir = os.path.join(get_project_base_directory(), "rag/res/deepdoc")
+            missing = [name for name in cls._deepdoc_required_files if not os.path.exists(os.path.join(model_dir, name))]
+            add_check(
+                "local_model_files",
+                not missing,
+                "All required DeepDOC local model files are present." if not missing else "Missing DeepDOC local model files.",
+                "error",
+                {"model_dir": model_dir, "missing": missing},
+            )
+        except Exception as exc:
+            missing = cls._deepdoc_required_files
+            add_check("local_model_files", False, f"Could not inspect DeepDOC model files: {exc}", "error")
+
+        if deep:
+            if missing:
+                add_check(
+                    "deep_probe",
+                    False,
+                    "Skipped model instantiation because local files are missing; instantiation may trigger an external download.",
+                    "error",
+                )
+            else:
+                try:
+                    from deepdoc.vision import LayoutRecognizer, OCR, TableStructureRecognizer
+
+                    OCR()
+                    if layout_type == "onnx":
+                        LayoutRecognizer("layout")
+                    TableStructureRecognizer()
+                    add_check("deep_probe", True, "Local OCR, layout, and table models instantiated successfully.", "error")
+                except Exception as exc:
+                    add_check("deep_probe", False, f"Local DeepDOC model instantiation failed: {exc}", "error")
+
+        failed = [check for check in checks if not check["ok"] and check["severity"] == "error"]
+        return {
+            "status": "ok" if not failed else "unhealthy",
+            "healthy": not failed,
+            "layout_recognize": layout,
+            "local_ocr_required": True,
+            "checks": checks,
+            "env": {
+                "LAYOUT_RECOGNIZER_TYPE": layout_type,
+                "AGENT_FILE_PARSER_LAYOUT_RECOGNIZE": os.environ.get("AGENT_FILE_PARSER_LAYOUT_RECOGNIZE", ""),
+            },
+        }
 
     @staticmethod
     def _text_chunks(text: str, filename: str, file_id: str = "") -> list[dict]:
@@ -412,6 +589,35 @@ class FileParser(ComponentBase, ABC):
             else:
                 yield value
 
+    @staticmethod
+    def _asset_info(asset) -> dict:
+        if isinstance(asset, str):
+            return {
+                "id": "",
+                "name": "text_input",
+                "created_by": "",
+                "mime_type": "text/plain",
+                "size": len(asset.encode("utf-8")),
+                "source": "inline_text",
+            }
+        if not isinstance(asset, dict):
+            return {
+                "id": "",
+                "name": "uploaded_file",
+                "created_by": "",
+                "mime_type": "",
+                "size": 0,
+                "source": type(asset).__name__,
+            }
+        return {
+            "id": asset.get("id") or asset.get("file_id") or "",
+            "name": asset.get("name") or asset.get("filename") or "uploaded_file",
+            "created_by": asset.get("created_by") or asset.get("tenant_id") or "",
+            "mime_type": asset.get("mime_type") or asset.get("type") or "",
+            "size": asset.get("size") or asset.get("file_size") or 0,
+            "source": "file_asset",
+        }
+
     def _parse_asset(self, asset) -> list[dict]:
         if isinstance(asset, str):
             return self._text_chunks(asset, "text_input")
@@ -531,9 +737,11 @@ class FileParser(ComponentBase, ABC):
             return
 
         chunks = []
+        file_info = []
         for asset in self._iter_assets():
             if self.check_if_canceled("FileParser parsing"):
                 return
+            file_info.append(self._asset_info(asset))
             chunks.extend(self._parse_asset(asset))
 
         query = self._resolve_query()
@@ -566,11 +774,13 @@ class FileParser(ComponentBase, ABC):
         summary = f"Parsed {len(chunks)} chunk(s); selected {len(compact_matches)} chunk(s)."
         self.set_output("chunks", compact_chunks)
         self.set_output("matches", compact_matches)
+        self.set_output("file_info", file_info)
         self.set_output(
             "references",
             [
                 {
                     "source_ref": chunk.get("source_ref"),
+                    "file_id": chunk.get("file_id") or chunk.get("document_id"),
                     "document_id": chunk.get("document_id"),
                     "document_name": chunk.get("document_name"),
                     "chunk_id": chunk.get("chunk_id"),

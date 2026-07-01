@@ -1,4 +1,5 @@
 import { useSetModalState } from '@/hooks/common-hooks';
+import { useFetchAgentOperatorSchema } from '@/hooks/use-agent-request';
 import { cn } from '@/lib/utils';
 import { Handle, HandleProps, Position } from '@xyflow/react';
 import { Plus } from 'lucide-react';
@@ -7,6 +8,7 @@ import { NodeHandleId } from '../../constant';
 import { HandleContext } from '../../context';
 import { useIsPipeline } from '../../hooks/use-is-pipeline';
 import useGraphStore from '../../store';
+import { summarizeSchema } from '../../utils/connection-schema';
 import { useDropdownManager } from '../context';
 import { NextStepDropdown } from './dropdown/next-step-dropdown';
 
@@ -21,6 +23,8 @@ export function CommonHandle({
   const { hasDownstreamNode, hasUpstreamNode } = useGraphStore(
     (state) => state,
   );
+  const getNode = useGraphStore((state) => state.getNode);
+  const { data: operatorManifests } = useFetchAgentOperatorSchema();
   const isPipeline = useIsPipeline();
 
   let isConnectable = true;
@@ -44,10 +48,23 @@ export function CommonHandle({
     [nodeId, props.id, props.position, props.type],
   );
 
+  const schemaTitle = useMemo(() => {
+    const node = getNode(nodeId);
+    const operator = node?.data?.label;
+    const manifest = operatorManifests.find(
+      (item) => item.operator === operator || item.component_name === operator,
+    );
+    const schema =
+      props.type === 'source' ? manifest?.output_schema : manifest?.input_schema;
+    const direction = props.type === 'source' ? 'Outputs' : 'Inputs';
+    return `${direction}\n${summarizeSchema(schema)}`;
+  }, [getNode, nodeId, operatorManifests, props.type]);
+
   return (
     <HandleContext.Provider value={value}>
       <Handle
         {...props}
+        title={schemaTitle}
         isConnectable={isConnectable}
         className={cn(
           'inline-flex justify-center items-center !bg-accent-primary !border-none group-hover:!size-4 group-hover:!rounded-sm',

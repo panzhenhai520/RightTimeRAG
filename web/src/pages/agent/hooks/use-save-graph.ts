@@ -16,6 +16,21 @@ import { useParams } from 'react-router';
 import useGraphStore from '../store';
 import { useBuildDslData } from './use-build-dsl';
 
+const CaseDocumentReviewAgentId = '6f6145de757a11f1b4075dddb426bed0';
+const CaseDocumentReviewAgentTitle = '文档核对案例智能体';
+const CaseDocumentReviewAgentLegacyTitle =
+  '复杂任务资料整理与文档核对案例智能体';
+
+function normalizeAgentTitle(id?: string, title?: string) {
+  if (
+    id === CaseDocumentReviewAgentId &&
+    title === CaseDocumentReviewAgentLegacyTitle
+  ) {
+    return CaseDocumentReviewAgentTitle;
+  }
+  return title;
+}
+
 export const useSaveGraph = (showMessage: boolean = true) => {
   const { data } = useFetchAgent();
   const { setAgent, loading } = useSetAgent(showMessage);
@@ -30,9 +45,10 @@ export const useSaveGraph = (showMessage: boolean = true) => {
       },
       release?: boolean,
     ) => {
+      const title = normalizeAgentTitle(id, data.title);
       const params: Record<string, any> = {
         id,
-        title: data.title,
+        title,
         dsl: buildDslData(currentNodes, otherParam),
       };
 

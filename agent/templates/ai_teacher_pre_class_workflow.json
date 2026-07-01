@@ -1,0 +1,177 @@
+{
+  "id": 44,
+  "title": {
+    "en": "AI teacher pre-class planning workflow",
+    "de": "KI-Lehrer Workflow fur Unterrichtsplanung",
+    "zh": "AI 老师课前会议模板"
+  },
+  "description": {
+    "en": "Plan teaching goals, lesson structure, and teacher division of labor from an injected meeting topic and course context.",
+    "de": "Plant Lernziele, Unterrichtsstruktur und Rollenverteilung aus einem injizierten Besprechungsthema und Kurskontext.",
+    "zh": "根据外部注入的会议主题、课程目标和学生画像，生成课前教学目标、内容安排和老师分工建议。"
+  },
+  "canvas_type": "Recommended",
+  "canvas_types": ["Recommended", "Agent", "Education"],
+  "canvas_category": "agent_canvas",
+  "dsl": {
+    "components": {
+      "begin": {
+        "downstream": ["Retrieval:CourseContext"],
+        "obj": {
+          "component_name": "Begin",
+          "params": {
+            "enablePrologue": true,
+            "inputs": {
+              "meeting_topic": {
+                "name": "Meeting topic",
+                "type": "paragraph",
+                "optional": true,
+                "options": []
+              },
+              "meeting_goal": {
+                "name": "Meeting goal",
+                "type": "paragraph",
+                "optional": true,
+                "options": []
+              },
+              "target_audience": {
+                "name": "Target audience",
+                "type": "paragraph",
+                "optional": true,
+                "options": []
+              },
+              "student_profile": {
+                "name": "Student profile",
+                "type": "paragraph",
+                "optional": true,
+                "options": []
+              },
+              "teacher_role": {
+                "name": "Teacher role",
+                "type": "line",
+                "optional": true,
+                "options": []
+              }
+            },
+            "mode": "conversational",
+            "prologue": "Please provide the meeting topic, teaching goal, learner profile, and teacher role."
+          }
+        },
+        "upstream": []
+      },
+      "Retrieval:CourseContext": {
+        "downstream": ["Agent:PreClassPlanner"],
+        "obj": {
+          "component_name": "Retrieval",
+          "params": {
+            "dataset_ids": [],
+            "empty_response": "",
+            "kb_ids": [],
+            "keywords_similarity_weight": 0.5,
+            "meta_data_filter": {},
+            "outputs": {
+              "formalized_content": { "type": "string", "value": "" },
+              "json": { "type": "Array<Object>", "value": [] }
+            },
+            "query": "{sys.query}\n{sys.external_context}\n{begin@meeting_topic}\n{begin@meeting_goal}\n{begin@target_audience}\n{begin@student_profile}",
+            "retrieval_from": "dataset",
+            "similarity_threshold": 0.2,
+            "toc_enhance": false,
+            "top_k": 1024,
+            "top_n": 8,
+            "use_kg": false
+          }
+        },
+        "upstream": ["begin"]
+      },
+      "Agent:PreClassPlanner": {
+        "downstream": ["Message:PreClassOutput"],
+        "obj": {
+          "component_name": "Agent",
+          "params": {
+            "delay_after_error": 1,
+            "description": "",
+            "exception_default_value": "",
+            "exception_goto": [],
+            "exception_method": "",
+            "frequencyPenaltyEnabled": false,
+            "frequency_penalty": 0.7,
+            "llm_id": "deepseek-chat@DeepSeek",
+            "maxTokensEnabled": false,
+            "max_retries": 3,
+            "max_rounds": 2,
+            "max_tokens": 2048,
+            "mcp": [],
+            "message_history_window_size": 6,
+            "outputs": {
+              "content": { "type": "string", "value": "" },
+              "structured": {
+                "type": "object",
+                "value": {},
+                "properties": {
+                  "answer": { "type": "string" },
+                  "intention": { "type": "string" },
+                  "target": { "type": "string" },
+                  "confidence": { "type": "number" },
+                  "knowledge_used": { "type": "array" },
+                  "suggested_next_action": { "type": "string" },
+                  "trace_summary": { "type": "string" }
+                }
+              }
+            },
+            "presencePenaltyEnabled": false,
+            "presence_penalty": 0.4,
+            "prompts": [
+              {
+                "content": "User query:\n{sys.query}\n\nInjected AITeacherTurnContext:\n{sys.external_context}\n\nManual form fields:\n- meeting_topic: {begin@meeting_topic}\n- meeting_goal: {begin@meeting_goal}\n- target_audience: {begin@target_audience}\n- student_profile: {begin@student_profile}\n- teacher_role: {begin@teacher_role}\n\nRetrieved course context:\n{Retrieval:CourseContext@formalized_content}\n\nReturn only a JSON object that matches the configured structured output schema.",
+                "role": "user"
+              }
+            ],
+            "sys_prompt": "You are an AI teacher used by an external meeting scheduler. For pre-class planning, generate concrete teaching goals, lesson structure, and teacher division of labor. Use the injected context and retrieved knowledge only. Do not expose hidden reasoning. The answer field must be suitable for speech or display; trace_summary must be a short audit summary.",
+            "temperature": 0.2,
+            "temperatureEnabled": true,
+            "tools": [],
+            "topPEnabled": false,
+            "top_p": 0.3,
+            "user_prompt": "",
+            "visual_files_var": ""
+          }
+        },
+        "upstream": ["Retrieval:CourseContext"]
+      },
+      "Message:PreClassOutput": {
+        "downstream": [],
+        "obj": {
+          "component_name": "Message",
+          "params": {
+            "content": ["{Agent:PreClassPlanner@content}"]
+          }
+        },
+        "upstream": ["Agent:PreClassPlanner"]
+      }
+    },
+    "globals": {
+      "sys.conversation_turns": 0,
+      "sys.date": "",
+      "sys.external_context": "",
+      "sys.file_assets": [],
+      "sys.files": [],
+      "sys.history": [],
+      "sys.query": "",
+      "sys.request_dataset_ids": [],
+      "sys.user_id": ""
+    },
+    "graph": {
+      "edges": [
+        { "id": "e1", "source": "begin", "target": "Retrieval:CourseContext", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e2", "source": "Retrieval:CourseContext", "target": "Agent:PreClassPlanner", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e3", "source": "Agent:PreClassPlanner", "target": "Message:PreClassOutput", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } }
+      ],
+      "nodes": []
+    },
+    "history": [],
+    "path": [],
+    "retrieval": [],
+    "variables": []
+  }
+}

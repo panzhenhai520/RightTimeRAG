@@ -29,7 +29,8 @@ from api.db.services.common_service import CommonService
 from api.db.services.user_canvas_version import UserCanvasVersionService
 from api.db.template_utils import normalize_canvas_template_categories
 from api.utils.api_utils import get_data_openai
-from common.misc_utils import get_project_base_directory, get_uuid, thread_pool_exec
+from common.file_utils import get_project_base_directory
+from common.misc_utils import get_uuid, thread_pool_exec
 import tiktoken
 from peewee import fn
 

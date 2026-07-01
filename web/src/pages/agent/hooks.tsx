@@ -2,12 +2,14 @@ import { Connection, Edge, getOutgoers } from '@xyflow/react';
 import React, { useCallback, useEffect } from 'react';
 // import { shallow } from 'zustand/shallow';
 import { settledModelVariableMap } from '@/constants/knowledge';
+import { useFetchAgentOperatorSchema } from '@/hooks/use-agent-request';
 import { RAGFlowNodeType } from '@/interfaces/database/agent';
 import { get, lowerFirst, omit } from 'lodash';
 import { UseFormReturn } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Operator, RestrictedUpstreamMap } from './constant';
 import useGraphStore, { RFState } from './store';
+import { validateConnectionBySchema } from './utils/connection-schema';
 import { buildCategorizeObjectFromList, replaceIdWithText } from './utils';
 
 const selector = (state: RFState) => ({
@@ -128,6 +130,7 @@ export const useHandleFormValuesChange = (
 export const useValidateConnection = () => {
   const { getOperatorTypeFromId, getParentIdById, edges, nodes } =
     useGraphStore((state) => state);
+  const { data: operatorManifests } = useFetchAgentOperatorSchema();
 
   const isSameNodeChild = useCallback(
     (connection: Connection | Edge) => {
@@ -179,10 +182,15 @@ export const useValidateConnection = () => {
           getOperatorTypeFromId(connection.source) as Operator
         ]?.every((x) => x !== getOperatorTypeFromId(connection.target)) &&
         isSameNodeChild(connection) &&
-        hasCanvasCycle(connection);
+        hasCanvasCycle(connection) &&
+        validateConnectionBySchema({
+          connection,
+          nodes,
+          manifests: operatorManifests,
+        }).valid;
       return ret;
     },
-    [getOperatorTypeFromId, hasCanvasCycle, isSameNodeChild],
+    [getOperatorTypeFromId, hasCanvasCycle, isSameNodeChild, nodes, operatorManifests],
   );
 
   return isValidConnection;

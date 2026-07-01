@@ -1,4 +1,6 @@
 from agent.component.excel_processor import ExcelProcessor, ExcelProcessorParam
+from agent.component.number_calculate import NumberCalculate
+from agent.component.chart_spec_builder import ChartSpecBuilder
 
 
 class FakeCanvas:
@@ -78,3 +80,63 @@ def test_excel_processor_calculates_number_without_llm():
         "operation": "multiply",
     }
     assert processor.output("summary") == "B = 120 x 2.5 = 300"
+
+
+def test_number_calculate_weighted_score_formula_without_llm():
+    result = NumberCalculate.weighted_score(
+        self_score=86.5,
+        self_weight=0.6,
+        external_score=92,
+        external_weight=0.4,
+        round_digits=2,
+    )
+
+    assert result == 88.7
+
+
+def test_chart_spec_builder_generates_line_and_radar_specs():
+    records = [
+        {"activity": "lesson-1", "score": 82, "pronunciation": 84, "fluency": 80},
+        {"activity": "lesson-2", "score": 88, "pronunciation": 90, "fluency": 86},
+    ]
+
+    line = ChartSpecBuilder.build_spec(
+        "line",
+        records,
+        title="历史成绩趋势",
+        x_field="activity",
+        y_field="score",
+    )
+    radar = ChartSpecBuilder.build_spec(
+        "radar",
+        records[:1],
+        title="多维评分",
+        x_field="activity",
+        dimensions=["pronunciation", "fluency"],
+    )
+
+    assert line == {
+        "schema_version": 1,
+        "type": "line",
+        "title": "历史成绩趋势",
+        "encoding": {"x": "activity", "y": "score", "series": ""},
+        "data": [
+            {"x": "lesson-1", "y": 82.0, "series": None},
+            {"x": "lesson-2", "y": 88.0, "series": None},
+        ],
+    }
+    assert radar == {
+        "schema_version": 1,
+        "type": "radar",
+        "title": "多维评分",
+        "dimensions": ["pronunciation", "fluency"],
+        "series": [
+            {
+                "label": "lesson-1",
+                "values": [
+                    {"axis": "pronunciation", "value": 84.0},
+                    {"axis": "fluency", "value": 80.0},
+                ],
+            }
+        ],
+    }

@@ -28,6 +28,20 @@ export function InnerNextStepDropdown({
   }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isPipeline = useIsPipeline();
+  const panelWidth = 680;
+  const panelHeight = 560;
+  const safePosition = position
+    ? {
+        x:
+          typeof window === 'undefined'
+            ? position.x
+            : Math.max(12, Math.min(position.x, window.innerWidth - panelWidth - 12)),
+        y:
+          typeof window === 'undefined'
+            ? position.y
+            : Math.max(12, Math.min(position.y, window.innerHeight - panelHeight - 12)),
+      }
+    : undefined;
 
   useEffect(() => {
     if (position && hideModal) {
@@ -51,13 +65,13 @@ export function InnerNextStepDropdown({
         ref={dropdownRef}
         style={{
           position: 'fixed',
-          left: position.x,
-          top: position.y,
+          left: safePosition?.x ?? position.x,
+          top: safePosition?.y ?? position.y,
           zIndex: 1000,
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="w-[300px] font-semibold bg-bg-base border border-border rounded-md shadow-lg">
+        <div className="w-[680px] max-w-[calc(100vw-24px)] font-semibold bg-bg-base border border-border rounded-md shadow-lg">
           <div className="px-3 py-2 border-b border-border">
             <div className="text-sm font-medium">{t('flow.nextStep')}</div>
           </div>
@@ -95,7 +109,7 @@ export function InnerNextStepDropdown({
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
       <DropdownMenuContent
         onClick={(e) => e.stopPropagation()}
-        className="w-[300px] font-semibold"
+        className="w-[680px] max-w-[calc(100vw-24px)] font-semibold"
       >
         <DropdownMenuLabel className="text-xs text-text-primary">
           {t('flow.nextStep')}

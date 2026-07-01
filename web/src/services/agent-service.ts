@@ -6,6 +6,7 @@ import {
   IAgentRunState,
   IAgentRunTraceResponse,
   IAgentValidationResponse,
+  IAgentOperatorSchemaResponse,
   IPipeLineListRequest,
 } from '@/interfaces/database/agent';
 import { IAgentWebhookTraceRequest } from '@/interfaces/request/agent';
@@ -21,6 +22,7 @@ const {
   agentChatCompletion,
   resetAgent,
   listAgentTemplate,
+  listAgentOperatorSchema,
   testDbConnect,
   getInputElements,
   trace,
@@ -82,6 +84,10 @@ const methods = {
   },
   listAgentTemplate: {
     url: listAgentTemplate,
+    method: 'get',
+  },
+  listAgentOperatorSchema: {
+    url: listAgentOperatorSchema,
     method: 'get',
   },
   testDbConnect: {
@@ -265,6 +271,25 @@ export const validateAgentDsl = (
       data: dsl ? { dsl } : undefined,
     },
   );
+};
+
+export const fetchAgentOperatorSchema = () => {
+  return request<{ data: IAgentOperatorSchemaResponse }>(
+    api.listAgentOperatorSchema,
+    {
+      method: 'get',
+    },
+  );
+};
+
+export const fetchAgentFileParserHealth = (params?: {
+  layout_recognize?: string;
+  deep?: boolean;
+}) => {
+  return request<{ data: Record<string, any> }>(api.agentFileParserHealth, {
+    method: 'get',
+    params,
+  });
 };
 
 export const fetchTrace = (data: { canvas_id: string; message_id: string }) => {

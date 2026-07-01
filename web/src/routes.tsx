@@ -21,6 +21,8 @@ export enum Routes {
   Agent = '/agent',
   AgentTemplates = '/agent-templates',
   Agents = '/agents',
+  AgentCreationGuide = '/agents/creation-guide',
+  AgentCreationCase = '/agents/creation-case',
   Explore = '/explore',
   AgentExplore = `${Routes.Agent}/:id/explore`,
   Memories = '/memories',
@@ -245,6 +247,16 @@ const routeConfigOptions = [
         path: Routes.Agents,
         loader: requireDevFeatureAccess,
         Component: () => import('@/pages/agents'),
+      },
+      {
+        path: Routes.AgentCreationGuide,
+        loader: requireDevFeatureAccess,
+        Component: () => import('@/pages/agents/agent-creation-guide'),
+      },
+      {
+        path: Routes.AgentCreationCase,
+        loader: requireDevFeatureAccess,
+        Component: () => import('@/pages/agents/agent-creation-case'),
       },
       {
         path: Routes.AgentTemplates,

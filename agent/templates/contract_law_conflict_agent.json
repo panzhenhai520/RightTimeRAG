@@ -1,0 +1,120 @@
+{
+  "id": 45,
+  "title": {
+    "en": "Contract law conflict assistant",
+    "zh": "法律条款与合同条款冲突分析智能体"
+  },
+  "description": {
+    "en": "Compare a law or policy file with a contract file and produce an evidence-based conflict report.",
+    "zh": "输入法律/制度文件和合同文件路径后，智能体会抽取条款并判断合同是否存在冲突或遗漏。"
+  },
+  "canvas_type": "Recommended",
+  "canvas_types": ["Recommended", "Agent", "Other"],
+  "canvas_category": "agent_canvas",
+  "dsl": {
+    "components": {
+      "begin": {
+        "downstream": ["DocumentNormalizer:Law", "DocumentNormalizer:Contract"],
+        "obj": {
+          "component_name": "Begin",
+          "params": {
+            "enablePrologue": true,
+            "inputs": {
+              "workspace_root": {"name": "工作区根目录", "type": "line", "optional": true, "options": []},
+              "law_path": {"name": "法律/制度文件路径", "type": "line", "optional": false, "options": []},
+              "contract_path": {"name": "合同文件路径", "type": "line", "optional": false, "options": []},
+              "output_formats": {"name": "输出格式", "type": "line", "optional": true, "options": []}
+            },
+            "mode": "conversational",
+            "prologue": "请输入法律/制度文件路径和合同文件路径。"
+          }
+        },
+        "upstream": []
+      },
+      "DocumentNormalizer:Law": {
+        "downstream": ["ClauseExtractor:Law", "DocumentDiff:Text"],
+        "obj": {"component_name": "DocumentNormalizer", "params": {"root": "{begin@workspace_root}", "path": "{begin@law_path}", "max_bytes": 1048576, "chunk_chars": 2400}},
+        "upstream": ["begin"]
+      },
+      "DocumentNormalizer:Contract": {
+        "downstream": ["ClauseExtractor:Contract", "DocumentDiff:Text"],
+        "obj": {"component_name": "DocumentNormalizer", "params": {"root": "{begin@workspace_root}", "path": "{begin@contract_path}", "max_bytes": 1048576, "chunk_chars": 2400}},
+        "upstream": ["begin"]
+      },
+      "ClauseExtractor:Law": {
+        "downstream": ["DocumentSemanticComparer:Match"],
+        "obj": {"component_name": "ClauseExtractor", "params": {"document": "{DocumentNormalizer:Law@document}", "min_chars": 4}},
+        "upstream": ["DocumentNormalizer:Law"]
+      },
+      "ClauseExtractor:Contract": {
+        "downstream": ["DocumentSemanticComparer:Match", "RiskPointExtractor:ContractRisk"],
+        "obj": {"component_name": "ClauseExtractor", "params": {"document": "{DocumentNormalizer:Contract@document}", "min_chars": 4}},
+        "upstream": ["DocumentNormalizer:Contract"]
+      },
+      "RiskPointExtractor:ContractRisk": {
+        "downstream": ["DocumentCompareReportComposer:Report"],
+        "obj": {"component_name": "RiskPointExtractor", "params": {"document": "{DocumentNormalizer:Contract@document}", "min_chars": 4}},
+        "upstream": ["DocumentNormalizer:Contract"]
+      },
+      "DocumentDiff:Text": {
+        "downstream": ["DocumentCompareReportComposer:Report"],
+        "obj": {"component_name": "DocumentDiff", "params": {"left_document": "{DocumentNormalizer:Law@document}", "right_document": "{DocumentNormalizer:Contract@document}", "granularity": "paragraphs"}},
+        "upstream": ["DocumentNormalizer:Law", "DocumentNormalizer:Contract"]
+      },
+      "DocumentSemanticComparer:Match": {
+        "downstream": ["DocumentConflictDetector:Conflict"],
+        "obj": {"component_name": "DocumentSemanticComparer", "params": {"left_items": "{ClauseExtractor:Law@clauses}", "right_items": "{ClauseExtractor:Contract@clauses}", "min_score": 0.2}},
+        "upstream": ["ClauseExtractor:Law", "ClauseExtractor:Contract"]
+      },
+      "DocumentConflictDetector:Conflict": {
+        "downstream": ["DocumentCompareReportComposer:Report"],
+        "obj": {"component_name": "DocumentConflictDetector", "params": {"standard_items": "{ClauseExtractor:Law@clauses}", "target_items": "{ClauseExtractor:Contract@clauses}", "min_score": 0.18}},
+        "upstream": ["DocumentSemanticComparer:Match"]
+      },
+      "DocumentCompareReportComposer:Report": {
+        "downstream": ["Message:Answer"],
+        "obj": {
+          "component_name": "DocumentCompareReportComposer",
+          "params": {
+            "title": "法律条款与合同条款冲突分析报告",
+            "filename": "contract_law_conflict_report",
+            "output_formats": "{begin@output_formats}",
+            "documents": ["{DocumentNormalizer:Law@document}", "{DocumentNormalizer:Contract@document}"],
+            "diff": "{DocumentDiff:Text@diff}",
+            "matches": "{DocumentSemanticComparer:Match@matches}",
+            "conflicts": "{DocumentConflictDetector:Conflict@conflicts}",
+            "missing_requirements": "{DocumentConflictDetector:Conflict@missing_requirements}",
+            "risk_points": "{RiskPointExtractor:ContractRisk@risk_points}"
+          }
+        },
+        "upstream": ["DocumentDiff:Text", "DocumentConflictDetector:Conflict", "RiskPointExtractor:ContractRisk"]
+      },
+      "Message:Answer": {
+        "downstream": [],
+        "obj": {"component_name": "Message", "params": {"content": ["{DocumentCompareReportComposer:Report@markdown}"]}},
+        "upstream": ["DocumentCompareReportComposer:Report"]
+      }
+    },
+    "globals": {"sys.conversation_turns": 0, "sys.date": "", "sys.file_assets": [], "sys.files": [], "sys.history": [], "sys.query": "", "sys.user_id": ""},
+    "graph": {
+      "edges": [
+        {"id": "e-begin-law", "source": "begin", "sourceHandle": "start", "target": "DocumentNormalizer:Law", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-begin-contract", "source": "begin", "sourceHandle": "start", "target": "DocumentNormalizer:Contract", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-law-clause", "source": "DocumentNormalizer:Law", "sourceHandle": "start", "target": "ClauseExtractor:Law", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-contract-clause", "source": "DocumentNormalizer:Contract", "sourceHandle": "start", "target": "ClauseExtractor:Contract", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-contract-risk", "source": "DocumentNormalizer:Contract", "sourceHandle": "start", "target": "RiskPointExtractor:ContractRisk", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-law-diff", "source": "DocumentNormalizer:Law", "sourceHandle": "start", "target": "DocumentDiff:Text", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-contract-diff", "source": "DocumentNormalizer:Contract", "sourceHandle": "start", "target": "DocumentDiff:Text", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-law-match", "source": "ClauseExtractor:Law", "sourceHandle": "start", "target": "DocumentSemanticComparer:Match", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-contract-match", "source": "ClauseExtractor:Contract", "sourceHandle": "start", "target": "DocumentSemanticComparer:Match", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-match-conflict", "source": "DocumentSemanticComparer:Match", "sourceHandle": "start", "target": "DocumentConflictDetector:Conflict", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-conflict-report", "source": "DocumentConflictDetector:Conflict", "sourceHandle": "start", "target": "DocumentCompareReportComposer:Report", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-risk-report", "source": "RiskPointExtractor:ContractRisk", "sourceHandle": "start", "target": "DocumentCompareReportComposer:Report", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-diff-report", "source": "DocumentDiff:Text", "sourceHandle": "start", "target": "DocumentCompareReportComposer:Report", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-report-message", "source": "DocumentCompareReportComposer:Report", "sourceHandle": "start", "target": "Message:Answer", "targetHandle": "end", "data": {"isHovered": false}}
+      ],
+      "nodes": []
+    },
+    "history": []
+  }
+}

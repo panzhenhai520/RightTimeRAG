@@ -1,0 +1,107 @@
+{
+  "id": 60,
+  "title": {"en": "Codex-like document planning agent", "zh": "类 Codex 文档调整规划智能体"},
+  "description": {
+    "en": "Analyze a natural-language document task, collect context, build a task plan, check preconditions, verify results, and compose an auditable report.",
+    "zh": "输入自然语言文档调整任务后，智能体会识别意图、收集上下文、生成任务树、检查前置条件、核对结果并输出审计报告。"
+  },
+  "canvas_type": "Recommended",
+  "canvas_types": ["Recommended", "Agent", "Other"],
+  "canvas_category": "agent_canvas",
+  "dsl": {
+    "components": {
+      "begin": {
+        "downstream": ["GoalIntentClassifier:Intent"],
+        "obj": {
+          "component_name": "Begin",
+          "params": {
+            "enablePrologue": true,
+            "inputs": {
+              "task_request": {"name": "任务要求", "type": "line", "optional": false, "options": []},
+              "workspace_root": {"name": "工作区根目录", "type": "line", "optional": true, "options": []},
+              "new_content": {"name": "新增内容", "type": "line", "optional": true, "options": []},
+              "task_id": {"name": "可执行任务 ID", "type": "line", "optional": true, "options": []}
+            },
+            "mode": "conversational",
+            "prologue": "请输入要找、读、比对或调整的文档任务。"
+          }
+        },
+        "upstream": []
+      },
+      "GoalIntentClassifier:Intent": {
+        "downstream": ["TaskContextCollector:Context"],
+        "obj": {"component_name": "GoalIntentClassifier", "params": {"request": "{begin@task_request}"}},
+        "upstream": ["begin"]
+      },
+      "TaskContextCollector:Context": {
+        "downstream": ["TaskPlanner:Plan", "DocumentStructureAdvisor:Structure"],
+        "obj": {"component_name": "TaskContextCollector", "params": {"goal_intent": "{GoalIntentClassifier:Intent@goal_intent}", "root": "{begin@workspace_root}", "query": "{begin@task_request}", "max_candidates": 8}},
+        "upstream": ["GoalIntentClassifier:Intent"]
+      },
+      "DocumentStructureAdvisor:Structure": {
+        "downstream": ["TaskExecutionReportComposer:Report"],
+        "obj": {"component_name": "DocumentStructureAdvisor", "params": {"outline": "{TaskContextCollector:Context@context_bundle}", "new_content": "{begin@new_content}", "user_goal": "{begin@task_request}"}},
+        "upstream": ["TaskContextCollector:Context"]
+      },
+      "TaskPlanner:Plan": {
+        "downstream": ["PreconditionChecker:Check"],
+        "obj": {"component_name": "TaskPlanner", "params": {"goal_intent": "{GoalIntentClassifier:Intent@goal_intent}", "context_bundle": "{TaskContextCollector:Context@context_bundle}", "max_depth": 4, "max_child_tasks": 20}},
+        "upstream": ["TaskContextCollector:Context"]
+      },
+      "PreconditionChecker:Check": {
+        "downstream": ["TaskExecutor:Execute"],
+        "obj": {"component_name": "PreconditionChecker", "params": {"task": "{TaskPlanner:Plan@root_task}", "runtime_context": "{TaskContextCollector:Context@context_bundle}"}},
+        "upstream": ["TaskPlanner:Plan"]
+      },
+      "TaskExecutor:Execute": {
+        "downstream": ["TaskResultVerifier:Verify"],
+        "obj": {"component_name": "TaskExecutor", "params": {"task_id": "{begin@task_id}", "runtime_context": "{TaskContextCollector:Context@context_bundle}", "root": "{begin@workspace_root}", "max_retry": 1}},
+        "upstream": ["PreconditionChecker:Check"]
+      },
+      "TaskResultVerifier:Verify": {
+        "downstream": ["TaskReflection:Reflect"],
+        "obj": {"component_name": "TaskResultVerifier", "params": {"task": "{TaskPlanner:Plan@root_task}", "result": "{TaskExecutor:Execute@result}"}},
+        "upstream": ["TaskExecutor:Execute"]
+      },
+      "TaskReflection:Reflect": {
+        "downstream": ["ReplanDecider:Decide"],
+        "obj": {"component_name": "TaskReflection", "params": {"task": "{TaskPlanner:Plan@root_task}", "result": "{TaskExecutor:Execute@result}", "verification": "{TaskResultVerifier:Verify@verification}"}},
+        "upstream": ["TaskResultVerifier:Verify"]
+      },
+      "ReplanDecider:Decide": {
+        "downstream": ["TaskExecutionReportComposer:Report"],
+        "obj": {"component_name": "ReplanDecider", "params": {"task": "{TaskPlanner:Plan@root_task}", "verification": "{TaskResultVerifier:Verify@verification}", "reflection": "{TaskReflection:Reflect@reflection}"}},
+        "upstream": ["TaskReflection:Reflect"]
+      },
+      "TaskExecutionReportComposer:Report": {
+        "downstream": ["Message:Answer"],
+        "obj": {"component_name": "TaskExecutionReportComposer", "params": {"title": "文档任务规划与执行报告", "goal_intent": "{GoalIntentClassifier:Intent@goal_intent}", "context_bundle": "{TaskContextCollector:Context@context_bundle}", "task_plan": "{TaskPlanner:Plan@task_plan}", "precondition_result": "{PreconditionChecker:Check@precondition_result}", "execution_result": "{TaskExecutor:Execute@execution_result}", "verification": "{TaskResultVerifier:Verify@verification}", "decision": "{ReplanDecider:Decide@decision}", "structure_advice": "{DocumentStructureAdvisor:Structure@structure_advice}"}},
+        "upstream": ["ReplanDecider:Decide", "DocumentStructureAdvisor:Structure"]
+      },
+      "Message:Answer": {
+        "downstream": [],
+        "obj": {"component_name": "Message", "params": {"content": ["{TaskExecutionReportComposer:Report@markdown}"]}},
+        "upstream": ["TaskExecutionReportComposer:Report"]
+      }
+    },
+    "globals": {"sys.conversation_turns": 0, "sys.date": "", "sys.file_assets": [], "sys.files": [], "sys.history": [], "sys.query": "", "sys.user_id": ""},
+    "graph": {
+      "edges": [
+        {"id": "e1", "source": "begin", "sourceHandle": "start", "target": "GoalIntentClassifier:Intent", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e2", "source": "GoalIntentClassifier:Intent", "sourceHandle": "start", "target": "TaskContextCollector:Context", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e3", "source": "TaskContextCollector:Context", "sourceHandle": "start", "target": "TaskPlanner:Plan", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e4", "source": "TaskContextCollector:Context", "sourceHandle": "start", "target": "DocumentStructureAdvisor:Structure", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e5", "source": "TaskPlanner:Plan", "sourceHandle": "start", "target": "PreconditionChecker:Check", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e6", "source": "PreconditionChecker:Check", "sourceHandle": "start", "target": "TaskExecutor:Execute", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e7", "source": "TaskExecutor:Execute", "sourceHandle": "start", "target": "TaskResultVerifier:Verify", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e8", "source": "TaskResultVerifier:Verify", "sourceHandle": "start", "target": "TaskReflection:Reflect", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e9", "source": "TaskReflection:Reflect", "sourceHandle": "start", "target": "ReplanDecider:Decide", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e10", "source": "ReplanDecider:Decide", "sourceHandle": "start", "target": "TaskExecutionReportComposer:Report", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e11", "source": "DocumentStructureAdvisor:Structure", "sourceHandle": "start", "target": "TaskExecutionReportComposer:Report", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e12", "source": "TaskExecutionReportComposer:Report", "sourceHandle": "start", "target": "Message:Answer", "targetHandle": "end", "data": {"isHovered": false}}
+      ],
+      "nodes": []
+    },
+    "history": []
+  }
+}

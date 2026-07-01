@@ -310,6 +310,8 @@ class Canvas(Graph):
             "sys.file_texts": [],
             "sys.file_chunks": [],
             "sys.history": [],
+            "sys.external_context": "",
+            "sys.request_dataset_ids": [],
             "sys.date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         }
         self.variables = {}
@@ -331,6 +333,10 @@ class Canvas(Graph):
                 self.globals["sys.file_texts"] = []
             if "sys.file_chunks" not in self.globals:
                 self.globals["sys.file_chunks"] = []
+            if "sys.external_context" not in self.globals:
+                self.globals["sys.external_context"] = ""
+            if "sys.request_dataset_ids" not in self.globals:
+                self.globals["sys.request_dataset_ids"] = []
         else:
             self.globals = {
             "sys.query": "",
@@ -341,6 +347,8 @@ class Canvas(Graph):
             "sys.file_texts": [],
             "sys.file_chunks": [],
             "sys.history": [],
+            "sys.external_context": "",
+            "sys.request_dataset_ids": [],
             "sys.date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         }
         if "variables" in self.dsl:
@@ -452,13 +460,17 @@ class Canvas(Graph):
                 break
 
         for k in kwargs.keys():
-            if k in ["query", "user_id", "files", "chat_template_kwargs"] and kwargs[k]:
+            if k in ["query", "user_id", "files", "chat_template_kwargs", "external_context", "request_dataset_ids", "dataset_ids"] and (
+                kwargs[k] or k in ["external_context", "request_dataset_ids", "dataset_ids"]
+            ):
                 if k == "files":
                     file_assets = await self.get_file_assets_async(kwargs[k], layout_recognize)
                     self.globals["sys.file_assets"] = file_assets
                     self.globals["sys.file_texts"] = FileService.file_assets_to_text_documents(file_assets)
                     self.globals["sys.file_chunks"] = FileService.file_assets_to_text_chunks(file_assets)
                     self.globals[f"sys.{k}"] = FileService.file_assets_to_texts(file_assets)
+                elif k == "dataset_ids":
+                    self.globals["sys.request_dataset_ids"] = kwargs[k]
                 else:
                     self.globals[f"sys.{k}"] = kwargs[k]
         if not self.globals["sys.conversation_turns"] :

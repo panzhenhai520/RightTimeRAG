@@ -162,6 +162,32 @@ def test_agent_run_finish_after_cancel_request_marks_canceled():
     assert AgentRunService.get_state("tenant-1", "run-cancel")["status"] == AgentRunStatus.CANCELED
 
 
+def test_agent_run_timeout_marks_terminal_and_removes_active_run():
+    AgentRunService, AgentRunStatus = load_agent_run_service()
+
+    AgentRunService.start(
+        "tenant-1",
+        "run-timeout",
+        "agent-1",
+        "session-1",
+        "message-1",
+        "task-1",
+        "hello",
+    )
+    AgentRunService.append_event(
+        "tenant-1",
+        "run-timeout",
+        {"event": "workflow_timeout", "data": {"error": "deadline exceeded"}},
+    )
+    AgentRunService.timeout("tenant-1", "run-timeout", "deadline exceeded")
+
+    state = AgentRunService.get_state("tenant-1", "run-timeout")
+    assert state["status"] == AgentRunStatus.TIMEOUT
+    assert state["error"] == "deadline exceeded"
+    assert AgentRunService.list_active("tenant-1", "agent-1") == []
+    assert AgentRunService.get_trace("tenant-1", "run-timeout")["workflow"]["status"] == "timeout"
+
+
 def test_agent_run_artifacts_are_extracted_from_events():
     AgentRunService, _ = load_agent_run_service()
 

@@ -195,6 +195,8 @@ export default {
 
   // flow
   listAgentTemplate: `${restAPIv1}/agents/templates`,
+  listAgentOperatorSchema: `${restAPIv1}/agents/operators/schema`,
+  agentFileParserHealth: `${restAPIv1}/agents/file-parser/health`,
   listAgents: `${restAPIv1}/agents`,
   listAgentTags: `${restAPIv1}/agents/tags`,
   updateAgentTags: (agentId: string) => `${restAPIv1}/agents/${agentId}/tags`,
@@ -243,6 +245,11 @@ export default {
   downloadFile: `${restAPIv1}/agents/download`,
   testWebhook: (id: string) => `${restAPIv1}/agents/${id}/webhook/test`,
   fetchWebhookTrace: (id: string) => `${restAPIv1}/agents/${id}/webhook/logs`,
+
+  // workspace files
+  workspaceRoots: `${restAPIv1}/workspace/roots`,
+  workspaceFilesList: `${restAPIv1}/workspace/files/list`,
+  workspaceFilesSearch: `${restAPIv1}/workspace/files/search`,
 
   // explore
 

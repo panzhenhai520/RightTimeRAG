@@ -1,0 +1,229 @@
+{
+  "id": 45,
+  "title": {
+    "en": "AI teacher classroom turn workflow",
+    "de": "KI-Lehrer Workflow fur Unterrichtsrunden",
+    "zh": "AI 老师课堂发言模板"
+  },
+  "description": {
+    "en": "Generate one classroom turn from AITeacherTurnContext, private/course knowledge, and a quality-check step.",
+    "de": "Erzeugt eine Unterrichtsrunde aus AITeacherTurnContext, Wissensbasis und Qualitatsprufung.",
+    "zh": "根据 AITeacherTurnContext、老师私有库和课程库生成一轮课堂话术，并进行质量检查。"
+  },
+  "canvas_type": "Recommended",
+  "canvas_types": ["Recommended", "Agent", "Education"],
+  "canvas_category": "agent_canvas",
+  "dsl": {
+    "components": {
+      "begin": {
+        "downstream": ["Retrieval:TeacherAndCourseKnowledge"],
+        "obj": {
+          "component_name": "Begin",
+          "params": {
+            "enablePrologue": true,
+            "inputs": {
+              "current_task": {
+                "name": "Current task",
+                "type": "paragraph",
+                "optional": true,
+                "options": []
+              },
+              "teacher_personality_summary": {
+                "name": "Teacher personality",
+                "type": "paragraph",
+                "optional": true,
+                "options": []
+              },
+              "language_style_constraints": {
+                "name": "Language style",
+                "type": "paragraph",
+                "optional": true,
+                "options": []
+              },
+              "forbidden_content": {
+                "name": "Forbidden content",
+                "type": "paragraph",
+                "optional": true,
+                "options": []
+              }
+            },
+            "mode": "conversational",
+            "prologue": "Please provide this turn's task or call this workflow with AITeacherTurnContext."
+          }
+        },
+        "upstream": []
+      },
+      "Retrieval:TeacherAndCourseKnowledge": {
+        "downstream": ["Agent:DraftTurn"],
+        "obj": {
+          "component_name": "Retrieval",
+          "params": {
+            "dataset_ids": [],
+            "empty_response": "",
+            "kb_ids": [],
+            "keywords_similarity_weight": 0.5,
+            "meta_data_filter": {},
+            "outputs": {
+              "formalized_content": { "type": "string", "value": "" },
+              "json": { "type": "Array<Object>", "value": [] }
+            },
+            "query": "{sys.query}\n{sys.external_context}\n{begin@current_task}\n{begin@teacher_personality_summary}\n{begin@language_style_constraints}",
+            "retrieval_from": "dataset",
+            "similarity_threshold": 0.2,
+            "toc_enhance": false,
+            "top_k": 1024,
+            "top_n": 8,
+            "use_kg": false
+          }
+        },
+        "upstream": ["begin"]
+      },
+      "Agent:DraftTurn": {
+        "downstream": ["Agent:QualityCheck"],
+        "obj": {
+          "component_name": "Agent",
+          "params": {
+            "delay_after_error": 1,
+            "description": "",
+            "exception_default_value": "",
+            "exception_goto": [],
+            "exception_method": "",
+            "frequencyPenaltyEnabled": false,
+            "frequency_penalty": 0.7,
+            "llm_id": "deepseek-chat@DeepSeek",
+            "maxTokensEnabled": false,
+            "max_retries": 3,
+            "max_rounds": 2,
+            "max_tokens": 2048,
+            "mcp": [],
+            "message_history_window_size": 6,
+            "outputs": {
+              "content": { "type": "string", "value": "" },
+              "structured": {
+                "type": "object",
+                "value": {},
+                "properties": {
+                  "answer": { "type": "string" },
+                  "intention": { "type": "string" },
+                  "target": { "type": "string" },
+                  "reply_to": { "type": "string" },
+                  "confidence": { "type": "number" },
+                  "knowledge_used": { "type": "array" },
+                  "suggested_next_action": { "type": "string" },
+                  "trace_summary": { "type": "string" }
+                }
+              }
+            },
+            "presencePenaltyEnabled": false,
+            "presence_penalty": 0.4,
+            "prompts": [
+              {
+                "content": "User/student input:\n{sys.query}\n\nInjected AITeacherTurnContext:\n{sys.external_context}\n\nManual overrides:\n- current_task: {begin@current_task}\n- teacher_personality_summary: {begin@teacher_personality_summary}\n- language_style_constraints: {begin@language_style_constraints}\n- forbidden_content: {begin@forbidden_content}\n\nRetrieved teacher/course knowledge:\n{Retrieval:TeacherAndCourseKnowledge@formalized_content}\n\nGenerate one classroom turn as JSON that matches the structured output schema.",
+                "role": "user"
+              }
+            ],
+            "sys_prompt": "You are one AI teacher instance controlled by an external scheduler. You must generate only your current turn. Respect target_listener, reply_to, forbidden_content, language_style_constraints, and dataset_scope from the injected context. Choose intention from propose, question, challenge, support, supplement, summarize, teach, correct, defer. Do not expose hidden reasoning.",
+            "temperature": 0.2,
+            "temperatureEnabled": true,
+            "tools": [],
+            "topPEnabled": false,
+            "top_p": 0.3,
+            "user_prompt": "",
+            "visual_files_var": ""
+          }
+        },
+        "upstream": ["Retrieval:TeacherAndCourseKnowledge"]
+      },
+      "Agent:QualityCheck": {
+        "downstream": ["Message:ClassroomOutput"],
+        "obj": {
+          "component_name": "Agent",
+          "params": {
+            "delay_after_error": 1,
+            "description": "",
+            "exception_default_value": "",
+            "exception_goto": [],
+            "exception_method": "",
+            "frequencyPenaltyEnabled": false,
+            "frequency_penalty": 0.7,
+            "llm_id": "deepseek-chat@DeepSeek",
+            "maxTokensEnabled": false,
+            "max_retries": 3,
+            "max_rounds": 2,
+            "max_tokens": 2048,
+            "mcp": [],
+            "message_history_window_size": 4,
+            "outputs": {
+              "content": { "type": "string", "value": "" },
+              "structured": {
+                "type": "object",
+                "value": {},
+                "properties": {
+                  "answer": { "type": "string" },
+                  "intention": { "type": "string" },
+                  "target": { "type": "string" },
+                  "reply_to": { "type": "string" },
+                  "confidence": { "type": "number" },
+                  "knowledge_used": { "type": "array" },
+                  "suggested_next_action": { "type": "string" },
+                  "trace_summary": { "type": "string" }
+                }
+              }
+            },
+            "presencePenaltyEnabled": false,
+            "presence_penalty": 0.4,
+            "prompts": [
+              {
+                "content": "Review this draft turn:\n{Agent:DraftTurn@content}\n\nContext:\n{sys.external_context}\n\nRetrieved references:\n{Retrieval:TeacherAndCourseKnowledge@json}\n\nReturn a corrected final JSON object. Keep answer concise and speakable. Keep trace_summary short and audit-safe.",
+                "role": "user"
+              }
+            ],
+            "sys_prompt": "You are the final quality gate for an AI teacher workflow. Check that the draft respects task, target_listener, reply_to, forbidden_content, and output schema. Return only the corrected JSON object. Do not expose hidden reasoning.",
+            "temperature": 0.1,
+            "temperatureEnabled": true,
+            "tools": [],
+            "topPEnabled": false,
+            "top_p": 0.2,
+            "user_prompt": "",
+            "visual_files_var": ""
+          }
+        },
+        "upstream": ["Agent:DraftTurn"]
+      },
+      "Message:ClassroomOutput": {
+        "downstream": [],
+        "obj": {
+          "component_name": "Message",
+          "params": {
+            "content": ["{Agent:QualityCheck@content}"]
+          }
+        },
+        "upstream": ["Agent:QualityCheck"]
+      }
+    },
+    "globals": {
+      "sys.conversation_turns": 0,
+      "sys.date": "",
+      "sys.external_context": "",
+      "sys.file_assets": [],
+      "sys.files": [],
+      "sys.history": [],
+      "sys.query": "",
+      "sys.request_dataset_ids": [],
+      "sys.user_id": ""
+    },
+    "graph": {
+      "edges": [
+        { "id": "e1", "source": "begin", "target": "Retrieval:TeacherAndCourseKnowledge", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e2", "source": "Retrieval:TeacherAndCourseKnowledge", "target": "Agent:DraftTurn", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e3", "source": "Agent:DraftTurn", "target": "Agent:QualityCheck", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e4", "source": "Agent:QualityCheck", "target": "Message:ClassroomOutput", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } }
+      ],
+      "nodes": []
+    },
+    "history": [],
+    "path": [],
+    "retrieval": [],
+    "variables": []
+  }
+}

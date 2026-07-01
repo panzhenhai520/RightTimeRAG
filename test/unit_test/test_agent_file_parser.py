@@ -1,4 +1,5 @@
 from agent.component.file_parser import FileParser, FileParserParam
+from agent.component.citation_formatter import CitationFormatter
 
 
 def make_parser(top_n: int = 2) -> FileParser:
@@ -6,6 +7,37 @@ def make_parser(top_n: int = 2) -> FileParser:
     parser._param = FileParserParam()
     parser._param.top_n = top_n
     return parser
+
+
+def test_file_parser_layout_recognize_is_configurable():
+    param = FileParserParam()
+    schema = param.get_config_schema()
+
+    assert "layout_recognize" in schema
+    assert schema["layout_recognize"]["allow_custom"] is True
+    assert {item["value"] for item in schema["layout_recognize"]["options"]} >= {"Plain Text", "DeepDOC"}
+
+    param.layout_recognize = "DeepDOC"
+    param.check()
+
+
+def test_file_parser_plain_text_health_skips_local_ocr():
+    health = FileParser.local_ocr_deepdoc_health("Plain Text")
+
+    assert health["status"] == "ok"
+    assert health["healthy"] is True
+    assert health["local_ocr_required"] is False
+    assert health["checks"][0]["name"] == "layout_mode"
+
+
+def test_file_parser_deepdoc_health_reports_local_checks_without_deep_probe():
+    health = FileParser.local_ocr_deepdoc_health("DeepDOC")
+
+    assert health["layout_recognize"] == "DeepDOC"
+    assert health["local_ocr_required"] is True
+    assert any(check["name"] == "local_model_files" for check in health["checks"])
+    assert not any(check["name"] == "deep_probe" for check in health["checks"])
+    assert health["status"] in {"ok", "unhealthy"}
 
 
 def test_file_parser_expands_legal_topic_terms():
@@ -127,3 +159,72 @@ def test_file_parser_compact_chunk_includes_page_article_and_source_ref():
     assert chunk["page"] == 108
     assert chunk["article_numbers"] == [1041]
     assert chunk["source_ref"] == "民法典.pdf | page 108 | chunk chunk-1 | article 1041"
+
+
+class FakeCanvas:
+    def __init__(self):
+        self.references = None
+        self.values = {
+            "sys.query": "婚姻家庭",
+            "sys.file_assets": [
+                {
+                    "id": "file-1",
+                    "name": "民法典.pdf",
+                    "text": "第一千零四十一条 婚姻家庭受国家保护。",
+                }
+            ],
+        }
+
+    def is_canceled(self):
+        return False
+
+    def get_variable_value(self, exp):
+        return self.values[exp]
+
+    def get_tenant_id(self):
+        return ""
+
+    def add_reference(self, chunks, doc_infos):
+        self.references = {"chunks": chunks, "doc_infos": doc_infos}
+
+    def get_component_name(self, _cpn_id):
+        return ""
+
+
+def test_file_parser_references_include_standard_file_id_and_source_ref():
+    parser = make_parser(top_n=1)
+    parser._canvas = FakeCanvas()
+
+    parser._invoke()
+
+    file_info = parser.output("file_info")
+    assert file_info[0]["id"] == "file-1"
+    assert file_info[0]["name"] == "民法典.pdf"
+    references = parser.output("references")
+    assert references[0]["file_id"] == "file-1"
+    assert references[0]["document_id"] == "file-1"
+    assert references[0]["chunk_id"]
+    assert "民法典.pdf" in references[0]["source_ref"]
+    assert parser._canvas.references is not None
+
+
+def test_citation_formatter_normalizes_references_and_formats_markdown():
+    citations = CitationFormatter.normalize_references(
+        [
+            {
+                "file_id": "file-1",
+                "document_name": "民法典.pdf",
+                "chunk_id": "chunk-1",
+                "page_num_int": [108],
+                "article_numbers": [1041],
+                "content": "第一千零四十一条 婚姻家庭受国家保护。",
+            }
+        ]
+    )
+
+    assert citations[0]["file_id"] == "file-1"
+    assert citations[0]["page"] == 108
+    assert citations[0]["source_ref"] == "民法典.pdf | page 108 | chunk chunk-1 | article 1041"
+    markdown = CitationFormatter.format_markdown(citations)
+    assert "file_id: file-1" in markdown
+    assert "民法典.pdf | page 108 | chunk chunk-1 | article 1041" in markdown

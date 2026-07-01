@@ -1,4 +1,5 @@
 import { Operator } from '../constant';
+import AdvancedNodeForm from '../form/advanced-node-form';
 import AgentForm from '../form/agent-form';
 import ArXivForm from '../form/arxiv-form';
 import BeginForm from '../form/begin-form';
@@ -6,6 +7,7 @@ import BingForm from '../form/bing-form';
 import BrowserForm from '../form/browser-use-form';
 import CategorizeForm from '../form/categorize-form';
 import CodeForm from '../form/code-form';
+import ComplianceForm from '../form/compliance-form';
 import CrawlerForm from '../form/crawler-form';
 import DataOperationsForm from '../form/data-operations-form';
 import DocGeneratorForm from '../form/doc-generator-form';
@@ -117,11 +119,113 @@ export const FormConfigMap = {
   [Operator.FileParser]: {
     component: FileParserForm,
   },
+  [Operator.WorkspaceFileWrite]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.WorkspacePatchApply]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.PromptTemplate]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.ScoreRubricBuilder]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.PronunciationJudge]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.SummaryNode]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.ReportComposer]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.ContractClauseExtractor]: {
+    component: ComplianceForm,
+  },
+  [Operator.ComplianceChecklistGenerator]: {
+    component: ComplianceForm,
+  },
+  [Operator.ClauseMatcher]: {
+    component: ComplianceForm,
+  },
+  [Operator.ComplianceVerifier]: {
+    component: ComplianceForm,
+  },
+  [Operator.RiskScorer]: {
+    component: ComplianceForm,
+  },
+  [Operator.ComplianceReportComposer]: {
+    component: ComplianceForm,
+  },
   [Operator.DocGenerator]: {
     component: DocGeneratorForm,
   },
   [Operator.Browser]: {
     component: BrowserForm,
+  },
+  [Operator.AudioInput]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.TTSGenerate]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.ASRTranscribe]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.VoiceReplyOutput]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.MeetingContextInput]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.MemoryInject]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.AgentFanout]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.ResultAggregator]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.WebhookInput]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.ExternalScoreReceiver]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.HumanReview]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.ManualApprove]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.NumberCalculate]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.ChartSpecBuilder]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.ChartRenderer]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.ArtifactPackager]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.ScopedDBConnector]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.SafeTableEnsure]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.SafeRecordInsert]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.SafeRecordUpdate]: {
+    component: AdvancedNodeForm,
+  },
+  [Operator.SafeRecordQuery]: {
+    component: AdvancedNodeForm,
   },
   [Operator.Note]: {
     component: () => <></>,

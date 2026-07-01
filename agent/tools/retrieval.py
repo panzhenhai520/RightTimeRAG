@@ -35,6 +35,18 @@ from rag.app.tag import label_question
 from rag.prompts.generator import cross_languages, kb_prompt, memory_prompt
 
 
+STANDARD_METADATA_FIELDS = (
+    "standard_type",
+    "jurisdiction",
+    "industry",
+    "effective_from",
+    "effective_to",
+    "version",
+    "article_no",
+    "topic",
+)
+
+
 class RetrievalParam(ToolParamBase):
     """
     Define the Retrieval component parameters.
@@ -92,6 +104,60 @@ class Retrieval(ToolBase, ABC):
         """Get dataset IDs with backward compatibility for kb_ids."""
         return self._param.dataset_ids or getattr(self._param, "kb_ids", None) or []
 
+    @staticmethod
+    def _normalize_dataset_scope(value) -> list[str]:
+        if not value:
+            return []
+        if isinstance(value, str):
+            values = [value]
+        elif isinstance(value, list):
+            values = value
+        else:
+            return []
+        normalized = []
+        seen = set()
+        for item in values:
+            dataset_id = str(item or "").strip()
+            if not dataset_id or dataset_id in seen:
+                continue
+            seen.add(dataset_id)
+            normalized.append(dataset_id)
+        return normalized
+
+    @classmethod
+    def _apply_request_dataset_scope(cls, configured_ids: list[str], request_ids) -> list[str]:
+        request_scope = cls._normalize_dataset_scope(request_ids)
+        if not request_scope:
+            return configured_ids
+        if not configured_ids:
+            return request_scope
+        allowed = set(request_scope)
+        return [dataset_id for dataset_id in configured_ids if dataset_id in allowed]
+
+    @staticmethod
+    def _standard_metadata(chunk: dict) -> dict:
+        metadata = {}
+        for key in ("document_metadata", "metadata", "doc_metadata", "meta_fields"):
+            value = chunk.get(key)
+            if isinstance(value, dict):
+                metadata.update(value)
+        for key in STANDARD_METADATA_FIELDS:
+            if chunk.get(key) is not None:
+                metadata[key] = chunk.get(key)
+        return {key: metadata.get(key) for key in STANDARD_METADATA_FIELDS if metadata.get(key) is not None}
+
+    @classmethod
+    def _enrich_standard_metadata(cls, chunk: dict) -> dict:
+        if not isinstance(chunk, dict):
+            return chunk
+        metadata = cls._standard_metadata(chunk)
+        if metadata:
+            chunk.setdefault("standard_metadata", metadata)
+            for key, value in metadata.items():
+                chunk.setdefault(key, value)
+        chunk["metadata_incomplete"] = not any(chunk.get(key) for key in ("version", "effective_from", "article_no"))
+        return chunk
+
     async def _retrieve_kb(self, query_text: str):
         kb_ids: list[str] = []
         for id in self._dataset_ids:
@@ -110,7 +176,12 @@ class Retrieval(ToolBase, ABC):
                         raise Exception(f"Dataset({nm_or_id}) does not exist.")
                 kb_ids.append(kb.id)
 
+        kb_ids = self._apply_request_dataset_scope(kb_ids, self._canvas.get_variable_value("sys.request_dataset_ids"))
         filtered_kb_ids: list[str] = list(set([kb_id for kb_id in kb_ids if kb_id]))
+        if self._normalize_dataset_scope(self._canvas.get_variable_value("sys.request_dataset_ids")) and not filtered_kb_ids:
+            self.set_output("formalized_content", self._param.empty_response)
+            self.set_output("json", [])
+            return self._param.empty_response
 
         kbs = KnowledgebaseService.get_by_ids(filtered_kb_ids)
         if not kbs:
@@ -267,6 +338,7 @@ class Retrieval(ToolBase, ABC):
                 del ck["vector"]
             if "content_ltks" in ck:
                 del ck["content_ltks"]
+            self._enrich_standard_metadata(ck)
 
         if not kbinfos["chunks"]:
             self.set_output("formalized_content", self._param.empty_response)

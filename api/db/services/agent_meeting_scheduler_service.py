@@ -50,11 +50,13 @@ class AgentMeetingSchedulerService:
             normalized.append(
                 {
                     "agent_id": agent_id,
+                    "workflow_id": str(item.get("workflow_id") or agent_id).strip(),
                     "session_id": str(item.get("session_id") or "").strip(),
                     "message_id": str(item.get("message_id") or "").strip(),
                     "role": str(item.get("role") or item.get("name") or "").strip(),
                     "memory": item.get("memory") if isinstance(item.get("memory"), list) else [],
                     "inputs": item.get("inputs") if isinstance(item.get("inputs"), dict) else {},
+                    "deadline_ms": item.get("deadline_ms"),
                     "chat_template_kwargs": item.get("chat_template_kwargs"),
                     "custom_header": str(item.get("custom_header") or ""),
                 }
@@ -120,7 +122,9 @@ class AgentMeetingSchedulerService:
                 "meeting_id": meeting_id,
                 "turn_id": turn_id,
                 "agent_id": agent_id,
+                "workflow_id": spec.get("workflow_id") or agent_id,
                 "role": spec["role"],
+                "deadline_ms": spec.get("deadline_ms"),
                 "memory_namespace": {
                     "shared": f"{tenant_id}:{meeting_id}:shared",
                     "agent": f"{tenant_id}:{meeting_id}:{agent_id}",
@@ -130,6 +134,7 @@ class AgentMeetingSchedulerService:
                 run_id=run_id,
                 tenant_id=tenant_id,
                 agent_id=agent_id,
+                workflow_id=spec.get("workflow_id") or agent_id,
                 session_id=session_id,
                 message_id=message_id,
                 query=query,
@@ -140,6 +145,7 @@ class AgentMeetingSchedulerService:
                 return_trace=return_trace,
                 custom_header=spec["custom_header"],
                 chat_template_kwargs=spec["chat_template_kwargs"],
+                deadline_ms=spec.get("deadline_ms"),
                 metadata=metadata,
             )
             payloads.append(payload)

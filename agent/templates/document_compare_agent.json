@@ -1,0 +1,174 @@
+{
+  "id": 44,
+  "title": {
+    "en": "Document compare assistant",
+    "zh": "文档差异比对智能体"
+  },
+  "description": {
+    "en": "Compare two authorized workspace files, extract comparable clauses, detect differences and conflicts, and generate auditable reports.",
+    "zh": "输入两个已授权工作区文件路径后，智能体会规范化文档、抽取条款、执行 diff/语义匹配/冲突判断，并生成可审计报告。"
+  },
+  "canvas_type": "Recommended",
+  "canvas_types": ["Recommended", "Agent", "Other"],
+  "canvas_category": "agent_canvas",
+  "dsl": {
+    "components": {
+      "begin": {
+        "downstream": ["DocumentNormalizer:A", "DocumentNormalizer:B"],
+        "obj": {
+          "component_name": "Begin",
+          "params": {
+            "enablePrologue": true,
+            "inputs": {
+              "workspace_root": {"name": "工作区根目录", "type": "line", "optional": true, "options": []},
+              "file_a_path": {"name": "文件 A 路径", "type": "line", "optional": false, "options": []},
+              "file_b_path": {"name": "文件 B 路径", "type": "line", "optional": false, "options": []},
+              "output_formats": {"name": "输出格式", "type": "line", "optional": true, "options": []}
+            },
+            "mode": "conversational",
+            "prologue": "请输入两个需要比对的工作区文件路径。"
+          }
+        },
+        "upstream": []
+      },
+      "DocumentNormalizer:A": {
+        "downstream": ["ClauseExtractor:A", "DocumentDiff:Text"],
+        "obj": {
+          "component_name": "DocumentNormalizer",
+          "params": {
+            "root": "{begin@workspace_root}",
+            "path": "{begin@file_a_path}",
+            "max_bytes": 1048576,
+            "chunk_chars": 2400
+          }
+        },
+        "upstream": ["begin"]
+      },
+      "DocumentNormalizer:B": {
+        "downstream": ["ClauseExtractor:B", "DocumentDiff:Text"],
+        "obj": {
+          "component_name": "DocumentNormalizer",
+          "params": {
+            "root": "{begin@workspace_root}",
+            "path": "{begin@file_b_path}",
+            "max_bytes": 1048576,
+            "chunk_chars": 2400
+          }
+        },
+        "upstream": ["begin"]
+      },
+      "ClauseExtractor:A": {
+        "downstream": ["DocumentSemanticComparer:Compare"],
+        "obj": {
+          "component_name": "ClauseExtractor",
+          "params": {
+            "document": "{DocumentNormalizer:A@document}",
+            "min_chars": 4
+          }
+        },
+        "upstream": ["DocumentNormalizer:A"]
+      },
+      "ClauseExtractor:B": {
+        "downstream": ["DocumentSemanticComparer:Compare", "DocumentConflictDetector:Conflict"],
+        "obj": {
+          "component_name": "ClauseExtractor",
+          "params": {
+            "document": "{DocumentNormalizer:B@document}",
+            "min_chars": 4
+          }
+        },
+        "upstream": ["DocumentNormalizer:B"]
+      },
+      "DocumentDiff:Text": {
+        "downstream": ["DocumentCompareReportComposer:Report"],
+        "obj": {
+          "component_name": "DocumentDiff",
+          "params": {
+            "left_document": "{DocumentNormalizer:A@document}",
+            "right_document": "{DocumentNormalizer:B@document}",
+            "granularity": "paragraphs"
+          }
+        },
+        "upstream": ["DocumentNormalizer:A", "DocumentNormalizer:B"]
+      },
+      "DocumentSemanticComparer:Compare": {
+        "downstream": ["DocumentConflictDetector:Conflict"],
+        "obj": {
+          "component_name": "DocumentSemanticComparer",
+          "params": {
+            "left_items": "{ClauseExtractor:A@clauses}",
+            "right_items": "{ClauseExtractor:B@clauses}",
+            "min_score": 0.2
+          }
+        },
+        "upstream": ["ClauseExtractor:A", "ClauseExtractor:B"]
+      },
+      "DocumentConflictDetector:Conflict": {
+        "downstream": ["DocumentCompareReportComposer:Report"],
+        "obj": {
+          "component_name": "DocumentConflictDetector",
+          "params": {
+            "standard_items": "{ClauseExtractor:A@clauses}",
+            "target_items": "{ClauseExtractor:B@clauses}",
+            "min_score": 0.18
+          }
+        },
+        "upstream": ["DocumentSemanticComparer:Compare", "ClauseExtractor:B"]
+      },
+      "DocumentCompareReportComposer:Report": {
+        "downstream": ["Message:Answer"],
+        "obj": {
+          "component_name": "DocumentCompareReportComposer",
+          "params": {
+            "title": "文档差异比对报告",
+            "filename": "document_compare_report",
+            "output_formats": "{begin@output_formats}",
+            "documents": ["{DocumentNormalizer:A@document}", "{DocumentNormalizer:B@document}"],
+            "diff": "{DocumentDiff:Text@diff}",
+            "matches": "{DocumentSemanticComparer:Compare@matches}",
+            "conflicts": "{DocumentConflictDetector:Conflict@conflicts}",
+            "missing_requirements": "{DocumentConflictDetector:Conflict@missing_requirements}"
+          }
+        },
+        "upstream": ["DocumentDiff:Text", "DocumentConflictDetector:Conflict"]
+      },
+      "Message:Answer": {
+        "downstream": [],
+        "obj": {
+          "component_name": "Message",
+          "params": {
+            "content": ["{DocumentCompareReportComposer:Report@markdown}"]
+          }
+        },
+        "upstream": ["DocumentCompareReportComposer:Report"]
+      }
+    },
+    "globals": {
+      "sys.conversation_turns": 0,
+      "sys.date": "",
+      "sys.file_assets": [],
+      "sys.files": [],
+      "sys.history": [],
+      "sys.query": "",
+      "sys.user_id": ""
+    },
+    "graph": {
+      "edges": [
+        {"id": "e-begin-a", "source": "begin", "sourceHandle": "start", "target": "DocumentNormalizer:A", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-begin-b", "source": "begin", "sourceHandle": "start", "target": "DocumentNormalizer:B", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-a-clauses", "source": "DocumentNormalizer:A", "sourceHandle": "start", "target": "ClauseExtractor:A", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-b-clauses", "source": "DocumentNormalizer:B", "sourceHandle": "start", "target": "ClauseExtractor:B", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-a-diff", "source": "DocumentNormalizer:A", "sourceHandle": "start", "target": "DocumentDiff:Text", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-b-diff", "source": "DocumentNormalizer:B", "sourceHandle": "start", "target": "DocumentDiff:Text", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-clauses-a-compare", "source": "ClauseExtractor:A", "sourceHandle": "start", "target": "DocumentSemanticComparer:Compare", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-clauses-b-compare", "source": "ClauseExtractor:B", "sourceHandle": "start", "target": "DocumentSemanticComparer:Compare", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-compare-conflict", "source": "DocumentSemanticComparer:Compare", "sourceHandle": "start", "target": "DocumentConflictDetector:Conflict", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-conflict-report", "source": "DocumentConflictDetector:Conflict", "sourceHandle": "start", "target": "DocumentCompareReportComposer:Report", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-diff-report", "source": "DocumentDiff:Text", "sourceHandle": "start", "target": "DocumentCompareReportComposer:Report", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-report-message", "source": "DocumentCompareReportComposer:Report", "sourceHandle": "start", "target": "Message:Answer", "targetHandle": "end", "data": {"isHovered": false}}
+      ],
+      "nodes": []
+    },
+    "history": []
+  }
+}

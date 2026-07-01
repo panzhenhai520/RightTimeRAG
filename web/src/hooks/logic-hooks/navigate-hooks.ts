@@ -113,6 +113,14 @@ export const useNavigatePage = () => {
     navigate(Routes.AgentTemplates);
   }, [navigate]);
 
+  const navigateToAgentCreationGuide = useCallback(() => {
+    navigate(Routes.AgentCreationGuide);
+  }, [navigate]);
+
+  const navigateToAgentCreationCase = useCallback(() => {
+    navigate(Routes.AgentCreationCase);
+  }, [navigate]);
+
   const navigateToSearchList = useCallback(() => {
     navigate(Routes.Searches);
   }, [navigate]);
@@ -213,6 +221,8 @@ export const useNavigatePage = () => {
     navigateToAgentExplore,
     navigateToAgentLogs,
     navigateToAgentTemplates,
+    navigateToAgentCreationGuide,
+    navigateToAgentCreationCase,
     navigateToSearchList,
     navigateToSearch,
     navigateToFiles,

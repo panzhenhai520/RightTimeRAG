@@ -6,7 +6,12 @@ import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { useFetchAgentListByPage } from '@/hooks/use-agent-request';
 import { IFlow } from '@/interfaces/database/agent';
 import { t } from 'i18next';
-import { LayoutTemplate, Plus } from 'lucide-react';
+import {
+  BookOpenText,
+  GraduationCap,
+  LayoutTemplate,
+  Plus,
+} from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 import { CreateAgentDialog } from './create-agent-dialog';
@@ -17,11 +22,12 @@ import {
   HexTile,
 } from './hex-agent-card';
 import { useCreateAgentOrPipeline } from './hooks/use-create-agent';
-import { useSelectFilters } from './hooks/use-selelct-filters';
 import styles from './index.module.less';
 import { useRenameAgent } from './use-rename-agent';
 
 type HoneycombCell =
+  | { type: 'creation-guide' }
+  | { type: 'creation-case' }
   | { type: 'create-template' }
   | { type: 'create-manual' }
   | { type: 'agent'; data: IFlow }
@@ -47,13 +53,10 @@ function fillHoneycombCells(cells: HoneycombCell[]) {
 }
 
 export default function Agents() {
-  const {
-    data,
-    searchString,
-    handleInputChange,
-    filterValue,
-    handleFilterSubmit,
-  } = useFetchAgentListByPage({ page: 1, pageSize: 100000 });
+  const { data, searchString } = useFetchAgentListByPage({
+    page: 1,
+    pageSize: 100000,
+  });
 
   const {
     agentRenameLoading,
@@ -72,8 +75,11 @@ export default function Agents() {
     handleCreateAgentOrPipeline,
   } = useCreateAgentOrPipeline();
 
-  const { navigateToAgentTemplates } = useNavigatePage();
-  const filters = useSelectFilters();
+  const {
+    navigateToAgentTemplates,
+    navigateToAgentCreationGuide,
+    navigateToAgentCreationCase,
+  } = useNavigatePage();
 
   const [searchUrl, setSearchUrl] = useSearchParams();
   const isCreate = searchUrl.get('isCreate') === 'true';
@@ -89,7 +95,12 @@ export default function Agents() {
   const honeycombCells = useMemo(() => {
     const actionCells: HoneycombCell[] = searchString
       ? []
-      : [{ type: 'create-template' }, { type: 'create-manual' }];
+      : [
+          { type: 'creation-guide' },
+          { type: 'creation-case' },
+          { type: 'create-template' },
+          { type: 'create-manual' },
+        ];
     const agentCells: HoneycombCell[] = data.map((agent) => ({
       type: 'agent',
       data: agent,
@@ -108,17 +119,39 @@ export default function Agents() {
           <ListFilterBar
             title={t('flow.agents')}
             searchString={searchString}
-            onSearchChange={handleInputChange}
             icon="agents"
-            filters={filters}
-            onChange={handleFilterSubmit}
-            value={filterValue}
+            showFilter={false}
+            showSearch={false}
           />
         </header>
 
         <div className={styles.honeycombPage}>
           <div className={styles.honeycombGrid}>
             {honeycombCells.map((cell, index) => {
+              if (cell.type === 'creation-guide') {
+                return (
+                  <HexTile key={cell.type} index={index}>
+                    <HexCreateButton
+                      icon={<BookOpenText className="size-6" />}
+                      label="智能体创建指南"
+                      onClick={navigateToAgentCreationGuide}
+                    />
+                  </HexTile>
+                );
+              }
+
+              if (cell.type === 'creation-case') {
+                return (
+                  <HexTile key={cell.type} index={index}>
+                    <HexCreateButton
+                      icon={<GraduationCap className="size-6" />}
+                      label="智能体创建案例"
+                      onClick={navigateToAgentCreationCase}
+                    />
+                  </HexTile>
+                );
+              }
+
               if (cell.type === 'create-template') {
                 return (
                   <HexTile key={cell.type} index={index}>

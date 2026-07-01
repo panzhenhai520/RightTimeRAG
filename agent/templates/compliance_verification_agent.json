@@ -1,0 +1,293 @@
+{
+  "id": 43,
+  "title": {
+    "en": "Compliance verification assistant",
+    "de": "Assistent fur Compliance-Prufung",
+    "zh": "文档核对智能体"
+  },
+  "description": {
+    "en": "Upload a contract or business document. The agent checks it against bound knowledge-base standards and produces an auditable verification report.",
+    "de": "Laden Sie einen Vertrag oder ein Geschaftsdokument hoch. Der Agent pruft ihn gegen gebundene Wissensdatenbank-Standards und erstellt einen nachvollziehbaren Bericht.",
+    "zh": "上传合同或业务文档后，智能体会以绑定知识库中的法规、制度、模板为标准逐条核对，并生成可审计的核对报告。"
+  },
+  "canvas_type": "Recommended",
+  "canvas_types": ["Recommended", "Agent", "Other"],
+  "canvas_category": "agent_canvas",
+  "dsl": {
+    "components": {
+      "begin": {
+        "downstream": ["FileParser:ContractDocument"],
+        "obj": {
+          "component_name": "Begin",
+          "params": {
+            "enablePrologue": true,
+            "inputs": {
+              "document_file": {
+                "name": "待核对文档",
+                "type": "file",
+                "optional": false,
+                "options": []
+              },
+              "focus": {
+                "name": "核对目标或范围",
+                "type": "paragraph",
+                "optional": true,
+                "options": []
+              }
+            },
+            "mode": "conversational",
+            "prologue": "你好！请上传需要核对的合同或业务文档，并说明要按哪些标准或主题进行核对。"
+          }
+        },
+        "upstream": []
+      },
+      "FileParser:ContractDocument": {
+        "downstream": ["ContractClauseExtractor:Clauses"],
+        "obj": {
+          "component_name": "FileParser",
+          "params": {
+            "chunk_token_num": 1200,
+            "from_page": 0,
+            "input_files": ["sys.file_assets", "begin@document_file_file_assets"],
+            "layout_recognize": "Plain Text",
+            "context_window": 1,
+            "max_content_chars": 20000,
+            "outputs": {
+              "chunks": { "type": "Array<TextChunk>", "value": [] },
+              "content": { "type": "string", "value": "" },
+              "file_info": { "type": "Array<Object>", "value": [] },
+              "matches": { "type": "Array<TextChunk>", "value": [] },
+              "references": { "type": "Array<Object>", "value": [] },
+              "summary": { "type": "string", "value": "" }
+            },
+            "parser_id": "auto",
+            "query": "{sys.query}\n{begin@focus}",
+            "to_page": 100000,
+            "top_n": 24
+          }
+        },
+        "upstream": ["begin"]
+      },
+      "ContractClauseExtractor:Clauses": {
+        "downstream": ["Retrieval:Standards"],
+        "obj": {
+          "component_name": "ContractClauseExtractor",
+          "params": {
+            "chunks": "{FileParser:ContractDocument@matches}",
+            "content": "{FileParser:ContractDocument@content}",
+            "references": "{FileParser:ContractDocument@references}",
+            "min_clause_chars": 4,
+            "outputs": {
+              "clause_tree": { "type": "object", "value": {} },
+              "clauses": { "type": "Array<Object>", "value": [] },
+              "entities": { "type": "object", "value": {} },
+              "references": { "type": "Array<Object>", "value": [] },
+              "summary": { "type": "string", "value": "" }
+            }
+          }
+        },
+        "upstream": ["FileParser:ContractDocument"]
+      },
+      "Retrieval:Standards": {
+        "downstream": ["ComplianceChecklistGenerator:Checklist"],
+        "obj": {
+          "component_name": "Retrieval",
+          "params": {
+            "dataset_ids": [],
+            "empty_response": "",
+            "kb_ids": [],
+            "keywords_similarity_weight": 0.5,
+            "meta_data_filter": {},
+            "outputs": {
+              "formalized_content": { "type": "string", "value": "" },
+              "json": { "type": "Array<Object>", "value": [] }
+            },
+            "query": "{sys.query}\n{begin@focus}\n请检索可作为核对标准的法规、制度、模板或内部标准。",
+            "retrieval_from": "dataset",
+            "similarity_threshold": 0.2,
+            "toc_enhance": false,
+            "top_k": 1024,
+            "top_n": 16,
+            "use_kg": false
+          }
+        },
+        "upstream": ["ContractClauseExtractor:Clauses"]
+      },
+      "ComplianceChecklistGenerator:Checklist": {
+        "downstream": ["ClauseMatcher:Match"],
+        "obj": {
+          "component_name": "ComplianceChecklistGenerator",
+          "params": {
+            "standards": "{Retrieval:Standards@json}",
+            "focus": "{begin@focus}",
+            "max_items": 80,
+            "outputs": {
+              "checklist": { "type": "Array<Object>", "value": [] },
+              "references": { "type": "Array<Object>", "value": [] },
+              "summary": { "type": "string", "value": "" }
+            }
+          }
+        },
+        "upstream": ["Retrieval:Standards"]
+      },
+      "ClauseMatcher:Match": {
+        "downstream": ["ComplianceVerifier:Verify"],
+        "obj": {
+          "component_name": "ClauseMatcher",
+          "params": {
+            "checklist": "{ComplianceChecklistGenerator:Checklist@checklist}",
+            "clauses": "{ContractClauseExtractor:Clauses@clauses}",
+            "min_confidence": 0.28,
+            "outputs": {
+              "matches": { "type": "Array<Object>", "value": [] },
+              "summary": { "type": "string", "value": "" }
+            }
+          }
+        },
+        "upstream": ["ComplianceChecklistGenerator:Checklist"]
+      },
+      "ComplianceVerifier:Verify": {
+        "downstream": ["RiskScorer:Risk"],
+        "obj": {
+          "component_name": "ComplianceVerifier",
+          "params": {
+            "checklist": "{ComplianceChecklistGenerator:Checklist@checklist}",
+            "matches": "{ClauseMatcher:Match@matches}",
+            "clauses": "{ContractClauseExtractor:Clauses@clauses}",
+            "min_confidence": 0.28,
+            "outputs": {
+              "verification_results": { "type": "Array<Object>", "value": [] },
+              "summary": { "type": "string", "value": "" },
+              "references": { "type": "Array<Object>", "value": [] }
+            }
+          }
+        },
+        "upstream": ["ClauseMatcher:Match"]
+      },
+      "RiskScorer:Risk": {
+        "downstream": ["CitationFormatter:Sources"],
+        "obj": {
+          "component_name": "RiskScorer",
+          "params": {
+            "verification_results": "{ComplianceVerifier:Verify@verification_results}",
+            "outputs": {
+              "risk_items": { "type": "Array<Object>", "value": [] },
+              "risk_summary": { "type": "object", "value": {} },
+              "overall_risk_level": { "type": "string", "value": "none" }
+            }
+          }
+        },
+        "upstream": ["ComplianceVerifier:Verify"]
+      },
+      "CitationFormatter:Sources": {
+        "downstream": ["ComplianceReportComposer:Report"],
+        "obj": {
+          "component_name": "CitationFormatter",
+          "params": {
+            "content": "",
+            "include_content": false,
+            "max_items": 120,
+            "references": "{ComplianceVerifier:Verify@references}",
+            "outputs": {
+              "citations": { "type": "Array<Object>", "value": [] },
+              "content": { "type": "string", "value": "" },
+              "markdown": { "type": "string", "value": "" },
+              "references": { "type": "Array<Object>", "value": [] }
+            }
+          }
+        },
+        "upstream": ["RiskScorer:Risk"]
+      },
+      "ComplianceReportComposer:Report": {
+        "downstream": ["DocGenerator:ComplianceReportDoc"],
+        "obj": {
+          "component_name": "ComplianceReportComposer",
+          "params": {
+            "title": "文档核对报告",
+            "scope": "{begin@focus}",
+            "verification_results": "{ComplianceVerifier:Verify@verification_results}",
+            "risk_summary": "{RiskScorer:Risk@risk_summary}",
+            "references": "{CitationFormatter:Sources@references}",
+            "outputs": {
+              "markdown": { "type": "string", "value": "" },
+              "summary": { "type": "string", "value": "" },
+              "tables": { "type": "object", "value": {} },
+              "references": { "type": "Array<Object>", "value": [] }
+            }
+          }
+        },
+        "upstream": ["CitationFormatter:Sources"]
+      },
+      "DocGenerator:ComplianceReportDoc": {
+        "downstream": ["Message:ComplianceAnswer"],
+        "obj": {
+          "component_name": "DocGenerator",
+          "params": {
+            "add_page_numbers": true,
+            "add_timestamp": true,
+            "content": "{ComplianceReportComposer:Report@markdown}",
+            "filename": "文档核对报告",
+            "font_size": 12,
+            "footer_text": "",
+            "header_text": "文档核对报告",
+            "include_download_info_in_content": false,
+            "output_format": "docx",
+            "outputs": {
+              "attachment": { "type": "object", "value": {} },
+              "doc_id": { "type": "string", "value": "" },
+              "download": { "type": "string", "value": "" },
+              "downloads": { "type": "Array<Object>", "value": [] },
+              "filename": { "type": "string", "value": "" },
+              "mime_type": { "type": "string", "value": "" },
+              "size": { "type": "number", "value": 0 }
+            },
+            "watermark_text": ""
+          }
+        },
+        "upstream": ["ComplianceReportComposer:Report"]
+      },
+      "Message:ComplianceAnswer": {
+        "downstream": [],
+        "obj": {
+          "component_name": "Message",
+          "params": {
+            "content": [
+              "{ComplianceReportComposer:Report@summary}\n\n总体风险：{RiskScorer:Risk@overall_risk_level}\n\n报告文档：{DocGenerator:ComplianceReportDoc@download}\n\n提示：本报告为文本分析辅助结果，不构成正式法律意见，高风险和证据不足项目请人工复核。"
+            ]
+          }
+        },
+        "upstream": ["DocGenerator:ComplianceReportDoc"]
+      }
+    },
+    "globals": {
+      "sys.conversation_turns": 0,
+      "sys.date": "",
+      "sys.file_assets": [],
+      "sys.files": [],
+      "sys.history": [],
+      "sys.query": "",
+      "sys.request_dataset_ids": [],
+      "sys.user_id": ""
+    },
+    "graph": {
+      "edges": [
+        { "id": "e1", "source": "begin", "target": "FileParser:ContractDocument", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e2", "source": "FileParser:ContractDocument", "target": "ContractClauseExtractor:Clauses", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e3", "source": "ContractClauseExtractor:Clauses", "target": "Retrieval:Standards", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e4", "source": "Retrieval:Standards", "target": "ComplianceChecklistGenerator:Checklist", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e5", "source": "ComplianceChecklistGenerator:Checklist", "target": "ClauseMatcher:Match", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e6", "source": "ClauseMatcher:Match", "target": "ComplianceVerifier:Verify", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e7", "source": "ComplianceVerifier:Verify", "target": "RiskScorer:Risk", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e8", "source": "RiskScorer:Risk", "target": "CitationFormatter:Sources", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e9", "source": "CitationFormatter:Sources", "target": "ComplianceReportComposer:Report", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e10", "source": "ComplianceReportComposer:Report", "target": "DocGenerator:ComplianceReportDoc", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e11", "source": "DocGenerator:ComplianceReportDoc", "target": "Message:ComplianceAnswer", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } }
+      ],
+      "nodes": []
+    },
+    "history": [],
+    "path": [],
+    "retrieval": [],
+    "variables": []
+  }
+}

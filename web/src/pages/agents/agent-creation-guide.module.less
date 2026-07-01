@@ -1,0 +1,721 @@
+.page {
+  height: 100%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--bg-base);
+  color: rgb(var(--text-primary));
+}
+
+.content {
+  width: min(1280px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 28px 0 56px;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid rgb(var(--border-default) / 0.7);
+}
+
+.titleBlock {
+  display: grid;
+  gap: 8px;
+}
+
+.eyebrow {
+  color: rgb(var(--text-secondary));
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.title {
+  margin: 0;
+  color: rgb(var(--text-primary));
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.subtitle {
+  max-width: 880px;
+  margin: 0;
+  color: rgb(var(--text-secondary));
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.section {
+  margin-top: 28px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.sectionHeader h2 {
+  margin: 0;
+  color: rgb(var(--text-primary));
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.sectionHeader p {
+  max-width: 820px;
+  margin: 6px 0 0;
+  color: rgb(var(--text-secondary));
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.summaryGrid,
+.layerGrid,
+.choiceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.choiceGrid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+}
+
+.statCard,
+.layerCard,
+.choiceCard,
+.nodeCard,
+.stepCard,
+.validationItem,
+.serviceRow,
+.scenarioPanel {
+  border: 1px solid rgb(var(--border-default) / 0.72);
+  border-radius: 8px;
+  background: rgb(var(--bg-card));
+}
+
+.statCard {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+}
+
+.statNumber {
+  color: rgb(var(--accent-primary));
+  font-size: 26px;
+  font-weight: 760;
+  line-height: 1;
+}
+
+.statLabel {
+  color: rgb(var(--text-primary));
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.statText {
+  color: rgb(var(--text-secondary));
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.groupBlock {
+  display: grid;
+  scroll-margin-top: 18px;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.groupIndex {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 2px 0 10px;
+}
+
+.groupIndexLabel {
+  color: rgb(var(--text-primary));
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.groupIndexButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: rgb(var(--text-primary));
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.groupIndexButton::before {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgb(var(--accent-primary));
+  content: '';
+}
+
+.groupIndexButton:hover,
+.groupIndexButton:focus-visible {
+  color: rgb(var(--accent-primary));
+  outline: none;
+}
+
+.groupTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgb(var(--text-primary));
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.groupTitle::before {
+  display: block;
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  background: rgb(var(--accent-primary));
+  content: '';
+}
+
+.groupDescription {
+  margin: -4px 0 0;
+  color: rgb(var(--text-secondary));
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.nodeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(286px, 1fr));
+  gap: 12px;
+}
+
+.nodeCard {
+  border: 1px solid #9ca3af;
+  box-shadow: inset 0 0 0 1px rgba(156, 163, 175, 0.22);
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+}
+
+:global(.dark) .nodeCard {
+  border-color: #6b7280;
+  box-shadow: inset 0 0 0 1px rgba(107, 114, 128, 0.32);
+}
+
+.nodeTop {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.nodeIcon,
+.fallbackIcon,
+.stepIcon {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(var(--border-default) / 0.72);
+  border-radius: 8px;
+  background: rgb(var(--bg-base));
+  color: rgb(var(--text-secondary));
+}
+
+.nodeIcon svg,
+.fallbackIcon svg,
+.stepIcon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.nodeTitleRow {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.nodeTitle {
+  min-width: 0;
+  color: rgb(var(--text-primary));
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.badgeCanvas {
+  background: rgb(var(--accent-primary) / 0.12);
+  color: rgb(var(--accent-primary));
+}
+
+.badgeService {
+  background: rgba(80, 110, 138, 0.12);
+  color: #496477;
+}
+
+:global(.dark) .badgeService {
+  color: #a9c5d4;
+}
+
+.operatorName {
+  color: rgb(var(--text-secondary));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.nodePurpose,
+.useWhen,
+.stepGoal,
+.stepOutput {
+  margin: 0;
+  color: rgb(var(--text-secondary));
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.ioGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ioBlock {
+  min-width: 0;
+  border-top: 1px solid rgb(var(--border-default) / 0.5);
+  padding-top: 8px;
+}
+
+.ioLabel {
+  margin-bottom: 5px;
+  color: rgb(var(--text-primary));
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pillList {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pill {
+  max-width: 100%;
+  border: 1px solid rgb(var(--border-default) / 0.58);
+  border-radius: 6px;
+  padding: 2px 6px;
+  color: rgb(var(--text-secondary));
+  background: rgb(var(--bg-base));
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.layerCard,
+.choiceCard {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  padding: 16px;
+}
+
+.capabilityLayerCard {
+  border: 1px solid #9ca3af;
+  box-shadow: inset 0 0 0 1px rgba(156, 163, 175, 0.22);
+}
+
+:global(.dark) .capabilityLayerCard {
+  border-color: #6b7280;
+  box-shadow: inset 0 0 0 1px rgba(107, 114, 128, 0.32);
+}
+
+.functionalChoiceCard {
+  border: 1px solid #9ca3af;
+  box-shadow: inset 0 0 0 1px rgba(156, 163, 175, 0.22);
+}
+
+:global(.dark) .functionalChoiceCard {
+  border-color: #6b7280;
+  box-shadow: inset 0 0 0 1px rgba(107, 114, 128, 0.32);
+}
+
+.layerCard h3,
+.choiceCard h3,
+.scenarioPanel h3 {
+  margin: 0;
+  color: rgb(var(--text-primary));
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.layerCard p,
+.choiceCard p {
+  margin: 0;
+  color: rgb(var(--text-secondary));
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.plainList {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plainList li {
+  position: relative;
+  min-width: 0;
+  padding-left: 14px;
+  color: rgb(var(--text-secondary));
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.plainList li::before {
+  position: absolute;
+  top: 0.72em;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgb(var(--accent-primary));
+  content: '';
+}
+
+.serviceList {
+  display: grid;
+  gap: 10px;
+}
+
+.serviceRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+}
+
+.serviceMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.capabilityTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.caseFlow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 16px 28px;
+}
+
+.flowNode {
+  position: relative;
+  min-width: 0;
+  border: 1px solid rgb(var(--border-default) / 0.72);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgb(var(--bg-card));
+}
+
+.flowNode::after {
+  position: absolute;
+  top: 50%;
+  right: -23px;
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  color: rgb(var(--accent-primary));
+  content: '→';
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  transform: translateY(-50%);
+}
+
+.flowNode:nth-child(3n)::after,
+.flowNode:last-child::after {
+  display: none;
+}
+
+.flowNodeTitle {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: rgb(var(--text-primary));
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.flowStepIndex {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgb(var(--accent-primary));
+  color: white;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.flowNodeText {
+  margin-top: 6px;
+  color: rgb(var(--text-secondary));
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.stepList {
+  display: grid;
+  gap: 12px;
+}
+
+.stepCard {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 12px;
+  padding: 16px;
+}
+
+.stepNumber {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgb(var(--accent-primary));
+  color: white;
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.stepBody {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
+.stepBody h3 {
+  margin: 0;
+  color: rgb(var(--text-primary));
+  font-size: 16px;
+  font-weight: 720;
+  line-height: 1.4;
+}
+
+.stepColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.codeBlock {
+  overflow: auto;
+  border: 1px solid rgb(var(--border-default) / 0.72);
+  border-radius: 8px;
+  margin: 0;
+  padding: 14px;
+  background: rgb(var(--bg-card));
+  color: rgb(var(--text-primary));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.scenarioPanel {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  padding: 16px;
+}
+
+.scenarioGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.caseAgentPanel {
+  gap: 14px;
+}
+
+.caseAgentHeader {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.caseAgentHeader p {
+  margin: 6px 0 0;
+  color: rgb(var(--text-secondary));
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.caseAgentMeta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: rgb(var(--text-secondary));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.caseAgentActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.validationGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.validationItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  color: rgb(var(--text-secondary));
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.validationItem svg {
+  margin-top: 2px;
+  color: rgb(var(--accent-primary));
+}
+
+@media (max-width: 920px) {
+  .pageHeader {
+    display: grid;
+  }
+
+  .headerActions {
+    justify-content: flex-start;
+  }
+
+  .caseFlow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .flowNode:nth-child(3n)::after {
+    display: inline-flex;
+  }
+
+  .flowNode:nth-child(2n)::after {
+    display: none;
+  }
+
+  .flowNode:last-child::after {
+    display: none;
+  }
+
+  .scenarioGrid,
+  .stepColumns,
+  .ioGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .content {
+    width: calc(100vw - 20px);
+    max-width: 1280px;
+    padding-top: 18px;
+  }
+
+  .title {
+    font-size: 23px;
+  }
+
+  .caseFlow,
+  .nodeGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .flowNode::after {
+    display: none;
+  }
+
+  .stepCard {
+    grid-template-columns: 1fr;
+  }
+}

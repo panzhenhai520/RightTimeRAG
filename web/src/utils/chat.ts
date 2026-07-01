@@ -52,27 +52,37 @@ export const buildMessageUuidWithRole = (
 // the last valid delimiter and avoid cutting at the first \] or \) inside the
 // equation (e.g. \frac{1}{|y|} or \right]).
 
-const BLOCK_MATH_RE = /\\\[([\s\S]*?)(?<![a-zA-Z])\\\]/g;
-const INLINE_MATH_RE = /\\\(([\s\S]*?)(?<![a-zA-Z])\\\)/g;
+const BLOCK_MATH_RE = /\\\[([\s\S]*?)\\\]/g;
+const INLINE_MATH_RE = /\\\(([\s\S]*?)\\\)/g;
+
+const normalizeMathEquation = (equation: string) => {
+  const normalized = equation.replace(/\\\\([a-zA-Z]+)/g, '\\$1');
+  const trimmed = normalized.trim();
+  if (!trimmed) return trimmed;
+  if (/^\\[a-zA-Z]+/.test(trimmed) || /\\(?:right|left|big|frac|sum|prod|int|sqrt|begin|end)\b/.test(trimmed)) {
+    return normalized;
+  }
+  return trimmed;
+};
 
 export const preprocessLaTeX = (content: string) => {
   const normalizedContent = content
-    .replace(/\\\\\[/g, '\\[')
-    .replace(/\\\\\(/g, '\\(')
-    .replace(/\\\\\]/g, '\\]')
-    .replace(/\\\\\)/g, '\\)')
+    .replace(/\\{2,}\[/g, '\\[')
+    .replace(/\\{2,}\(/g, '\\(')
+    .replace(/\\{2,}\]/g, '\\]')
+    .replace(/\\{2,}\)/g, '\\)')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&');
 
   const blockProcessedContent = normalizedContent.replace(
     BLOCK_MATH_RE,
-    (_, equation) => `$$${equation}$$`,
+    (_, equation) => `$$${normalizeMathEquation(equation)}$$`,
   );
 
   const inlineProcessedContent = blockProcessedContent.replace(
     INLINE_MATH_RE,
-    (_, equation) => `$${equation}$`,
+    (_, equation) => `$${normalizeMathEquation(equation)}$`,
   );
 
   return inlineProcessedContent;

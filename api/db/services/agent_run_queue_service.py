@@ -54,6 +54,7 @@ class AgentRunQueueService:
         session_id: str,
         message_id: str,
         query: str,
+        workflow_id: str | None = None,
         files: list[dict] | None = None,
         inputs: dict[str, Any] | None = None,
         user_id: str | None = None,
@@ -61,6 +62,9 @@ class AgentRunQueueService:
         return_trace: bool = False,
         custom_header: str = "",
         chat_template_kwargs: dict[str, Any] | None = None,
+        external_context: str | None = None,
+        request_dataset_ids: list[str] | None = None,
+        deadline_ms: int | float | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         return {
@@ -68,6 +72,7 @@ class AgentRunQueueService:
             "run_id": run_id,
             "tenant_id": str(tenant_id),
             "agent_id": agent_id,
+            "workflow_id": workflow_id or agent_id,
             "session_id": session_id,
             "message_id": message_id,
             "query": query or "",
@@ -78,6 +83,9 @@ class AgentRunQueueService:
             "return_trace": bool(return_trace),
             "custom_header": custom_header or "",
             "chat_template_kwargs": chat_template_kwargs,
+            "external_context": external_context or "",
+            "request_dataset_ids": request_dataset_ids or [],
+            "deadline_ms": deadline_ms,
             "metadata": metadata or {},
         }
 

@@ -4,9 +4,21 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { Input } from '@/components/ui/input';
 import { Operator } from '@/constants/agent';
+import {
+  NodeGuideCategoryId,
+  getNodeGuide,
+  getNodeGuideCategory,
+} from '@/pages/agent/node-guide';
 import useGraphStore from '@/pages/agent/store';
-import { PropsWithChildren, useCallback, useMemo } from 'react';
+import {
+  PropsWithChildren,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { OperatorItemList } from './operator-item-list';
 
@@ -18,6 +30,180 @@ function OperatorAccordionTrigger({ children }: PropsWithChildren) {
   );
 }
 
+function OperatorSearchInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="px-2 pb-2">
+      <Input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={t('flow.search') || 'Search'}
+        className="h-8 text-xs"
+      />
+    </div>
+  );
+}
+
+type OperatorGroup = {
+  id: NodeGuideCategoryId;
+  operators: Operator[];
+};
+
+const AgentOperatorGroups: OperatorGroup[] = [
+  {
+    id: 'foundation',
+    operators: [Operator.Agent, Operator.Retrieval, Operator.RewriteQuestion],
+  },
+  {
+    id: 'inputOutput',
+    operators: [
+      Operator.Message,
+      Operator.UserFillUp,
+      Operator.WaitingDialogue,
+      Operator.Note,
+    ],
+  },
+  {
+    id: 'flow',
+    operators: [
+      Operator.Switch,
+      Operator.Iteration,
+      Operator.Loop,
+      Operator.Categorize,
+    ],
+  },
+  {
+    id: 'document',
+    operators: [
+      Operator.FileParser,
+      Operator.WorkspaceFileWrite,
+      Operator.WorkspacePatchApply,
+      Operator.DocGenerator,
+      Operator.ExcelProcessor,
+    ],
+  },
+  {
+    id: 'data',
+    operators: [
+      Operator.Code,
+      Operator.StringTransform,
+      Operator.PromptTemplate,
+      Operator.ScoreRubricBuilder,
+      Operator.PronunciationJudge,
+      Operator.SummaryNode,
+      Operator.ReportComposer,
+      Operator.NumberCalculate,
+      Operator.ChartSpecBuilder,
+      Operator.ChartRenderer,
+      Operator.ArtifactPackager,
+      Operator.DataOperations,
+      Operator.ListOperations,
+      Operator.VariableAssigner,
+      Operator.VariableAggregator,
+    ],
+  },
+  {
+    id: 'compliance',
+    operators: [
+      Operator.ContractClauseExtractor,
+      Operator.ComplianceChecklistGenerator,
+      Operator.ClauseMatcher,
+      Operator.ComplianceVerifier,
+      Operator.RiskScorer,
+      Operator.ComplianceReportComposer,
+    ],
+  },
+  {
+    id: 'voice',
+    operators: [
+      Operator.AudioInput,
+      Operator.ASRTranscribe,
+      Operator.TTSGenerate,
+      Operator.VoiceReplyOutput,
+      Operator.MeetingContextInput,
+      Operator.MemoryInject,
+      Operator.AgentFanout,
+      Operator.ResultAggregator,
+    ],
+  },
+  {
+    id: 'external',
+    operators: [
+      Operator.TavilySearch,
+      Operator.TavilyExtract,
+      Operator.Invoke,
+      Operator.Email,
+      Operator.Browser,
+      Operator.ExeSQL,
+      Operator.Google,
+      Operator.Bing,
+      Operator.DuckDuckGo,
+      Operator.Wikipedia,
+      Operator.GoogleScholar,
+      Operator.ArXiv,
+      Operator.PubMed,
+      Operator.GitHub,
+      Operator.WenCai,
+      Operator.YahooFinance,
+      Operator.SearXNG,
+      Operator.Crawler,
+      Operator.WebhookInput,
+      Operator.ExternalScoreReceiver,
+    ],
+  },
+  {
+    id: 'database',
+    operators: [
+      Operator.ScopedDBConnector,
+      Operator.SafeTableEnsure,
+      Operator.SafeRecordInsert,
+      Operator.SafeRecordUpdate,
+      Operator.SafeRecordQuery,
+    ],
+  },
+  {
+    id: 'review',
+    operators: [Operator.HumanReview, Operator.ManualApprove],
+  },
+];
+
+function operatorMatchesQuery(operator: Operator, query: string) {
+  const keyword = query.trim().toLowerCase();
+  if (!keyword) {
+    return true;
+  }
+  const guide = getNodeGuide(operator);
+  const category = getNodeGuideCategory(guide.category);
+  return [
+    operator,
+    guide.title,
+    guide.description,
+    category.title,
+    category.description,
+    guide.external ? '外部 api 外部服务' : '',
+  ]
+    .join(' ')
+    .toLowerCase()
+    .includes(keyword);
+}
+
+function buildVisibleGroups(groups: OperatorGroup[], query: string) {
+  return groups
+    .map((group) => ({
+      ...group,
+      operators: group.operators.filter((operator) =>
+        operatorMatchesQuery(operator, query),
+      ),
+    }))
+    .filter((group) => group.operators.length > 0);
+}
+
 export function AccordionOperators({
   isCustomDropdown = false,
   mousePosition,
@@ -27,7 +213,9 @@ export function AccordionOperators({
   mousePosition?: { x: number; y: number };
   nodeId?: string;
 }) {
-  const { t } = useTranslation();
+  const [query, setQuery] = useState('');
+  const [activeGroupId, setActiveGroupId] =
+    useState<NodeGuideCategoryId>('foundation');
   const { getOperatorTypeFromId, getParentIdById } = useGraphStore(
     (state) => state,
   );
@@ -39,100 +227,85 @@ export function AccordionOperators({
     return [];
   }, [getOperatorTypeFromId, getParentIdById, nodeId]);
 
+  const groups = useMemo(() => {
+    return AgentOperatorGroups.map((group) =>
+      group.id === 'flow'
+        ? { ...group, operators: [...group.operators, ...exitLoopList] }
+        : group,
+    );
+  }, [exitLoopList]);
+
+  const visibleGroups = useMemo(
+    () => buildVisibleGroups(groups, query),
+    [groups, query],
+  );
+  const activeGroup = useMemo(() => {
+    return (
+      visibleGroups.find((group) => group.id === activeGroupId) ||
+      visibleGroups[0]
+    );
+  }, [activeGroupId, visibleGroups]);
+
+  useEffect(() => {
+    if (activeGroup && activeGroup.id !== activeGroupId) {
+      setActiveGroupId(activeGroup.id);
+    }
+  }, [activeGroup, activeGroupId]);
+
+  const activeCategory = getNodeGuideCategory(activeGroup?.id);
+
   return (
-    <Accordion
-      type="multiple"
-      className="px-2 text-text-title max-h-[45vh] overflow-auto"
-      defaultValue={['item-1', 'item-2', 'item-3', 'item-4', 'item-5']}
-    >
-      <AccordionItem value="item-1">
-        <OperatorAccordionTrigger>
-          {t('flow.foundation')}
-        </OperatorAccordionTrigger>
-        <AccordionContent className="flex flex-col gap-4 text-text-primary">
+    <div className="px-3 pb-3 text-text-title">
+      <OperatorSearchInput value={query} onChange={setQuery} />
+      <div className="grid max-h-[58vh] grid-cols-[150px_minmax(0,1fr)] gap-3 overflow-hidden">
+        <div className="min-h-0 space-y-1 overflow-auto pr-1">
+          {visibleGroups.map((group) => {
+            const category = getNodeGuideCategory(group.id);
+            const active = group.id === activeGroup?.id;
+            return (
+              <button
+                key={group.id}
+                type="button"
+                onClick={() => setActiveGroupId(group.id)}
+                className={[
+                  'flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs font-medium',
+                  active
+                    ? 'bg-background-card text-text-primary'
+                    : 'text-text-secondary hover:bg-background-card',
+                ].join(' ')}
+              >
+                <span>{category.title}</span>
+                <span className="text-[11px] text-text-secondary">
+                  {group.operators.length}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="min-h-0 overflow-hidden rounded-md border border-border bg-bg-base">
+          <div className="border-b border-border px-3 py-2">
+            <div className="text-sm font-medium text-text-primary">
+              {activeCategory.title}
+            </div>
+            <div className="mt-1 text-xs font-normal leading-5 text-text-secondary">
+              {activeCategory.description}
+            </div>
+          </div>
           <OperatorItemList
-            operators={[Operator.Agent, Operator.Retrieval]}
+            operators={activeGroup?.operators || []}
             isCustomDropdown={isCustomDropdown}
             mousePosition={mousePosition}
+            query={query}
+            variant="card"
           ></OperatorItemList>
-        </AccordionContent>
-      </AccordionItem>
-      <AccordionItem value="item-2">
-        <OperatorAccordionTrigger>{t('flow.dialog')}</OperatorAccordionTrigger>
-        <AccordionContent className="flex flex-col gap-4 text-text-primary">
-          <OperatorItemList
-            operators={[Operator.Message, Operator.UserFillUp]}
-            isCustomDropdown={isCustomDropdown}
-            mousePosition={mousePosition}
-          ></OperatorItemList>
-        </AccordionContent>
-      </AccordionItem>
-      <AccordionItem value="item-3">
-        <OperatorAccordionTrigger>{t('flow.flow')}</OperatorAccordionTrigger>
-        <AccordionContent className="flex flex-col gap-4 text-text-primary">
-          <OperatorItemList
-            operators={[
-              Operator.Switch,
-              Operator.Iteration,
-              Operator.Loop,
-              ...exitLoopList,
-              Operator.Categorize,
-            ]}
-            isCustomDropdown={isCustomDropdown}
-            mousePosition={mousePosition}
-          ></OperatorItemList>
-        </AccordionContent>
-      </AccordionItem>
-      <AccordionItem value="item-4">
-        <OperatorAccordionTrigger>
-          {t('flow.dataManipulation')}
-        </OperatorAccordionTrigger>
-        <AccordionContent className="flex flex-col gap-4 text-text-primary">
-          <OperatorItemList
-            operators={[
-              Operator.Code,
-              Operator.StringTransform,
-              Operator.FileParser,
-              Operator.DataOperations,
-              Operator.ExcelProcessor,
-              Operator.VariableAssigner,
-              Operator.ListOperations,
-              Operator.VariableAggregator,
-            ]}
-            isCustomDropdown={isCustomDropdown}
-            mousePosition={mousePosition}
-          ></OperatorItemList>
-        </AccordionContent>
-      </AccordionItem>
-      <AccordionItem value="item-5">
-        <OperatorAccordionTrigger>{t('flow.tools')}</OperatorAccordionTrigger>
-        <AccordionContent className="flex flex-col gap-4 text-text-primary">
-          <OperatorItemList
-            operators={[
-              Operator.TavilySearch,
-              Operator.TavilyExtract,
-              Operator.ExeSQL,
-              Operator.Google,
-              Operator.YahooFinance,
-              Operator.Email,
-              Operator.DuckDuckGo,
-              Operator.Wikipedia,
-              Operator.GoogleScholar,
-              Operator.ArXiv,
-              Operator.PubMed,
-              Operator.GitHub,
-              Operator.Invoke,
-              Operator.WenCai,
-              Operator.SearXNG,
-              Operator.DocGenerator,
-              Operator.Browser,
-            ]}
-            isCustomDropdown={isCustomDropdown}
-            mousePosition={mousePosition}
-          ></OperatorItemList>
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
+        </div>
+      </div>
+      {visibleGroups.length === 0 && (
+        <div className="px-2 py-6 text-center text-xs font-normal text-text-secondary">
+          没有找到匹配的节点
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -165,6 +338,7 @@ export function PipelineAccordionOperators({
   mousePosition?: { x: number; y: number };
   nodeId?: string;
 }) {
+  const [query, setQuery] = useState('');
   const restrictSingleOperatorOnCanvas = useRestrictSingleOperatorOnCanvas();
   const { getOperatorTypeFromId } = useGraphStore((state) => state);
   const sourceOperator = getOperatorTypeFromId(nodeId);
@@ -197,10 +371,12 @@ export function PipelineAccordionOperators({
 
   return (
     <>
+      <OperatorSearchInput value={query} onChange={setQuery} />
       <OperatorItemList
         operators={operators}
         isCustomDropdown={isCustomDropdown}
         mousePosition={mousePosition}
+        query={query}
       ></OperatorItemList>
       {showChunker && (
         <Accordion
@@ -218,6 +394,7 @@ export function PipelineAccordionOperators({
                 operators={chunkerOperators}
                 isCustomDropdown={isCustomDropdown}
                 mousePosition={mousePosition}
+                query={query}
               ></OperatorItemList>
             </AccordionContent>
           </AccordionItem>

@@ -14,6 +14,7 @@ import { ArrowUpRight, CirclePlay, X } from 'lucide-react';
 import { Operator } from '../constant';
 import { AgentFormContext } from '../context';
 import { RunTooltip } from '../flow-tooltip';
+import AdvancedNodeForm from '../form/advanced-node-form';
 import { useIsMcp } from '../hooks/use-is-mcp';
 import OperatorIcon from '../operator-icon';
 import useGraphStore from '../store';
@@ -46,7 +47,9 @@ const FormSheet = ({
   const { clickedToolId, getAgentToolById } = useGraphStore();
 
   const currentFormMap = FormConfigMap[operatorName];
-  const OperatorForm = currentFormMap?.component ?? EmptyContent;
+  const OperatorForm = node
+    ? (currentFormMap?.component ?? AdvancedNodeForm)
+    : EmptyContent;
   const isMcp = useIsMcp(operatorName);
   const { t } = useTranslate('flow');
   const showSandboxQuickstart =

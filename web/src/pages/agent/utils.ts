@@ -105,11 +105,14 @@ function buildAgentTools(edges: Edge[], nodes: Node[], nodeId: string) {
   const node = nodes.find((x) => x.id === nodeId);
   const params = { ...(node?.data.form ?? {}) };
   if (node && node.data.label === Operator.Agent) {
+    const currentTools = Array.isArray((params as IAgentForm).tools)
+      ? (params as IAgentForm).tools
+      : [];
     const bottomSubAgentEdges = edges.filter(
       (x) => x.source === nodeId && x.sourceHandle === NodeHandleId.AgentBottom,
     );
 
-    (params as IAgentForm).tools = (params as IAgentForm).tools.concat(
+    (params as IAgentForm).tools = currentTools.concat(
       bottomSubAgentEdges.map((x) => {
         const {
           params: formData,

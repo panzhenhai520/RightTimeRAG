@@ -241,6 +241,23 @@ export default function Agent() {
     }
   }, [openAgentRuntime, saveGraph, t]);
 
+  const handleManualSave = useCallback(async () => {
+    const validation = await validateGraph();
+    if (validation.errors.length > 0) {
+      const first = validation.errors[0];
+      message.error({
+        message: t('flow.publishValidationFailed'),
+        description:
+          validation.errors.length > 1
+            ? `${first.message} (${validation.errors.length} errors)`
+            : first.message,
+        duration: 6,
+      });
+      return;
+    }
+    await saveGraph();
+  }, [saveGraph, t, validateGraph]);
+
   const {
     run: runPipeline,
     loading: pipelineRunning,
@@ -320,7 +337,7 @@ export default function Agent() {
         <div className="flex items-center gap-5">
           <ButtonLoading
             variant={'secondary'}
-            onClick={() => saveGraph()}
+            onClick={handleManualSave}
             loading={loading}
           >
             <LaptopMinimalCheck /> {t('flow.save')}

@@ -1,4 +1,5 @@
 import { FormContainer } from '@/components/form-container';
+import { LayoutRecognizeFormField } from '@/components/layout-recognize-form-field';
 import NumberInput from '@/components/originui/number-input';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,9 +12,10 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { RAGFlowSelect } from '@/components/ui/select';
+import { fetchAgentFileParserHealth } from '@/services/agent-service';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Trash2 } from 'lucide-react';
-import { memo, useMemo } from 'react';
+import { AlertTriangle, CheckCircle2, Plus, Trash2 } from 'lucide-react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { initialFileParserValues } from '../../constant';
@@ -32,6 +34,19 @@ const parserOptions = [
   { label: 'Manual', value: 'manual' },
   { label: 'One', value: 'one' },
 ];
+
+type FileParserHealth = {
+  status?: string;
+  healthy?: boolean;
+  layout_recognize?: string;
+  local_ocr_required?: boolean;
+  checks?: Array<{
+    name: string;
+    ok: boolean;
+    message: string;
+    severity?: string;
+  }>;
+};
 
 const FormSchema = z.object({
   input_files: z.array(z.string()).default([]),
@@ -56,12 +71,54 @@ function FileParserForm({ node }: INextOperatorForm) {
 
   const inputFiles = useWatch({ control: form.control, name: 'input_files' });
   const formOutputs = useWatch({ control: form.control, name: 'outputs' });
+  const layoutRecognize = useWatch({
+    control: form.control,
+    name: 'layout_recognize',
+  });
+  const [checkingHealth, setCheckingHealth] = useState(false);
+  const [health, setHealth] = useState<FileParserHealth | null>(null);
   const outputList = useMemo(
     () => transferOutputs(formOutputs ?? values.outputs),
     [formOutputs, values.outputs],
   );
 
   useWatchFormChange(node?.id, form);
+
+  const handleCheckHealth = useCallback(async () => {
+    setCheckingHealth(true);
+    try {
+      const ret = await fetchAgentFileParserHealth({
+        layout_recognize: layoutRecognize || 'DeepDOC',
+      });
+      setHealth(ret.data.data || null);
+    } catch (error) {
+      setHealth({
+        status: 'error',
+        healthy: false,
+        checks: [
+          {
+            name: 'request',
+            ok: false,
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Local OCR/DeepDOC health check failed.',
+          },
+        ],
+      });
+    } finally {
+      setCheckingHealth(false);
+    }
+  }, [layoutRecognize]);
+
+  const failedChecks = health?.checks?.filter((check) => !check.ok) ?? [];
+  const healthMessage = health
+    ? health.status === 'not_applicable'
+      ? 'This parser does not use local OCR/DeepDOC.'
+      : health.healthy
+        ? 'Local OCR/DeepDOC check passed.'
+        : 'Local OCR/DeepDOC check failed.'
+    : '';
 
   return (
     <Form {...form}>
@@ -147,19 +204,46 @@ function FileParserForm({ node }: INextOperatorForm) {
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="layout_recognize"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Layout recognize</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Plain Text" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="space-y-2 rounded-md border border-border-default/70 bg-bg-card p-3">
+            <LayoutRecognizeFormField
+              name="layout_recognize"
+              horizontal={false}
+              showMineruOptions={false}
+              showPaddleocrOptions={false}
+              label="Layout recognize"
+            ></LayoutRecognizeFormField>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-h-7 flex-1 text-xs leading-5 text-text-secondary">
+                {health && (
+                  <div className="flex items-start gap-2">
+                    {health.healthy ? (
+                      <CheckCircle2 className="mt-0.5 size-4 text-state-success" />
+                    ) : (
+                      <AlertTriangle className="mt-0.5 size-4 text-state-warning" />
+                    )}
+                    <div>
+                      <div>{healthMessage}</div>
+                      {health.layout_recognize && (
+                        <div>Current parser: {health.layout_recognize}</div>
+                      )}
+                      {failedChecks.length > 0 && (
+                        <div>{failedChecks[0].message}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                loading={checkingHealth}
+                onClick={handleCheckHealth}
+              >
+                Check local OCR/DeepDOC
+              </Button>
+            </div>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <FormField

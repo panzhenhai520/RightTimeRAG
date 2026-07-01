@@ -61,7 +61,7 @@ def test_meeting_scheduler_fans_out_four_independent_agent_runs(monkeypatch):
         turn_id="turn-1",
         query="请四个角色分别给出会议话术",
         agents=[
-            {"agent_id": "agent-legal", "role": "法律"},
+            {"agent_id": "agent-legal", "workflow_id": "workflow-legal-review", "role": "法律", "deadline_ms": 2500},
             {"agent_id": "agent-finance", "role": "财务"},
             {"agent_id": "agent-sales", "role": "销售"},
             {"agent_id": "agent-service", "role": "客服"},
@@ -88,6 +88,11 @@ def test_meeting_scheduler_fans_out_four_independent_agent_runs(monkeypatch):
         "agent-sales",
         "agent-service",
     }
+    assert payloads[0]["workflow_id"] == "workflow-legal-review"
+    assert payloads[0]["metadata"]["workflow_id"] == "workflow-legal-review"
+    assert payloads[0]["deadline_ms"] == 2500
+    assert payloads[0]["metadata"]["deadline_ms"] == 2500
+    assert payloads[1]["workflow_id"] == "agent-finance"
 
     namespaces = [payload["metadata"]["memory_namespace"]["agent"] for payload in payloads]
     assert len(set(namespaces)) == 4

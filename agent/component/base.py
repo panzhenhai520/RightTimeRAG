@@ -25,7 +25,12 @@ import logging
 from typing import Any, List, Union
 import pandas as pd
 from agent import settings
-from agent.component.schema import build_runtime_capabilities, build_schema_from_io, merge_schema
+from agent.component.schema import (
+    build_component_manifest,
+    build_runtime_capabilities,
+    build_schema_from_io,
+    merge_schema,
+)
 from common.connection_utils import timeout
 
 
@@ -45,7 +50,11 @@ class ComponentParamBase(ABC):
         self.outputs = {}
         self.input_schema = {}
         self.output_schema = {}
+        self.config_schema = {}
         self.runtime_capabilities = {}
+        self.category = ""
+        self.risk_level = ""
+        self.requires_service = []
         self.description = ""
         self.max_retries = 0
         self.delay_after_error = 2.0
@@ -70,12 +79,27 @@ class ComponentParamBase(ABC):
     def get_output_schema(self) -> dict[str, dict]:
         return merge_schema(build_schema_from_io(self.outputs), self.output_schema)
 
+    def get_config_schema(self) -> dict[str, Any]:
+        return self.config_schema if isinstance(self.config_schema, dict) else {}
+
     def get_runtime_capabilities(self, component_name: str = "") -> dict[str, bool]:
         return build_runtime_capabilities(
             component_name,
             self.runtime_capabilities,
             self.get_input_schema(),
             self.get_output_schema(),
+        )
+
+    def get_manifest(self, component_name: str = "") -> dict[str, Any]:
+        return build_component_manifest(
+            component_name or getattr(self, "_name", type(self).__name__),
+            input_schema=self.get_input_schema(),
+            output_schema=self.get_output_schema(),
+            config_schema=self.get_config_schema(),
+            runtime_capabilities=self.runtime_capabilities,
+            category=self.category,
+            risk_level=self.risk_level,
+            requires_service=self.requires_service,
         )
 
     @classmethod
@@ -579,16 +603,31 @@ class ComponentBase(ABC):
     def get_output_schema(self) -> dict[str, dict]:
         return self._param.get_output_schema()
 
+    def get_config_schema(self) -> dict[str, Any]:
+        return self._param.get_config_schema()
+
     def get_runtime_capabilities(self) -> dict[str, bool]:
         return self._param.get_runtime_capabilities(self.component_name)
 
+    def get_manifest(self) -> dict[str, Any]:
+        return self._param.get_manifest(self.component_name)
+
     def get_contract(self) -> dict[str, Any]:
+        manifest = self.get_manifest()
         return {
             "component_id": self._id,
             "component_name": self.component_name,
-            "inputs": self.get_input_schema(),
-            "outputs": self.get_output_schema(),
-            "runtime_capabilities": self.get_runtime_capabilities(),
+            "operator": manifest["operator"],
+            "category": manifest["category"],
+            "inputs": manifest["input_schema"],
+            "outputs": manifest["output_schema"],
+            "input_schema": manifest["input_schema"],
+            "output_schema": manifest["output_schema"],
+            "config_schema": manifest["config_schema"],
+            "runtime_capabilities": manifest["runtime_capabilities"],
+            "risk_level": manifest["risk_level"],
+            "requires_service": manifest["requires_service"],
+            "manifest": manifest,
         }
 
     def set_input_value(self, key: str, value: Any) -> None:

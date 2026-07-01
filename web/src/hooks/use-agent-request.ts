@@ -7,6 +7,7 @@ import {
   IAgentLogResponse,
   IAgentLogsRequest,
   IAgentLogsResponse,
+  IAgentOperatorManifest,
   IFlow,
   IFlowTemplate,
   IPipeLineListRequest,
@@ -25,6 +26,7 @@ import agentService, {
   deleteAgentSession,
   fetchAgentLogsByCanvasId,
   fetchAgentLogsById,
+  fetchAgentOperatorSchema,
   fetchPipeLineList,
   fetchTrace,
   fetchWebhookTrace,
@@ -76,6 +78,7 @@ export const enum AgentApiAction {
   FetchSharedAgent = 'fetchSharedAgent',
   FetchAgentTags = 'fetchAgentTags',
   UpdateAgentTags = 'updateAgentTags',
+  FetchAgentOperatorSchema = 'fetchAgentOperatorSchema',
 }
 
 export const useFetchAgentTemplates = () => {
@@ -90,6 +93,19 @@ export const useFetchAgentTemplates = () => {
   });
 
   return data;
+};
+
+export const useFetchAgentOperatorSchema = () => {
+  const { data, isFetching: loading } = useQuery<IAgentOperatorManifest[]>({
+    queryKey: [AgentApiAction.FetchAgentOperatorSchema],
+    initialData: [],
+    queryFn: async () => {
+      const ret = await fetchAgentOperatorSchema();
+      return ret.data.data?.operators ?? [];
+    },
+  });
+
+  return { data, loading };
 };
 
 const buildAgentListParams = ({

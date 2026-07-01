@@ -193,7 +193,6 @@ export const initialFileParserValues = {
   input_files: ['sys.file_assets'],
   query: AgentGlobalsSysQueryWithBrace,
   parser_id: 'auto',
-  layout_recognize: 'Plain Text',
   chunk_token_num: 1200,
   from_page: 0,
   to_page: 100000,
@@ -209,6 +208,14 @@ export const initialFileParserValues = {
       type: 'Array<Object>',
       value: [],
     },
+    references: {
+      type: 'Array<Object>',
+      value: [],
+    },
+    file_info: {
+      type: 'Array<Object>',
+      value: [],
+    },
     content: {
       type: 'string',
       value: '',
@@ -217,6 +224,480 @@ export const initialFileParserValues = {
       type: 'string',
       value: '',
     },
+  },
+};
+
+export const initialWorkspaceFileWriteValues = {
+  root: '',
+  path: '',
+  content: '',
+  mode: 'create',
+  encoding: 'utf-8',
+  expected_hash: '',
+  dry_run: true,
+  require_approval: true,
+  approval_id: '',
+  approved: false,
+  task_id: '',
+  max_bytes: 2097152,
+  reason: '',
+  outputs: {
+    write: {
+      type: 'object',
+      value: {},
+    },
+    file: {
+      type: 'object',
+      value: {},
+    },
+    diff: {
+      type: 'string',
+      value: '',
+    },
+    changed: {
+      type: 'boolean',
+      value: false,
+    },
+    dry_run: {
+      type: 'boolean',
+      value: true,
+    },
+    approval: {
+      type: 'object',
+      value: {},
+    },
+    audit: {
+      type: 'object',
+      value: {},
+    },
+  },
+};
+
+export const initialWorkspacePatchApplyValues = {
+  root: '',
+  patch: {
+    files: [
+      {
+        path: '',
+        operations: [{ op: 'replace', old: '', new: '' }],
+      },
+    ],
+  },
+  patch_format: 'structured',
+  expected_hashes: {},
+  encoding: 'utf-8',
+  dry_run: true,
+  require_approval: true,
+  approval_id: '',
+  approved: false,
+  task_id: '',
+  max_files: 20,
+  max_changed_lines: 2000,
+  reason: '',
+  outputs: {
+    patch_result: {
+      type: 'object',
+      value: {},
+    },
+    affected_files: {
+      type: 'Array<Object>',
+      value: [],
+    },
+    diff: {
+      type: 'string',
+      value: '',
+    },
+    conflicts: {
+      type: 'Array<Object>',
+      value: [],
+    },
+    can_apply: {
+      type: 'boolean',
+      value: false,
+    },
+    rollback_token: {
+      type: 'string',
+      value: '',
+    },
+    dry_run: {
+      type: 'boolean',
+      value: true,
+    },
+    approval: {
+      type: 'object',
+      value: {},
+    },
+    audit: {
+      type: 'object',
+      value: {},
+    },
+  },
+};
+
+export const initialPromptTemplateValues = {
+  template: '',
+  variables: {},
+  outputs: { prompt: { type: 'string', value: '' } },
+};
+
+export const initialScoreRubricBuilderValues = {
+  dimensions: [
+    { key: 'pronunciation', label: 'Pronunciation', weight: 0.25 },
+    { key: 'word_completeness', label: 'Word completeness', weight: 0.15 },
+    { key: 'fluency', label: 'Fluency', weight: 0.15 },
+    { key: 'rhythm', label: 'Rhythm', weight: 0.15 },
+    { key: 'stress', label: 'Stress', weight: 0.1 },
+    { key: 'intonation', label: 'Intonation', weight: 0.1 },
+    { key: 'completion', label: 'Completion', weight: 0.1 },
+  ],
+  outputs: {
+    rubric: { type: 'ScoreRubric', value: {} },
+    dimensions: { type: 'Array<Object>', value: [] },
+    summary: { type: 'string', value: '' },
+  },
+};
+
+export const initialPronunciationJudgeValues = {
+  structured_result: '',
+  rubric: '',
+  required_dimensions: [],
+  outputs: {
+    score_result: { type: 'ScoreResult', value: {} },
+    self_score: { type: 'number', value: 0 },
+    rubric_scores: { type: 'object', value: {} },
+    feedback: { type: 'string', value: '' },
+    valid: { type: 'boolean', value: false },
+  },
+};
+
+export const initialSummaryNodeValues = {
+  content: '',
+  max_chars: 800,
+  outputs: { summary: { type: 'string', value: '' } },
+};
+
+export const initialReportComposerValues = {
+  title: 'Report',
+  sections: {},
+  outputs: { markdown: { type: 'string', value: '' } },
+};
+
+export const initialContractClauseExtractorValues = {
+  chunks: '',
+  content: '',
+  references: '',
+  min_clause_chars: 4,
+  outputs: {
+    clause_tree: { type: 'object', value: {} },
+    clauses: { type: 'Array<Object>', value: [] },
+    entities: { type: 'object', value: {} },
+    references: { type: 'Array<Object>', value: [] },
+    summary: { type: 'string', value: '' },
+  },
+};
+
+export const initialComplianceChecklistGeneratorValues = {
+  standards: '',
+  focus: '',
+  max_items: 80,
+  outputs: {
+    checklist: { type: 'Array<Object>', value: [] },
+    references: { type: 'Array<Object>', value: [] },
+    summary: { type: 'string', value: '' },
+  },
+};
+
+export const initialClauseMatcherValues = {
+  checklist: '',
+  clauses: '',
+  min_confidence: 0.28,
+  outputs: {
+    matches: { type: 'Array<Object>', value: [] },
+    summary: { type: 'string', value: '' },
+  },
+};
+
+export const initialComplianceVerifierValues = {
+  checklist: '',
+  matches: '',
+  clauses: '',
+  min_confidence: 0.28,
+  outputs: {
+    verification_results: { type: 'Array<Object>', value: [] },
+    summary: { type: 'string', value: '' },
+    references: { type: 'Array<Object>', value: [] },
+  },
+};
+
+export const initialRiskScorerValues = {
+  verification_results: '',
+  outputs: {
+    risk_items: { type: 'Array<Object>', value: [] },
+    risk_summary: { type: 'object', value: {} },
+    overall_risk_level: { type: 'string', value: 'none' },
+  },
+};
+
+export const initialComplianceReportComposerValues = {
+  title: '文档核对报告',
+  scope: '',
+  verification_results: '',
+  risk_summary: '',
+  references: '',
+  outputs: {
+    markdown: { type: 'string', value: '' },
+    summary: { type: 'string', value: '' },
+    tables: { type: 'object', value: {} },
+    references: { type: 'Array<Object>', value: [] },
+  },
+};
+
+export const initialAudioInputValues = {
+  audio: '',
+  outputs: { audio: { type: 'AudioAsset', value: {} } },
+};
+
+export const initialTTSGenerateValues = {
+  text: '',
+  voice_profile: 'female_mandarin_01',
+  speed: 1,
+  endpoint: 'http://127.0.0.1:50001',
+  timeout: 30,
+  outputs: {
+    audio: { type: 'AudioAsset', value: {} },
+    voice: { type: 'VoiceReply', value: {} },
+    duration: { type: 'number', value: 0 },
+    engine: { type: 'string', value: 'CosyVoice3' },
+  },
+};
+
+export const initialASRTranscribeValues = {
+  audio: '',
+  engine: 'qwen3',
+  language: 'auto',
+  endpoint: '',
+  timeout: 60,
+  vad: false,
+  punctuation: false,
+  outputs: {
+    text: { type: 'string', value: '' },
+    transcript: { type: 'string', value: '' },
+    confidence: { type: 'number', value: 0 },
+    language: { type: 'string', value: 'auto' },
+    duration: { type: 'number', value: 0 },
+    engine: { type: 'string', value: '' },
+  },
+};
+
+export const initialVoiceReplyOutputValues = {
+  text: '',
+  audio: '',
+  outputs: {
+    voice: { type: 'VoiceReply', value: {} },
+    audio: { type: 'AudioAsset', value: {} },
+  },
+};
+
+export const initialMeetingContextInputValues = {
+  tenant_id: '',
+  meeting_id: '',
+  turn_id: '',
+  agent_id: '',
+  role: '',
+  query: AgentGlobalsSysQueryWithBrace,
+  shared_memory: [],
+  agent_memory: [],
+  load_persisted_memory: true,
+  outputs: {
+    meeting_context: { type: 'MeetingContext', value: {} },
+    prompt: { type: 'string', value: '' },
+  },
+};
+
+export const initialMemoryInjectValues = {
+  meeting_context: '',
+  content: '',
+  scope: 'agent',
+  source: 'agent',
+  run_id: '',
+  role: '',
+  metadata: {},
+  outputs: {
+    meeting_context: { type: 'MeetingContext', value: {} },
+    content: { type: 'string', value: '' },
+    memory_delta: { type: 'object', value: {} },
+  },
+};
+
+export const initialAgentFanoutValues = {
+  meeting_context: '',
+  content: '',
+  agents: [],
+  files: [],
+  shared_context: '',
+  base_inputs: {},
+  user_id: '',
+  release: true,
+  return_trace: true,
+  enqueue: true,
+  outputs: {
+    runs: { type: 'Array<AgentRunRef>', value: [] },
+    dispatch: { type: 'object', value: {} },
+    meeting_context: { type: 'MeetingContext', value: {} },
+  },
+};
+
+export const initialResultAggregatorValues = {
+  runs: [],
+  results: [],
+  scores: [],
+  citations: [],
+  memory_delta: {},
+  outputs: {
+    reply_text: { type: 'string', value: '' },
+    memory_delta: { type: 'object', value: {} },
+    citations: { type: 'Array<Object>', value: [] },
+    score_result: { type: 'ScoreResult', value: {} },
+    run_id: { type: 'string', value: '' },
+    report: { type: 'string', value: '' },
+  },
+};
+
+export const initialWebhookInputValues = {
+  payload: {},
+  token: '',
+  expected_token: '',
+  outputs: {
+    event: { type: 'object', value: {} },
+    verified: { type: 'boolean', value: false },
+  },
+};
+
+export const initialExternalScoreReceiverValues = {
+  score_payload: {},
+  timeout_policy: 'fallback_self_score',
+  self_score: 0,
+  outputs: {
+    score_result: { type: 'ScoreResult', value: {} },
+    external_score: { type: 'number', value: 0 },
+    rubric_scores: { type: 'object', value: {} },
+    source: { type: 'string', value: '' },
+  },
+};
+
+export const initialHumanReviewValues = {
+  review_data: {},
+  status: 'pending',
+  reviewer: '',
+  comment: '',
+  outputs: { review: { type: 'object', value: {} } },
+};
+
+export const initialManualApproveValues = {
+  approved: false,
+  comment: '',
+  outputs: {
+    approved: { type: 'boolean', value: false },
+    review: { type: 'object', value: {} },
+  },
+};
+
+export const initialNumberCalculateValues = {
+  operation: 'weighted_score',
+  value: '',
+  coefficient: 1,
+  self_score: '',
+  self_weight: 0.6,
+  external_score: '',
+  external_weight: 0.4,
+  result_name: 'Composite score',
+  round_digits: 2,
+  outputs: {
+    result: { type: 'number', value: 0 },
+    breakdown: { type: 'object', value: {} },
+    summary: { type: 'string', value: '' },
+  },
+};
+
+export const initialChartSpecBuilderValues = {
+  chart_type: 'line',
+  title: '',
+  data: '',
+  x_field: '',
+  y_field: '',
+  series_field: '',
+  dimensions: [],
+  outputs: {
+    chart_spec: { type: 'ChartSpec', value: {} },
+    charts: { type: 'Array<ChartSpec>', value: [] },
+    summary: { type: 'string', value: '' },
+  },
+};
+
+export const initialChartRendererValues = {
+  chart_spec: '',
+  charts: [],
+  output_format: 'svg',
+  filename: 'chart',
+  outputs: {
+    chart_artifact: { type: 'Artifact', value: {} },
+    downloads: { type: 'Array<Artifact>', value: [] },
+    markdown: { type: 'string', value: '' },
+    html: { type: 'string', value: '' },
+  },
+};
+
+export const initialArtifactPackagerValues = {
+  artifacts: [],
+  manifest: {},
+  filename: 'agent_outputs',
+  outputs: {
+    package: { type: 'Artifact', value: {} },
+    downloads: { type: 'Array<Artifact>', value: [] },
+    manifest: { type: 'object', value: {} },
+    markdown: { type: 'string', value: '' },
+  },
+};
+
+export const initialScopedDBConnectorValues = {
+  agent_id: '',
+  db_path: '',
+  outputs: { db_ref: { type: 'object', value: {} } },
+};
+
+export const initialSafeTableEnsureValues = {
+  db_ref: '',
+  table_template: 'teaching_activity',
+  outputs: {
+    table_ref: { type: 'object', value: {} },
+    table_name: { type: 'string', value: '' },
+  },
+};
+
+export const initialSafeRecordInsertValues = {
+  table_ref: '',
+  record: {},
+  outputs: {
+    row: { type: 'object', value: {} },
+    row_count: { type: 'number', value: 0 },
+  },
+};
+
+export const initialSafeRecordUpdateValues = {
+  table_ref: '',
+  values: {},
+  filters: {},
+  outputs: { row_count: { type: 'number', value: 0 } },
+};
+
+export const initialSafeRecordQueryValues = {
+  table_ref: '',
+  filters: {},
+  limit: 100,
+  outputs: {
+    sql_result: { type: 'SQLResult', value: {} },
+    data: { type: 'TableData', value: {} },
+    row_count: { type: 'number', value: 0 },
   },
 };
 
@@ -755,6 +1236,40 @@ export const RestrictedUpstreamMap = {
   [Operator.StringTransform]: [Operator.Begin],
   [Operator.UserFillUp]: [Operator.Begin],
   [Operator.FileParser]: [Operator.Begin],
+  [Operator.WorkspaceFileWrite]: [Operator.Begin],
+  [Operator.WorkspacePatchApply]: [Operator.Begin],
+  [Operator.PromptTemplate]: [Operator.Begin],
+  [Operator.ScoreRubricBuilder]: [Operator.Begin],
+  [Operator.PronunciationJudge]: [Operator.Begin],
+  [Operator.SummaryNode]: [Operator.Begin],
+  [Operator.ReportComposer]: [Operator.Begin],
+  [Operator.ContractClauseExtractor]: [Operator.Begin],
+  [Operator.ComplianceChecklistGenerator]: [Operator.Begin],
+  [Operator.ClauseMatcher]: [Operator.Begin],
+  [Operator.ComplianceVerifier]: [Operator.Begin],
+  [Operator.RiskScorer]: [Operator.Begin],
+  [Operator.ComplianceReportComposer]: [Operator.Begin],
+  [Operator.AudioInput]: [Operator.Begin],
+  [Operator.TTSGenerate]: [Operator.Begin],
+  [Operator.ASRTranscribe]: [Operator.Begin],
+  [Operator.VoiceReplyOutput]: [Operator.Begin],
+  [Operator.MeetingContextInput]: [Operator.Begin],
+  [Operator.MemoryInject]: [Operator.Begin],
+  [Operator.AgentFanout]: [Operator.Begin],
+  [Operator.ResultAggregator]: [Operator.Begin],
+  [Operator.WebhookInput]: [Operator.Begin],
+  [Operator.ExternalScoreReceiver]: [Operator.Begin],
+  [Operator.HumanReview]: [Operator.Begin],
+  [Operator.ManualApprove]: [Operator.Begin],
+  [Operator.NumberCalculate]: [Operator.Begin],
+  [Operator.ChartSpecBuilder]: [Operator.Begin],
+  [Operator.ChartRenderer]: [Operator.Begin],
+  [Operator.ArtifactPackager]: [Operator.Begin],
+  [Operator.ScopedDBConnector]: [Operator.Begin],
+  [Operator.SafeTableEnsure]: [Operator.Begin],
+  [Operator.SafeRecordInsert]: [Operator.Begin],
+  [Operator.SafeRecordUpdate]: [Operator.Begin],
+  [Operator.SafeRecordQuery]: [Operator.Begin],
   [Operator.Tool]: [Operator.Begin],
   [Operator.Placeholder]: [Operator.Begin],
   [Operator.DataOperations]: [Operator.Begin],
@@ -808,6 +1323,40 @@ export const NodeMap = {
   [Operator.UserFillUp]: 'ragNode',
   [Operator.StringTransform]: 'ragNode',
   [Operator.FileParser]: 'ragNode',
+  [Operator.WorkspaceFileWrite]: 'ragNode',
+  [Operator.WorkspacePatchApply]: 'ragNode',
+  [Operator.PromptTemplate]: 'ragNode',
+  [Operator.ScoreRubricBuilder]: 'ragNode',
+  [Operator.PronunciationJudge]: 'ragNode',
+  [Operator.SummaryNode]: 'ragNode',
+  [Operator.ReportComposer]: 'ragNode',
+  [Operator.ContractClauseExtractor]: 'ragNode',
+  [Operator.ComplianceChecklistGenerator]: 'ragNode',
+  [Operator.ClauseMatcher]: 'ragNode',
+  [Operator.ComplianceVerifier]: 'ragNode',
+  [Operator.RiskScorer]: 'ragNode',
+  [Operator.ComplianceReportComposer]: 'ragNode',
+  [Operator.AudioInput]: 'ragNode',
+  [Operator.TTSGenerate]: 'ragNode',
+  [Operator.ASRTranscribe]: 'ragNode',
+  [Operator.VoiceReplyOutput]: 'ragNode',
+  [Operator.MeetingContextInput]: 'ragNode',
+  [Operator.MemoryInject]: 'ragNode',
+  [Operator.AgentFanout]: 'ragNode',
+  [Operator.ResultAggregator]: 'ragNode',
+  [Operator.WebhookInput]: 'ragNode',
+  [Operator.ExternalScoreReceiver]: 'ragNode',
+  [Operator.HumanReview]: 'ragNode',
+  [Operator.ManualApprove]: 'ragNode',
+  [Operator.NumberCalculate]: 'ragNode',
+  [Operator.ChartSpecBuilder]: 'ragNode',
+  [Operator.ChartRenderer]: 'ragNode',
+  [Operator.ArtifactPackager]: 'ragNode',
+  [Operator.ScopedDBConnector]: 'ragNode',
+  [Operator.SafeTableEnsure]: 'ragNode',
+  [Operator.SafeRecordInsert]: 'ragNode',
+  [Operator.SafeRecordUpdate]: 'ragNode',
+  [Operator.SafeRecordQuery]: 'ragNode',
   [Operator.TavilyExtract]: 'ragNode',
   [Operator.Placeholder]: 'placeholderNode',
   [Operator.File]: 'fileNode',

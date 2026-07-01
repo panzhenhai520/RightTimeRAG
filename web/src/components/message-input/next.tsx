@@ -54,6 +54,7 @@ interface NextMessageInputProps {
   sendDisabled: boolean;
   sendLoading: boolean;
   conversationId: string;
+  placeholder?: string;
   uploadMethod?: string;
   isShared?: boolean;
   showUploadIcon?: boolean;
@@ -80,6 +81,7 @@ export function NextMessageInput({
   sendDisabled,
   sendLoading,
   disabled,
+  placeholder,
   showUploadIcon = true,
   onUpload,
   onInputChange,
@@ -264,7 +266,7 @@ export function NextMessageInput({
           data-testid="chat-textarea"
           value={value}
           onChange={onInputChange}
-          placeholder={t('chat.messagePlaceholder')}
+          placeholder={placeholder || t('chat.messagePlaceholder')}
           className="
             min-h-10 max-h-40 w-full p-0 overflow-auto text-[#132330] placeholder:text-[#758894]
             dark:text-[#edf7fb] dark:placeholder:text-[#a9c4d3]

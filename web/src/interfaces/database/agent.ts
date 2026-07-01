@@ -333,6 +333,40 @@ export interface IAgentRunState {
   }>;
 }
 
+export interface IAgentSchemaField {
+  name: string;
+  type: string;
+  label?: string;
+  description?: string;
+  required?: boolean;
+  items?: Record<string, unknown>;
+  properties?: Record<string, unknown>;
+  source?: string;
+}
+
+export interface IAgentOperatorManifest {
+  operator: string;
+  component_name: string;
+  category: string;
+  input_schema: Record<string, IAgentSchemaField>;
+  output_schema: Record<string, IAgentSchemaField>;
+  config_schema: Record<string, unknown>;
+  runtime_capabilities: {
+    streaming: boolean;
+    long_running: boolean;
+    produces_artifacts: boolean;
+    accepts_files: boolean;
+    uses_external_io: boolean;
+    supports_cancel: boolean;
+  };
+  risk_level: 'low' | 'medium' | 'high' | string;
+  requires_service: string[];
+}
+
+export interface IAgentOperatorSchemaResponse {
+  operators: IAgentOperatorManifest[];
+}
+
 export interface IAgentRunStoredEvent {
   seq: number;
   stored_at: number;

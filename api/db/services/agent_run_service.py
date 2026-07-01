@@ -28,6 +28,7 @@ class AgentRunStatus:
     RUNNING = "running"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+    TIMEOUT = "timeout"
     CANCEL_REQUESTED = "cancel_requested"
     CANCELED = "canceled"
 
@@ -388,6 +389,12 @@ class AgentRunService:
                 workflow.update(
                     {
                         "status": "running",
+                        "workflow_id": data.get("workflow_id") or workflow.get("workflow_id"),
+                        "workflow_version": data.get("workflow_version") or workflow.get("workflow_version"),
+                        "context_hash": data.get("context_hash") or workflow.get("context_hash"),
+                        "constraint_hash": data.get("constraint_hash") or workflow.get("constraint_hash"),
+                        "context_missing": data.get("context_missing") or workflow.get("context_missing"),
+                        "context_issues": data.get("context_issues") or workflow.get("context_issues"),
                         "created_at": data.get("created_at"),
                         "inputs": cls._summarize_value(data.get("inputs")),
                     }
@@ -408,6 +415,15 @@ class AgentRunService:
                 workflow.update(
                     {
                         "status": "failed",
+                        "created_at": data.get("created_at"),
+                        "error": data.get("error"),
+                    }
+                )
+                errors.append({"component_id": None, "component_name": "workflow", "error": data.get("error")})
+            elif event_type == "workflow_timeout":
+                workflow.update(
+                    {
+                        "status": "timeout",
                         "created_at": data.get("created_at"),
                         "error": data.get("error"),
                     }
@@ -551,7 +567,7 @@ class AgentRunService:
             state["updated_at"] = now
             state["finished_at"] = now
             state["error"] = error or ""
-            if status in {AgentRunStatus.SUCCEEDED, AgentRunStatus.CANCELED}:
+            if status in {AgentRunStatus.SUCCEEDED, AgentRunStatus.CANCELED, AgentRunStatus.TIMEOUT}:
                 progress = state.get("progress") if isinstance(state.get("progress"), dict) else {}
                 progress["percent"] = 1.0
                 progress["running_nodes"] = 0
@@ -566,6 +582,10 @@ class AgentRunService:
     @classmethod
     def fail(cls, tenant_id: str, run_id: str, error: str) -> None:
         cls.finish(tenant_id, run_id, AgentRunStatus.FAILED, error)
+
+    @classmethod
+    def timeout(cls, tenant_id: str, run_id: str, error: str) -> None:
+        cls.finish(tenant_id, run_id, AgentRunStatus.TIMEOUT, error)
 
     @classmethod
     def request_cancel(cls, tenant_id: str, run_id: str) -> bool:

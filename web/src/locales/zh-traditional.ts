@@ -1196,6 +1196,24 @@ export default {
       fileParser: '文件解析器',
       fileParserDescription:
         '將上傳文件解析為臨時切片，並選擇與問題相關的片段供後續大模型節點使用。',
+      contractClauseExtractor: '合同條款抽取',
+      contractClauseExtractorDescription:
+        '把上傳合同抽取為包含條款號、頁碼、主體、義務、金額和期限的條款樹。',
+      complianceChecklistGenerator: '核對清單生成',
+      complianceChecklistGeneratorDescription:
+        '從綁定知識庫中的法規、制度或模板標準生成可審計的核對清單。',
+      clauseMatcher: '條款匹配',
+      clauseMatcherDescription:
+        '把每個核對項匹配到合同條款，並輸出匹配置信度。',
+      complianceVerifier: '合規核對',
+      complianceVerifierDescription:
+        '逐條判斷符合、不符合、缺失、模糊或不適用，並保留標準依據和合同條款引用。',
+      riskScorer: '風險評分',
+      riskScorerDescription:
+        '根據核對結果生成高、中、低或無風險的風險清單。',
+      complianceReportComposer: '核對報告編排',
+      complianceReportComposerDescription:
+        '把核對結果、風險匯總和引用來源編排成穩定的 Markdown 報告。',
       docGenerator: '文檔生成器',
       docGeneratorDescription: `從 Markdown 內容產生檔案。`,
       subtitle: '副標題',

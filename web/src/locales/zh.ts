@@ -2272,6 +2272,29 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取实体和关系
       fileParser: '文件解析器',
       fileParserDescription:
         '将上传文件解析为临时切片，并选择与问题相关的片段供后续大模型节点使用。',
+      workspaceFileWrite: '工作区文件写入',
+      workspaceFileWriteDescription:
+        '在白名单工作区路径内创建、覆盖或追加文件，支持 dry-run、expected_hash、人工审批和审计。',
+      workspacePatchApply: '工作区 Patch 应用',
+      workspacePatchApplyDescription:
+        '预览并应用结构化 patch 或 unified diff，支持人工审批、回滚和审计。',
+      contractClauseExtractor: '合同条款抽取',
+      contractClauseExtractorDescription:
+        '把上传合同抽取为包含条款号、页码、主体、义务、金额和期限的条款树。',
+      complianceChecklistGenerator: '核对清单生成',
+      complianceChecklistGeneratorDescription:
+        '从绑定知识库中的法规、制度或模板标准生成可审计的核对清单。',
+      clauseMatcher: '条款匹配',
+      clauseMatcherDescription:
+        '把每个核对项匹配到合同条款，并输出匹配置信度。',
+      complianceVerifier: '合规核对',
+      complianceVerifierDescription:
+        '逐条判断符合、不符合、缺失、模糊或不适用，并保留标准依据和合同条款引用。',
+      riskScorer: '风险评分',
+      riskScorerDescription: '根据核对结果生成高、中、低或无风险的风险清单。',
+      complianceReportComposer: '核对报告编排',
+      complianceReportComposerDescription:
+        '把核对结果、风险汇总和引用来源编排成稳定的 Markdown 报告。',
       docGenerator: '文档生成器',
       docGeneratorDescription: `从 Markdown 内容生成文件。`,
       browser: 'Browser',

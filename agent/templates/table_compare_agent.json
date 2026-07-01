@@ -1,0 +1,66 @@
+{
+  "id": 47,
+  "title": {
+    "en": "Table compare assistant",
+    "zh": "表格差异比对智能体"
+  },
+  "description": {
+    "en": "Compare two CSV/XLSX files as structured tables and generate a downloadable audit report.",
+    "zh": "输入两个 CSV/XLSX 文件路径后，智能体会读取结构化表格、比对行列差异并生成可下载审计报告。"
+  },
+  "canvas_type": "Recommended",
+  "canvas_types": ["Recommended", "Agent", "Other"],
+  "canvas_category": "agent_canvas",
+  "dsl": {
+    "components": {
+      "begin": {
+        "downstream": ["DocumentNormalizer:TableA", "DocumentNormalizer:TableB"],
+        "obj": {
+          "component_name": "Begin",
+          "params": {
+            "enablePrologue": true,
+            "inputs": {
+              "workspace_root": {"name": "工作区根目录", "type": "line", "optional": true, "options": []},
+              "table_a_path": {"name": "表格 A 路径", "type": "line", "optional": false, "options": []},
+              "table_b_path": {"name": "表格 B 路径", "type": "line", "optional": false, "options": []},
+              "output_formats": {"name": "输出格式", "type": "line", "optional": true, "options": []}
+            },
+            "mode": "conversational",
+            "prologue": "请输入两个需要比对的表格文件路径。"
+          }
+        },
+        "upstream": []
+      },
+      "DocumentNormalizer:TableA": {"downstream": ["TableFactExtractor:A", "TableDiff:Rows"], "obj": {"component_name": "DocumentNormalizer", "params": {"root": "{begin@workspace_root}", "path": "{begin@table_a_path}", "max_bytes": 1048576, "chunk_chars": 2400}}, "upstream": ["begin"]},
+      "DocumentNormalizer:TableB": {"downstream": ["TableFactExtractor:B", "TableDiff:Rows"], "obj": {"component_name": "DocumentNormalizer", "params": {"root": "{begin@workspace_root}", "path": "{begin@table_b_path}", "max_bytes": 1048576, "chunk_chars": 2400}}, "upstream": ["begin"]},
+      "TableFactExtractor:A": {"downstream": ["DocumentSemanticComparer:TableFacts"], "obj": {"component_name": "TableFactExtractor", "params": {"document": "{DocumentNormalizer:TableA@document}"}}, "upstream": ["DocumentNormalizer:TableA"]},
+      "TableFactExtractor:B": {"downstream": ["DocumentSemanticComparer:TableFacts"], "obj": {"component_name": "TableFactExtractor", "params": {"document": "{DocumentNormalizer:TableB@document}"}}, "upstream": ["DocumentNormalizer:TableB"]},
+      "TableDiff:Rows": {"downstream": ["DocumentCompareReportComposer:Report"], "obj": {"component_name": "TableDiff", "params": {"left_document": "{DocumentNormalizer:TableA@document}", "right_document": "{DocumentNormalizer:TableB@document}"}}, "upstream": ["DocumentNormalizer:TableA", "DocumentNormalizer:TableB"]},
+      "DocumentSemanticComparer:TableFacts": {"downstream": ["DocumentCompareReportComposer:Report"], "obj": {"component_name": "DocumentSemanticComparer", "params": {"left_items": "{TableFactExtractor:A@table_facts}", "right_items": "{TableFactExtractor:B@table_facts}", "min_score": 0.2}}, "upstream": ["TableFactExtractor:A", "TableFactExtractor:B"]},
+      "DocumentCompareReportComposer:Report": {
+        "downstream": ["Message:Answer"],
+        "obj": {"component_name": "DocumentCompareReportComposer", "params": {"title": "表格差异比对报告", "filename": "table_compare_report", "output_formats": "{begin@output_formats}", "documents": ["{DocumentNormalizer:TableA@document}", "{DocumentNormalizer:TableB@document}"], "table_diff": "{TableDiff:Rows@table_diff}", "matches": "{DocumentSemanticComparer:TableFacts@matches}"}},
+        "upstream": ["TableDiff:Rows", "DocumentSemanticComparer:TableFacts"]
+      },
+      "Message:Answer": {"downstream": [], "obj": {"component_name": "Message", "params": {"content": ["{DocumentCompareReportComposer:Report@markdown}"]}}, "upstream": ["DocumentCompareReportComposer:Report"]}
+    },
+    "globals": {"sys.conversation_turns": 0, "sys.date": "", "sys.file_assets": [], "sys.files": [], "sys.history": [], "sys.query": "", "sys.user_id": ""},
+    "graph": {
+      "edges": [
+        {"id": "e-begin-a", "source": "begin", "sourceHandle": "start", "target": "DocumentNormalizer:TableA", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-begin-b", "source": "begin", "sourceHandle": "start", "target": "DocumentNormalizer:TableB", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-a-facts", "source": "DocumentNormalizer:TableA", "sourceHandle": "start", "target": "TableFactExtractor:A", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-b-facts", "source": "DocumentNormalizer:TableB", "sourceHandle": "start", "target": "TableFactExtractor:B", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-a-diff", "source": "DocumentNormalizer:TableA", "sourceHandle": "start", "target": "TableDiff:Rows", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-b-diff", "source": "DocumentNormalizer:TableB", "sourceHandle": "start", "target": "TableDiff:Rows", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-a-match", "source": "TableFactExtractor:A", "sourceHandle": "start", "target": "DocumentSemanticComparer:TableFacts", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-b-match", "source": "TableFactExtractor:B", "sourceHandle": "start", "target": "DocumentSemanticComparer:TableFacts", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-diff-report", "source": "TableDiff:Rows", "sourceHandle": "start", "target": "DocumentCompareReportComposer:Report", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-match-report", "source": "DocumentSemanticComparer:TableFacts", "sourceHandle": "start", "target": "DocumentCompareReportComposer:Report", "targetHandle": "end", "data": {"isHovered": false}},
+        {"id": "e-report-message", "source": "DocumentCompareReportComposer:Report", "sourceHandle": "start", "target": "Message:Answer", "targetHandle": "end", "data": {"isHovered": false}}
+      ],
+      "nodes": []
+    },
+    "history": []
+  }
+}

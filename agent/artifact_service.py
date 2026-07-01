@@ -20,6 +20,7 @@ import os
 from typing import Any
 from urllib.parse import quote
 
+from agent.artifact_registry_service import AgentArtifactRegistryService
 from common import settings
 from common.misc_utils import get_uuid
 
@@ -28,11 +29,14 @@ _MIME_TYPES = {
     "csv": "text/csv",
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "html": "text/html",
+    "json": "application/json",
     "markdown": "text/markdown",
     "md": "text/markdown",
     "pdf": "application/pdf",
+    "svg": "image/svg+xml",
     "txt": "text/plain",
     "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "zip": "application/zip",
 }
 
 
@@ -56,6 +60,8 @@ class ArtifactService:
         include_base64: bool = False,
         include_download_info_in_content: bool = False,
         metadata: dict[str, Any] | None = None,
+        session_id: str | None = None,
+        agent_id: str | None = None,
     ) -> dict[str, Any]:
         if not isinstance(content, bytes):
             raise TypeError("Artifact content must be bytes.")
@@ -69,16 +75,25 @@ class ArtifactService:
             artifact_metadata["run_id"] = run_id
         if node_id:
             artifact_metadata["node_id"] = node_id
+        download_url = f"/v1/agents/download?id={quote(doc_id)}"
+        if run_id:
+            download_url += f"&run_id={quote(str(run_id))}"
+        if session_id:
+            download_url += f"&session_id={quote(str(session_id))}"
         info = {
             "artifact_id": doc_id,
             "doc_id": doc_id,
             "filename": filename,
             "mime_type": mime_type or ArtifactService.guess_mime_type(filename),
             "size": len(content),
-            "download_url": f"/v1/agents/download?id={quote(doc_id)}",
+            "download_url": download_url,
         }
         if run_id:
             info["run_id"] = run_id
+        if session_id:
+            info["session_id"] = session_id
+        if agent_id:
+            info["agent_id"] = agent_id
         if node_id:
             info["node_id"] = node_id
         if include_base64:
@@ -87,6 +102,22 @@ class ArtifactService:
             info["include_download_info_in_content"] = True
         if artifact_metadata:
             info["metadata"] = artifact_metadata
+        try:
+            AgentArtifactRegistryService.register(
+                tenant_id=tenant_id,
+                artifact_id=doc_id,
+                filename=filename,
+                mime_type=info["mime_type"],
+                size=len(content),
+                run_id=run_id,
+                session_id=session_id,
+                agent_id=agent_id,
+                node_id=node_id,
+                metadata=artifact_metadata,
+            )
+        except Exception:
+            # Artifact generation must not fail only because the audit registry is unavailable.
+            pass
         return info
 
     @staticmethod

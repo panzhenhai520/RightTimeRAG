@@ -36,8 +36,8 @@ test('preserves retrieval and thinking blocks when merging final answer', () => 
 
   const result = mergeFinalAnswerWithProcess(previous, final);
 
-  expect(result).toContain('<retrieving>Searching datasets\n</retrieving>');
-  expect(result).toContain('<think>Reviewing evidence\n</think>');
+  expect(result).toContain('<retrieving>Searching datasets</retrieving>');
+  expect(result).toContain('<think>Reviewing evidence</think>');
   expect(result).toContain('**Answer** body [ID:0]');
 });
 

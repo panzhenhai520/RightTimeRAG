@@ -2,6 +2,12 @@ import { IconFontFill } from '@/components/icon-font';
 import SvgIcon from '@/components/svg-icon';
 import { cn } from '@/lib/utils';
 import {
+  AudioLines,
+  Brain,
+  Calculator,
+  ChartNoAxesCombined,
+  ClipboardCheck,
+  Database,
   FileCode,
   FileSearch,
   FileText,
@@ -9,6 +15,12 @@ import {
   HousePlus,
   Infinity as InfinityIcon,
   LogOut,
+  Mic,
+  Network,
+  PackageCheck,
+  Scale,
+  ShieldCheck,
+  Volume2,
 } from 'lucide-react';
 import { Component } from 'react';
 import { Operator } from './constant';
@@ -57,6 +69,40 @@ export const SVGIconMap = {
 export const LucideIconMap = {
   [Operator.DataOperations]: FileCode,
   [Operator.FileParser]: FileSearch,
+  [Operator.WorkspaceFileWrite]: FileCode,
+  [Operator.WorkspacePatchApply]: FileText,
+  [Operator.PromptTemplate]: Brain,
+  [Operator.ScoreRubricBuilder]: Scale,
+  [Operator.PronunciationJudge]: ShieldCheck,
+  [Operator.SummaryNode]: Brain,
+  [Operator.ReportComposer]: FileText,
+  [Operator.ContractClauseExtractor]: ClipboardCheck,
+  [Operator.ComplianceChecklistGenerator]: ClipboardCheck,
+  [Operator.ClauseMatcher]: ClipboardCheck,
+  [Operator.ComplianceVerifier]: ClipboardCheck,
+  [Operator.RiskScorer]: ClipboardCheck,
+  [Operator.ComplianceReportComposer]: ClipboardCheck,
+  [Operator.AudioInput]: AudioLines,
+  [Operator.TTSGenerate]: Volume2,
+  [Operator.ASRTranscribe]: Mic,
+  [Operator.VoiceReplyOutput]: Volume2,
+  [Operator.MeetingContextInput]: Network,
+  [Operator.MemoryInject]: Brain,
+  [Operator.AgentFanout]: Network,
+  [Operator.ResultAggregator]: Network,
+  [Operator.WebhookInput]: Globe,
+  [Operator.ExternalScoreReceiver]: Scale,
+  [Operator.HumanReview]: ShieldCheck,
+  [Operator.ManualApprove]: ShieldCheck,
+  [Operator.NumberCalculate]: Calculator,
+  [Operator.ChartSpecBuilder]: ChartNoAxesCombined,
+  [Operator.ChartRenderer]: ChartNoAxesCombined,
+  [Operator.ArtifactPackager]: PackageCheck,
+  [Operator.ScopedDBConnector]: Database,
+  [Operator.SafeTableEnsure]: Database,
+  [Operator.SafeRecordInsert]: Database,
+  [Operator.SafeRecordUpdate]: Database,
+  [Operator.SafeRecordQuery]: Database,
   [Operator.Loop]: InfinityIcon,
   [Operator.ExitLoop]: LogOut,
   [Operator.DocGenerator]: FileText,
@@ -135,7 +181,7 @@ const OperatorIcon = ({ name, className }: IProps) => {
     );
   }
 
-  return <Empty></Empty>;
+  return <Brain className={cn('size-5', className)} />;
 };
 
 export default OperatorIcon;

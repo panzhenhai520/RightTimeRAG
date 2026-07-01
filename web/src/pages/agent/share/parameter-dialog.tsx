@@ -7,8 +7,9 @@ import { BeginQuery } from '@/pages/agent/interface';
 interface IProps extends IModalProps<any> {
   ok(parameters: any[]): void;
   data: Record<string, Omit<BeginQuery, 'key'>>;
+  agentId?: string;
 }
-export function ParameterDialog({ ok, data }: IProps) {
+export function ParameterDialog({ ok, data, agentId }: IProps) {
   return (
     <Modal
       open
@@ -23,6 +24,7 @@ export function ParameterDialog({ ok, data }: IProps) {
           ok={ok}
           isNext={false}
           btnText={'Submit'}
+          agentId={agentId}
         ></DebugContent>
       </div>
     </Modal>

@@ -1,0 +1,171 @@
+{
+  "id": 46,
+  "title": {
+    "en": "AI teacher post-class review workflow",
+    "de": "KI-Lehrer Workflow fur Unterrichtsreflexion",
+    "zh": "AI 老师课后复盘模板"
+  },
+  "description": {
+    "en": "Review class records, student performance, and scores, then produce next-step teaching suggestions.",
+    "de": "Analysiert Unterrichtsprotokolle, Schulerleistung und Bewertungen und erzeugt Empfehlungen fur den nachsten Schritt.",
+    "zh": "根据课堂记录、学生表现和评分生成课后复盘报告与下一步教学建议。"
+  },
+  "canvas_type": "Recommended",
+  "canvas_types": ["Recommended", "Agent", "Education"],
+  "canvas_category": "agent_canvas",
+  "dsl": {
+    "components": {
+      "begin": {
+        "downstream": ["Retrieval:ReviewContext"],
+        "obj": {
+          "component_name": "Begin",
+          "params": {
+            "enablePrologue": true,
+            "inputs": {
+              "class_record": {
+                "name": "Class record",
+                "type": "paragraph",
+                "optional": true,
+                "options": []
+              },
+              "student_performance": {
+                "name": "Student performance",
+                "type": "paragraph",
+                "optional": true,
+                "options": []
+              },
+              "score_result": {
+                "name": "Score result",
+                "type": "paragraph",
+                "optional": true,
+                "options": []
+              },
+              "review_goal": {
+                "name": "Review goal",
+                "type": "paragraph",
+                "optional": true,
+                "options": []
+              }
+            },
+            "mode": "conversational",
+            "prologue": "Please provide the class record, student performance, score result, and review goal."
+          }
+        },
+        "upstream": []
+      },
+      "Retrieval:ReviewContext": {
+        "downstream": ["Agent:PostClassReview"],
+        "obj": {
+          "component_name": "Retrieval",
+          "params": {
+            "dataset_ids": [],
+            "empty_response": "",
+            "kb_ids": [],
+            "keywords_similarity_weight": 0.5,
+            "meta_data_filter": {},
+            "outputs": {
+              "formalized_content": { "type": "string", "value": "" },
+              "json": { "type": "Array<Object>", "value": [] }
+            },
+            "query": "{sys.query}\n{sys.external_context}\n{begin@class_record}\n{begin@student_performance}\n{begin@score_result}\n{begin@review_goal}",
+            "retrieval_from": "dataset",
+            "similarity_threshold": 0.2,
+            "toc_enhance": false,
+            "top_k": 1024,
+            "top_n": 8,
+            "use_kg": false
+          }
+        },
+        "upstream": ["begin"]
+      },
+      "Agent:PostClassReview": {
+        "downstream": ["Message:PostClassOutput"],
+        "obj": {
+          "component_name": "Agent",
+          "params": {
+            "delay_after_error": 1,
+            "description": "",
+            "exception_default_value": "",
+            "exception_goto": [],
+            "exception_method": "",
+            "frequencyPenaltyEnabled": false,
+            "frequency_penalty": 0.7,
+            "llm_id": "deepseek-chat@DeepSeek",
+            "maxTokensEnabled": false,
+            "max_retries": 3,
+            "max_rounds": 2,
+            "max_tokens": 2048,
+            "mcp": [],
+            "message_history_window_size": 6,
+            "outputs": {
+              "content": { "type": "string", "value": "" },
+              "structured": {
+                "type": "object",
+                "value": {},
+                "properties": {
+                  "answer": { "type": "string" },
+                  "intention": { "type": "string" },
+                  "target": { "type": "string" },
+                  "confidence": { "type": "number" },
+                  "knowledge_used": { "type": "array" },
+                  "suggested_next_action": { "type": "string" },
+                  "trace_summary": { "type": "string" }
+                }
+              }
+            },
+            "presencePenaltyEnabled": false,
+            "presence_penalty": 0.4,
+            "prompts": [
+              {
+                "content": "User query:\n{sys.query}\n\nInjected AITeacherTurnContext:\n{sys.external_context}\n\nClass record:\n{begin@class_record}\n\nStudent performance:\n{begin@student_performance}\n\nScore result:\n{begin@score_result}\n\nReview goal:\n{begin@review_goal}\n\nRetrieved review context:\n{Retrieval:ReviewContext@formalized_content}\n\nReturn only a JSON object that matches the structured output schema.",
+                "role": "user"
+              }
+            ],
+            "sys_prompt": "You are an AI teacher performing a post-class review. Summarize what happened, identify student progress and remaining issues, and suggest next-step teaching actions. Keep answer concise and suitable for downstream scheduling. Do not expose hidden reasoning.",
+            "temperature": 0.2,
+            "temperatureEnabled": true,
+            "tools": [],
+            "topPEnabled": false,
+            "top_p": 0.3,
+            "user_prompt": "",
+            "visual_files_var": ""
+          }
+        },
+        "upstream": ["Retrieval:ReviewContext"]
+      },
+      "Message:PostClassOutput": {
+        "downstream": [],
+        "obj": {
+          "component_name": "Message",
+          "params": {
+            "content": ["{Agent:PostClassReview@content}"]
+          }
+        },
+        "upstream": ["Agent:PostClassReview"]
+      }
+    },
+    "globals": {
+      "sys.conversation_turns": 0,
+      "sys.date": "",
+      "sys.external_context": "",
+      "sys.file_assets": [],
+      "sys.files": [],
+      "sys.history": [],
+      "sys.query": "",
+      "sys.request_dataset_ids": [],
+      "sys.user_id": ""
+    },
+    "graph": {
+      "edges": [
+        { "id": "e1", "source": "begin", "target": "Retrieval:ReviewContext", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e2", "source": "Retrieval:ReviewContext", "target": "Agent:PostClassReview", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } },
+        { "id": "e3", "source": "Agent:PostClassReview", "target": "Message:PostClassOutput", "sourceHandle": "start", "targetHandle": "end", "data": { "isHovered": false } }
+      ],
+      "nodes": []
+    },
+    "history": [],
+    "path": [],
+    "retrieval": [],
+    "variables": []
+  }
+}

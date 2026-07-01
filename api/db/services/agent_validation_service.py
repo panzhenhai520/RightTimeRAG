@@ -17,6 +17,27 @@
 import re
 from typing import Any
 
+from agent.component.schema import (
+    SCHEMA_TYPE_ANY,
+    SCHEMA_TYPE_ARRAY,
+    SCHEMA_TYPE_ARTIFACT,
+    SCHEMA_TYPE_AUDIO_ASSET,
+    SCHEMA_TYPE_AGENT_RUN_REF,
+    SCHEMA_TYPE_BOOLEAN,
+    SCHEMA_TYPE_CHART_SPEC,
+    SCHEMA_TYPE_FILE_ASSET,
+    SCHEMA_TYPE_JSON,
+    SCHEMA_TYPE_MEETING_CONTEXT,
+    SCHEMA_TYPE_NUMBER,
+    SCHEMA_TYPE_SCORE_RESULT,
+    SCHEMA_TYPE_SCORE_RUBRIC,
+    SCHEMA_TYPE_SQL_RESULT,
+    SCHEMA_TYPE_STRING,
+    SCHEMA_TYPE_TABLE_DATA,
+    SCHEMA_TYPE_TEXT_CHUNK,
+    SCHEMA_TYPE_TEXT_DOCUMENT,
+    normalize_schema_type,
+)
 from agent.sql_guard import prepare_readonly_sqls
 
 
@@ -47,8 +68,744 @@ class AgentValidationService:
     )
     LLM_COMPONENTS = {"agent", "categorize", "browser", "rewritequestion", "agentwithtools"}
     OUTPUT_COMPONENTS = {"message", "agent", "docgenerator", "excelprocessor", "codeexec"}
-    ARTIFACT_COMPONENTS = {"docgenerator", "codeexec"}
+    ARTIFACT_COMPONENTS = {"docgenerator", "codeexec", "chartrenderer", "artifactpackager"}
     FILE_PROCESSORS = {"fileparser", "excelprocessor", "parser", "tokenizer", "extractor", "docgenerator"}
+    LLM_PROMPT_PARAMS = {"sys_prompt", "prompts", "prompt", "user_prompt", "context", "reasoning"}
+    TEXT_INPUT_COMPONENTS = {
+        "agent",
+        "agentwithtools",
+        "llm",
+        "categorize",
+        "rewritequestion",
+        "docgenerator",
+        "retrieval",
+        "exesql",
+    }
+    NON_TEXT_PROMPT_TYPES = {
+        SCHEMA_TYPE_ARTIFACT,
+        SCHEMA_TYPE_FILE_ASSET,
+        SCHEMA_TYPE_AUDIO_ASSET,
+        "VoiceReply",
+        "AgentRunRef",
+        "MeetingContext",
+    }
+    DEFAULT_INPUT_SCHEMAS = {
+        "agent": {
+            "sys_prompt": SCHEMA_TYPE_STRING,
+            "prompts": SCHEMA_TYPE_STRING,
+            "user_prompt": SCHEMA_TYPE_STRING,
+            "context": SCHEMA_TYPE_STRING,
+            "reasoning": SCHEMA_TYPE_STRING,
+            "visual_files_var": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_FILE_ASSET}>",
+        },
+        "agentwithtools": {
+            "sys_prompt": SCHEMA_TYPE_STRING,
+            "prompts": SCHEMA_TYPE_STRING,
+            "user_prompt": SCHEMA_TYPE_STRING,
+            "context": SCHEMA_TYPE_STRING,
+            "reasoning": SCHEMA_TYPE_STRING,
+            "visual_files_var": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_FILE_ASSET}>",
+        },
+        "llm": {
+            "sys_prompt": SCHEMA_TYPE_STRING,
+            "prompts": SCHEMA_TYPE_STRING,
+            "visual_files_var": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_FILE_ASSET}>",
+        },
+        "message": {"content": SCHEMA_TYPE_ANY},
+        "goalintentclassifier": {"request": SCHEMA_TYPE_STRING, "context": SCHEMA_TYPE_JSON},
+        "goalnormalizer": {"goal_intent": SCHEMA_TYPE_JSON},
+        "taskcontextcollector": {
+            "goal_intent": SCHEMA_TYPE_JSON,
+            "root": SCHEMA_TYPE_STRING,
+            "path": SCHEMA_TYPE_STRING,
+            "query": SCHEMA_TYPE_STRING,
+        },
+        "recentartifactfinder": {
+            "artifacts": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "query": SCHEMA_TYPE_STRING,
+        },
+        "relevantfileresolver": {
+            "goal_intent": SCHEMA_TYPE_JSON,
+            "root": SCHEMA_TYPE_STRING,
+            "path": SCHEMA_TYPE_STRING,
+            "query": SCHEMA_TYPE_STRING,
+        },
+        "taskplanner": {
+            "goal_intent": SCHEMA_TYPE_JSON,
+            "context_bundle": SCHEMA_TYPE_JSON,
+        },
+        "taskdecomposer": {
+            "goal_intent": SCHEMA_TYPE_JSON,
+            "context_bundle": SCHEMA_TYPE_JSON,
+        },
+        "atomictaskrefiner": {"task_plan": SCHEMA_TYPE_JSON},
+        "preconditionchecker": {
+            "task": SCHEMA_TYPE_JSON,
+            "runtime_context": SCHEMA_TYPE_JSON,
+            "root": SCHEMA_TYPE_STRING,
+        },
+        "dependencyresolver": {
+            "task": SCHEMA_TYPE_JSON,
+            "tasks": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "runtime_context": SCHEMA_TYPE_JSON,
+        },
+        "taskexecutor": {
+            "task_id": SCHEMA_TYPE_STRING,
+            "frame_id": SCHEMA_TYPE_STRING,
+            "parent_frame_id": SCHEMA_TYPE_STRING,
+            "runtime_context": SCHEMA_TYPE_JSON,
+        },
+        "taskframecontroller": {
+            "action": SCHEMA_TYPE_STRING,
+            "task_id": SCHEMA_TYPE_STRING,
+            "child_task_id": SCHEMA_TYPE_STRING,
+            "frame_id": SCHEMA_TYPE_STRING,
+            "parent_frame_id": SCHEMA_TYPE_STRING,
+            "local_context": SCHEMA_TYPE_JSON,
+        },
+        "taskresultverifier": {
+            "task": SCHEMA_TYPE_JSON,
+            "result": SCHEMA_TYPE_JSON,
+            "runtime_context": SCHEMA_TYPE_JSON,
+        },
+        "taskreflection": {
+            "task": SCHEMA_TYPE_JSON,
+            "result": SCHEMA_TYPE_JSON,
+            "verification": SCHEMA_TYPE_JSON,
+        },
+        "replandecider": {
+            "task": SCHEMA_TYPE_JSON,
+            "verification": SCHEMA_TYPE_JSON,
+            "reflection": SCHEMA_TYPE_JSON,
+        },
+        "taskexecutionreportcomposer": {
+            "goal_intent": SCHEMA_TYPE_JSON,
+            "context_bundle": SCHEMA_TYPE_JSON,
+            "task_plan": SCHEMA_TYPE_JSON,
+            "precondition_result": SCHEMA_TYPE_JSON,
+            "execution_result": SCHEMA_TYPE_JSON,
+            "verification": SCHEMA_TYPE_JSON,
+            "decision": SCHEMA_TYPE_JSON,
+            "structure_advice": SCHEMA_TYPE_JSON,
+        },
+        "retrieval": {"query": SCHEMA_TYPE_STRING},
+        "categorize": {"query": SCHEMA_TYPE_STRING, "category_description": SCHEMA_TYPE_STRING},
+        "rewritequestion": {"query": SCHEMA_TYPE_STRING},
+        "docgenerator": {"content": SCHEMA_TYPE_STRING},
+        "fileparser": {
+            "input_files": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_FILE_ASSET}>",
+            "query": SCHEMA_TYPE_STRING,
+        },
+        "workspacefilelist": {
+            "root": SCHEMA_TYPE_STRING,
+            "path": SCHEMA_TYPE_STRING,
+            "extensions": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_STRING}>",
+            "pattern": SCHEMA_TYPE_STRING,
+            "regex": SCHEMA_TYPE_STRING,
+        },
+        "workspacefilesearch": {
+            "query": SCHEMA_TYPE_STRING,
+            "root": SCHEMA_TYPE_STRING,
+            "path": SCHEMA_TYPE_STRING,
+            "extensions": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_STRING}>",
+            "pattern": SCHEMA_TYPE_STRING,
+            "regex": SCHEMA_TYPE_STRING,
+        },
+        "workspacefileread": {
+            "root": SCHEMA_TYPE_STRING,
+            "path": SCHEMA_TYPE_STRING,
+            "start_line": SCHEMA_TYPE_NUMBER,
+            "end_line": SCHEMA_TYPE_NUMBER,
+        },
+        "workspacefilewrite": {
+            "root": SCHEMA_TYPE_STRING,
+            "path": SCHEMA_TYPE_STRING,
+            "content": SCHEMA_TYPE_STRING,
+            "mode": SCHEMA_TYPE_STRING,
+            "expected_hash": SCHEMA_TYPE_STRING,
+            "dry_run": SCHEMA_TYPE_BOOLEAN,
+            "require_approval": SCHEMA_TYPE_BOOLEAN,
+            "approval_id": SCHEMA_TYPE_STRING,
+            "approved": SCHEMA_TYPE_BOOLEAN,
+            "task_id": SCHEMA_TYPE_STRING,
+            "reason": SCHEMA_TYPE_STRING,
+        },
+        "workspacepatchapply": {
+            "root": SCHEMA_TYPE_STRING,
+            "patch": SCHEMA_TYPE_ANY,
+            "patch_format": SCHEMA_TYPE_STRING,
+            "expected_hashes": SCHEMA_TYPE_JSON,
+            "dry_run": SCHEMA_TYPE_BOOLEAN,
+            "require_approval": SCHEMA_TYPE_BOOLEAN,
+            "approval_id": SCHEMA_TYPE_STRING,
+            "approved": SCHEMA_TYPE_BOOLEAN,
+            "task_id": SCHEMA_TYPE_STRING,
+            "reason": SCHEMA_TYPE_STRING,
+        },
+        "workspacetableread": {
+            "root": SCHEMA_TYPE_STRING,
+            "path": SCHEMA_TYPE_STRING,
+            "sheet_name": SCHEMA_TYPE_STRING,
+            "header_row": SCHEMA_TYPE_NUMBER,
+            "start_row": SCHEMA_TYPE_NUMBER,
+        },
+        "documentnormalizer": {
+            "root": SCHEMA_TYPE_STRING,
+            "path": SCHEMA_TYPE_STRING,
+            "max_bytes": SCHEMA_TYPE_NUMBER,
+            "chunk_chars": SCHEMA_TYPE_NUMBER,
+        },
+        "documentstructureadvisor": {
+            "outline": SCHEMA_TYPE_JSON,
+            "paragraphs": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "new_content": SCHEMA_TYPE_STRING,
+            "user_goal": SCHEMA_TYPE_STRING,
+        },
+        "contentplacementplanner": {
+            "outline": SCHEMA_TYPE_JSON,
+            "paragraphs": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "new_content": SCHEMA_TYPE_STRING,
+            "user_goal": SCHEMA_TYPE_STRING,
+        },
+        "clauseextractor": {"document": SCHEMA_TYPE_TEXT_DOCUMENT, "content": SCHEMA_TYPE_STRING},
+        "obligationextractor": {"document": SCHEMA_TYPE_TEXT_DOCUMENT, "content": SCHEMA_TYPE_STRING},
+        "definitionextractor": {"document": SCHEMA_TYPE_TEXT_DOCUMENT, "content": SCHEMA_TYPE_STRING},
+        "viewpointextractor": {"document": SCHEMA_TYPE_TEXT_DOCUMENT, "content": SCHEMA_TYPE_STRING},
+        "riskpointextractor": {"document": SCHEMA_TYPE_TEXT_DOCUMENT, "content": SCHEMA_TYPE_STRING},
+        "tablefactextractor": {"document": SCHEMA_TYPE_TEXT_DOCUMENT, "content": SCHEMA_TYPE_STRING},
+        "documentdiff": {
+            "left_document": SCHEMA_TYPE_TEXT_DOCUMENT,
+            "right_document": SCHEMA_TYPE_TEXT_DOCUMENT,
+        },
+        "tablediff": {
+            "left_document": SCHEMA_TYPE_TEXT_DOCUMENT,
+            "right_document": SCHEMA_TYPE_TEXT_DOCUMENT,
+        },
+        "documentsemanticcomparer": {
+            "left_items": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "right_items": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "documentconflictdetector": {
+            "standard_items": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "target_items": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "documentcomparereportcomposer": {
+            "title": SCHEMA_TYPE_STRING,
+            "filename": SCHEMA_TYPE_STRING,
+            "output_formats": SCHEMA_TYPE_ANY,
+            "files": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "documents": SCHEMA_TYPE_ANY,
+            "diff": SCHEMA_TYPE_JSON,
+            "table_diff": SCHEMA_TYPE_JSON,
+            "matches": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "conflicts": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "missing_requirements": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "risk_points": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "audit": SCHEMA_TYPE_JSON,
+        },
+        "citationformatter": {
+            "references": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "content": SCHEMA_TYPE_STRING,
+        },
+        "contractclauseextractor": {
+            "chunks": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_TEXT_CHUNK}>",
+            "content": SCHEMA_TYPE_STRING,
+            "references": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "compliancechecklistgenerator": {
+            "standards": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "focus": SCHEMA_TYPE_STRING,
+        },
+        "clausematcher": {
+            "checklist": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "clauses": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "complianceverifier": {
+            "checklist": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "matches": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "clauses": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "riskscorer": {"verification_results": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>"},
+        "compliancereportcomposer": {
+            "scope": SCHEMA_TYPE_STRING,
+            "verification_results": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "risk_summary": SCHEMA_TYPE_JSON,
+            "references": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "excelprocessor": {
+            "input_files": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_FILE_ASSET}>",
+            "transform_data": SCHEMA_TYPE_TABLE_DATA,
+            "aggregate_coefficient": SCHEMA_TYPE_NUMBER,
+            "calculation_value": SCHEMA_TYPE_NUMBER,
+            "calculation_coefficient": SCHEMA_TYPE_NUMBER,
+        },
+        "numbercalculate": {
+            "value": SCHEMA_TYPE_NUMBER,
+            "coefficient": SCHEMA_TYPE_NUMBER,
+            "self_score": SCHEMA_TYPE_NUMBER,
+            "self_weight": SCHEMA_TYPE_NUMBER,
+            "external_score": SCHEMA_TYPE_NUMBER,
+            "external_weight": SCHEMA_TYPE_NUMBER,
+        },
+        "chartspecbuilder": {"data": SCHEMA_TYPE_ANY},
+        "chartrenderer": {
+            "chart_spec": SCHEMA_TYPE_CHART_SPEC,
+            "charts": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_CHART_SPEC}>",
+        },
+        "artifactpackager": {
+            "artifacts": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_ARTIFACT}>",
+            "manifest": SCHEMA_TYPE_JSON,
+        },
+        "prompttemplate": {"template": SCHEMA_TYPE_STRING, "variables": SCHEMA_TYPE_JSON},
+        "pronunciationjudge": {"structured_result": SCHEMA_TYPE_JSON, "rubric": SCHEMA_TYPE_SCORE_RUBRIC},
+        "summarynode": {"content": SCHEMA_TYPE_ANY},
+        "reportcomposer": {"sections": SCHEMA_TYPE_JSON},
+        "webhookinput": {"payload": SCHEMA_TYPE_JSON, "token": SCHEMA_TYPE_STRING},
+        "externalscorereceiver": {"score_payload": SCHEMA_TYPE_JSON, "self_score": SCHEMA_TYPE_NUMBER},
+        "humanreview": {"review_data": SCHEMA_TYPE_JSON},
+        "manualapprove": {
+            "task": SCHEMA_TYPE_JSON,
+            "policy": SCHEMA_TYPE_JSON,
+            "approved": SCHEMA_TYPE_BOOLEAN,
+            "comment": SCHEMA_TYPE_STRING,
+        },
+        "exesql": {"sql": SCHEMA_TYPE_STRING},
+        "scopeddbconnector": {},
+        "safetableensure": {"db_ref": SCHEMA_TYPE_JSON},
+        "saferecordinsert": {"table_ref": SCHEMA_TYPE_JSON, "record": SCHEMA_TYPE_JSON},
+        "saferecordupdate": {"table_ref": SCHEMA_TYPE_JSON, "values": SCHEMA_TYPE_JSON, "filters": SCHEMA_TYPE_JSON},
+        "saferecordquery": {"table_ref": SCHEMA_TYPE_JSON, "filters": SCHEMA_TYPE_JSON},
+        "codeexec": {"script": SCHEMA_TYPE_STRING, "arguments": SCHEMA_TYPE_JSON},
+        "ttsgenerate": {"text": SCHEMA_TYPE_STRING},
+        "asrtranscribe": {"audio": SCHEMA_TYPE_AUDIO_ASSET},
+        "voicereplyoutput": {"voice": "VoiceReply", "audio": SCHEMA_TYPE_AUDIO_ASSET},
+        "meetingcontextinput": {
+            "query": SCHEMA_TYPE_STRING,
+            "shared_memory": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "agent_memory": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "memoryinject": {"meeting_context": SCHEMA_TYPE_MEETING_CONTEXT, "content": SCHEMA_TYPE_STRING},
+        "agentfanout": {
+            "meeting_context": SCHEMA_TYPE_MEETING_CONTEXT,
+            "content": SCHEMA_TYPE_STRING,
+            "agents": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "files": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_FILE_ASSET}>",
+            "base_inputs": SCHEMA_TYPE_JSON,
+        },
+        "resultaggregator": {
+            "runs": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_AGENT_RUN_REF}>",
+            "results": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "scores": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_SCORE_RESULT}>",
+            "citations": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "memory_delta": SCHEMA_TYPE_JSON,
+        },
+    }
+    DEFAULT_OUTPUT_SCHEMAS = {
+        "agent": {"content": SCHEMA_TYPE_STRING, "answer": SCHEMA_TYPE_STRING, "structured": SCHEMA_TYPE_JSON},
+        "agentwithtools": {"content": SCHEMA_TYPE_STRING, "answer": SCHEMA_TYPE_STRING, "structured": SCHEMA_TYPE_JSON},
+        "llm": {"content": SCHEMA_TYPE_STRING, "answer": SCHEMA_TYPE_STRING, "structured": SCHEMA_TYPE_JSON},
+        "message": {"content": SCHEMA_TYPE_STRING, "downloads": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_ARTIFACT}>"},
+        "goalintentclassifier": {
+            "goal_intent": SCHEMA_TYPE_JSON,
+            "goal_type": SCHEMA_TYPE_STRING,
+            "missing_inputs": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_STRING}>",
+            "requires_user_confirmation": SCHEMA_TYPE_BOOLEAN,
+            "confidence": SCHEMA_TYPE_NUMBER,
+        },
+        "goalnormalizer": {
+            "goal_intent": SCHEMA_TYPE_JSON,
+            "goal_type": SCHEMA_TYPE_STRING,
+            "unresolved": SCHEMA_TYPE_BOOLEAN,
+        },
+        "taskcontextcollector": {
+            "context_bundle": SCHEMA_TYPE_JSON,
+            "candidate_files": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "document_outlines": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "unresolved_context": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "summary": SCHEMA_TYPE_JSON,
+        },
+        "recentartifactfinder": {"candidate_artifacts": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>"},
+        "relevantfileresolver": {
+            "candidate_files": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "query_terms": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_STRING}>",
+            "unresolved_context": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "taskplanner": {
+            "task_plan": SCHEMA_TYPE_JSON,
+            "tasks": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "relations": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "validation": SCHEMA_TYPE_JSON,
+            "atomic_tasks": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "taskdecomposer": {
+            "root_task": SCHEMA_TYPE_JSON,
+            "tasks": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "relations": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "tree": SCHEMA_TYPE_JSON,
+            "parallel_groups": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "atomictaskrefiner": {
+            "task_plan": SCHEMA_TYPE_JSON,
+            "atomic_tasks": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "validation": SCHEMA_TYPE_JSON,
+        },
+        "preconditionchecker": {
+            "precondition_result": SCHEMA_TYPE_JSON,
+            "ready": SCHEMA_TYPE_BOOLEAN,
+            "next_status": SCHEMA_TYPE_STRING,
+            "condition_results": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "repair_tasks": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "dependencyresolver": {
+            "dependency_result": SCHEMA_TYPE_JSON,
+            "ready": SCHEMA_TYPE_BOOLEAN,
+            "dependencies": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "blocked_by": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "repair_tasks": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "taskexecutor": {
+            "execution_result": SCHEMA_TYPE_JSON,
+            "result": SCHEMA_TYPE_JSON,
+            "status": SCHEMA_TYPE_STRING,
+            "ok": SCHEMA_TYPE_BOOLEAN,
+        },
+        "taskframecontroller": {
+            "frame_result": SCHEMA_TYPE_JSON,
+            "frame": SCHEMA_TYPE_JSON,
+            "status": SCHEMA_TYPE_STRING,
+            "continuation_pointer": SCHEMA_TYPE_STRING,
+            "local_context": SCHEMA_TYPE_JSON,
+        },
+        "taskresultverifier": {
+            "verification": SCHEMA_TYPE_JSON,
+            "ok": SCHEMA_TYPE_BOOLEAN,
+            "failed_checks": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "next_action": SCHEMA_TYPE_STRING,
+            "repair_tasks": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "taskreflection": {
+            "reflection": SCHEMA_TYPE_JSON,
+            "root_causes": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_STRING}>",
+            "retryable": SCHEMA_TYPE_BOOLEAN,
+        },
+        "replandecider": {
+            "decision": SCHEMA_TYPE_JSON,
+            "next_action": SCHEMA_TYPE_STRING,
+            "repair_tasks": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "taskexecutionreportcomposer": {
+            "report": SCHEMA_TYPE_JSON,
+            "markdown": SCHEMA_TYPE_STRING,
+            "audit": SCHEMA_TYPE_JSON,
+        },
+        "retrieval": {"formalized_content": SCHEMA_TYPE_STRING, "json": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>"},
+        "categorize": {"category_name": SCHEMA_TYPE_STRING},
+        "rewritequestion": {"question": SCHEMA_TYPE_STRING, "content": SCHEMA_TYPE_STRING},
+        "docgenerator": {
+            "doc_id": SCHEMA_TYPE_STRING,
+            "filename": SCHEMA_TYPE_STRING,
+            "mime_type": SCHEMA_TYPE_STRING,
+            "size": SCHEMA_TYPE_NUMBER,
+            "download": SCHEMA_TYPE_STRING,
+            "downloads": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_ARTIFACT}>",
+            "attachment": SCHEMA_TYPE_ARTIFACT,
+        },
+        "fileparser": {
+            "chunks": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_TEXT_CHUNK}>",
+            "matches": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_TEXT_CHUNK}>",
+            "references": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "file_info": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "content": SCHEMA_TYPE_STRING,
+            "summary": SCHEMA_TYPE_STRING,
+        },
+        "workspacefilelist": {
+            "files": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "count": SCHEMA_TYPE_NUMBER,
+            "truncated": SCHEMA_TYPE_BOOLEAN,
+            "audit": SCHEMA_TYPE_JSON,
+        },
+        "workspacefilesearch": {
+            "files": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "count": SCHEMA_TYPE_NUMBER,
+            "truncated": SCHEMA_TYPE_BOOLEAN,
+            "audit": SCHEMA_TYPE_JSON,
+        },
+        "workspacefileread": {
+            "file": SCHEMA_TYPE_JSON,
+            "content": SCHEMA_TYPE_STRING,
+            "lines": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "line_count": SCHEMA_TYPE_NUMBER,
+            "truncated": SCHEMA_TYPE_BOOLEAN,
+            "source_ref": SCHEMA_TYPE_STRING,
+            "audit": SCHEMA_TYPE_JSON,
+        },
+        "workspacefilewrite": {
+            "write": SCHEMA_TYPE_JSON,
+            "file": SCHEMA_TYPE_JSON,
+            "diff": SCHEMA_TYPE_STRING,
+            "changed": SCHEMA_TYPE_BOOLEAN,
+            "dry_run": SCHEMA_TYPE_BOOLEAN,
+            "approval": SCHEMA_TYPE_JSON,
+            "audit": SCHEMA_TYPE_JSON,
+        },
+        "workspacepatchapply": {
+            "patch_result": SCHEMA_TYPE_JSON,
+            "affected_files": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "diff": SCHEMA_TYPE_STRING,
+            "conflicts": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "can_apply": SCHEMA_TYPE_BOOLEAN,
+            "rollback_token": SCHEMA_TYPE_STRING,
+            "dry_run": SCHEMA_TYPE_BOOLEAN,
+            "approval": SCHEMA_TYPE_JSON,
+            "audit": SCHEMA_TYPE_JSON,
+        },
+        "workspacetableread": {
+            "table": SCHEMA_TYPE_TABLE_DATA,
+            "headers": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_STRING}>",
+            "rows": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "file": SCHEMA_TYPE_JSON,
+            "truncated": SCHEMA_TYPE_BOOLEAN,
+            "source_ref": SCHEMA_TYPE_STRING,
+            "audit": SCHEMA_TYPE_JSON,
+        },
+        "documentnormalizer": {
+            "document": SCHEMA_TYPE_TEXT_DOCUMENT,
+            "lines": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "paragraphs": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "sections": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "tables": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "chunks": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_TEXT_CHUNK}>",
+            "metadata": SCHEMA_TYPE_JSON,
+            "audit": SCHEMA_TYPE_JSON,
+        },
+        "documentstructureadvisor": {
+            "structure_advice": SCHEMA_TYPE_JSON,
+            "content_categories": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "proposed_outline": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "insertion_points": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "modification_plan": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "user_review_needed": SCHEMA_TYPE_BOOLEAN,
+        },
+        "contentplacementplanner": {
+            "placement_plan": SCHEMA_TYPE_JSON,
+            "content_categories": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "insertion_points": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "merge_strategy": SCHEMA_TYPE_JSON,
+            "risk_notes": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "clauseextractor": {
+            "items": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "clauses": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "references": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "summary": SCHEMA_TYPE_STRING,
+        },
+        "obligationextractor": {
+            "items": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "obligations": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "references": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "summary": SCHEMA_TYPE_STRING,
+        },
+        "definitionextractor": {
+            "items": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "definitions": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "references": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "summary": SCHEMA_TYPE_STRING,
+        },
+        "viewpointextractor": {
+            "items": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "viewpoints": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "references": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "summary": SCHEMA_TYPE_STRING,
+        },
+        "riskpointextractor": {
+            "items": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "risk_points": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "references": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "summary": SCHEMA_TYPE_STRING,
+        },
+        "tablefactextractor": {
+            "items": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "table_facts": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "references": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "summary": SCHEMA_TYPE_STRING,
+        },
+        "documentdiff": {
+            "diff": SCHEMA_TYPE_JSON,
+            "hunks": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "summary": SCHEMA_TYPE_JSON,
+        },
+        "tablediff": {
+            "table_diff": SCHEMA_TYPE_JSON,
+            "hunks": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "schema_changes": SCHEMA_TYPE_JSON,
+            "summary": SCHEMA_TYPE_JSON,
+        },
+        "documentsemanticcomparer": {
+            "matches": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "missing_in_left": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "missing_in_right": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "summary": SCHEMA_TYPE_JSON,
+        },
+        "documentconflictdetector": {
+            "conflicts": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "missing_requirements": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "matches": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "summary": SCHEMA_TYPE_JSON,
+        },
+        "documentcomparereportcomposer": {
+            "report": SCHEMA_TYPE_JSON,
+            "markdown": SCHEMA_TYPE_STRING,
+            "json": SCHEMA_TYPE_JSON,
+            "downloads": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_ARTIFACT}>",
+            "attachments": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_ARTIFACT}>",
+            "audit": SCHEMA_TYPE_JSON,
+            "summary": SCHEMA_TYPE_STRING,
+        },
+        "citationformatter": {
+            "citations": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "references": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "markdown": SCHEMA_TYPE_STRING,
+            "content": SCHEMA_TYPE_STRING,
+        },
+        "contractclauseextractor": {
+            "clause_tree": SCHEMA_TYPE_JSON,
+            "clauses": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "entities": SCHEMA_TYPE_JSON,
+            "references": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "summary": SCHEMA_TYPE_STRING,
+        },
+        "compliancechecklistgenerator": {
+            "checklist": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "references": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "summary": SCHEMA_TYPE_STRING,
+        },
+        "clausematcher": {
+            "matches": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "summary": SCHEMA_TYPE_STRING,
+        },
+        "complianceverifier": {
+            "verification_results": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "summary": SCHEMA_TYPE_STRING,
+            "references": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "riskscorer": {
+            "risk_items": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "risk_summary": SCHEMA_TYPE_JSON,
+            "overall_risk_level": SCHEMA_TYPE_STRING,
+        },
+        "compliancereportcomposer": {
+            "markdown": SCHEMA_TYPE_STRING,
+            "summary": SCHEMA_TYPE_STRING,
+            "tables": SCHEMA_TYPE_JSON,
+            "references": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+        },
+        "excelprocessor": {
+            "data": SCHEMA_TYPE_TABLE_DATA,
+            "summary": SCHEMA_TYPE_STRING,
+            "markdown": SCHEMA_TYPE_STRING,
+            "aggregate": SCHEMA_TYPE_JSON,
+            "result": SCHEMA_TYPE_NUMBER,
+            "downloads": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_ARTIFACT}>",
+            "attachment": SCHEMA_TYPE_ARTIFACT,
+        },
+        "numbercalculate": {
+            "result": SCHEMA_TYPE_NUMBER,
+            "breakdown": SCHEMA_TYPE_JSON,
+            "summary": SCHEMA_TYPE_STRING,
+        },
+        "chartspecbuilder": {
+            "chart_spec": SCHEMA_TYPE_CHART_SPEC,
+            "charts": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_CHART_SPEC}>",
+            "summary": SCHEMA_TYPE_STRING,
+        },
+        "chartrenderer": {
+            "chart_artifact": SCHEMA_TYPE_ARTIFACT,
+            "downloads": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_ARTIFACT}>",
+            "markdown": SCHEMA_TYPE_STRING,
+            "html": SCHEMA_TYPE_STRING,
+        },
+        "artifactpackager": {
+            "package": SCHEMA_TYPE_ARTIFACT,
+            "downloads": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_ARTIFACT}>",
+            "manifest": SCHEMA_TYPE_JSON,
+            "markdown": SCHEMA_TYPE_STRING,
+        },
+        "prompttemplate": {"prompt": SCHEMA_TYPE_STRING},
+        "scorerubricbuilder": {
+            "rubric": SCHEMA_TYPE_SCORE_RUBRIC,
+            "dimensions": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "summary": SCHEMA_TYPE_STRING,
+        },
+        "pronunciationjudge": {
+            "score_result": SCHEMA_TYPE_SCORE_RESULT,
+            "self_score": SCHEMA_TYPE_NUMBER,
+            "rubric_scores": SCHEMA_TYPE_JSON,
+            "feedback": SCHEMA_TYPE_STRING,
+            "valid": SCHEMA_TYPE_BOOLEAN,
+        },
+        "summarynode": {"summary": SCHEMA_TYPE_STRING},
+        "reportcomposer": {"markdown": SCHEMA_TYPE_STRING},
+        "webhookinput": {"event": SCHEMA_TYPE_JSON, "verified": SCHEMA_TYPE_BOOLEAN},
+        "externalscorereceiver": {
+            "score_result": SCHEMA_TYPE_SCORE_RESULT,
+            "external_score": SCHEMA_TYPE_NUMBER,
+            "rubric_scores": SCHEMA_TYPE_JSON,
+            "source": SCHEMA_TYPE_STRING,
+        },
+        "humanreview": {"review": SCHEMA_TYPE_JSON},
+        "manualapprove": {"approved": SCHEMA_TYPE_BOOLEAN, "review": SCHEMA_TYPE_JSON},
+        "exesql": {
+            "formalized_content": SCHEMA_TYPE_STRING,
+            "json": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "sql_result": SCHEMA_TYPE_SQL_RESULT,
+            "row_count": SCHEMA_TYPE_NUMBER,
+            "truncated": SCHEMA_TYPE_BOOLEAN,
+        },
+        "scopeddbconnector": {"db_ref": SCHEMA_TYPE_JSON},
+        "safetableensure": {"table_ref": SCHEMA_TYPE_JSON, "table_name": SCHEMA_TYPE_STRING},
+        "saferecordinsert": {"row": SCHEMA_TYPE_JSON, "row_count": SCHEMA_TYPE_NUMBER},
+        "saferecordupdate": {"row_count": SCHEMA_TYPE_NUMBER},
+        "saferecordquery": {
+            "sql_result": SCHEMA_TYPE_SQL_RESULT,
+            "data": SCHEMA_TYPE_TABLE_DATA,
+            "row_count": SCHEMA_TYPE_NUMBER,
+        },
+        "codeexec": {
+            "result": SCHEMA_TYPE_JSON,
+            "content": SCHEMA_TYPE_STRING,
+            "attachments": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_STRING}>",
+        },
+        "ttsgenerate": {"audio": SCHEMA_TYPE_AUDIO_ASSET, "voice": "VoiceReply", "duration": SCHEMA_TYPE_NUMBER, "engine": SCHEMA_TYPE_STRING},
+        "asrtranscribe": {
+            "text": SCHEMA_TYPE_STRING,
+            "transcript": SCHEMA_TYPE_STRING,
+            "confidence": SCHEMA_TYPE_NUMBER,
+            "language": SCHEMA_TYPE_STRING,
+            "duration": SCHEMA_TYPE_NUMBER,
+            "engine": SCHEMA_TYPE_STRING,
+        },
+        "audioinput": {"audio": SCHEMA_TYPE_AUDIO_ASSET},
+        "voicereplyoutput": {"voice": "VoiceReply", "audio": SCHEMA_TYPE_AUDIO_ASSET},
+        "meetingcontextinput": {"meeting_context": SCHEMA_TYPE_MEETING_CONTEXT, "prompt": SCHEMA_TYPE_STRING},
+        "memoryinject": {
+            "meeting_context": SCHEMA_TYPE_MEETING_CONTEXT,
+            "content": SCHEMA_TYPE_STRING,
+            "memory_delta": SCHEMA_TYPE_JSON,
+        },
+        "agentfanout": {
+            "runs": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_AGENT_RUN_REF}>",
+            "dispatch": SCHEMA_TYPE_JSON,
+            "meeting_context": SCHEMA_TYPE_MEETING_CONTEXT,
+        },
+        "resultaggregator": {
+            "reply_text": SCHEMA_TYPE_STRING,
+            "memory_delta": SCHEMA_TYPE_JSON,
+            "citations": f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_JSON}>",
+            "score_result": SCHEMA_TYPE_SCORE_RESULT,
+            "run_id": SCHEMA_TYPE_STRING,
+            "report": SCHEMA_TYPE_STRING,
+        },
+    }
 
     @classmethod
     def validate_for_publish(cls, dsl: dict[str, Any] | None) -> dict[str, Any]:
@@ -80,6 +837,7 @@ class AgentValidationService:
         self._validate_connectivity()
         self._validate_required_params()
         self._validate_variable_refs()
+        self._validate_type_compatibility()
         self._validate_sql()
         self._validate_file_flow()
         self._validate_artifact_visibility()
@@ -278,6 +1036,260 @@ class AgentValidationService:
                             component_id,
                         )
 
+    def _walk_string_paths(self, value: Any, path: str = "") -> list[tuple[str, str]]:
+        if isinstance(value, str):
+            return [(path, value)]
+        if isinstance(value, list):
+            result = []
+            for index, item in enumerate(value):
+                child_path = f"{path}[{index}]" if path else f"[{index}]"
+                result.extend(self._walk_string_paths(item, child_path))
+            return result
+        if isinstance(value, dict):
+            result = []
+            for key, item in value.items():
+                child_path = f"{path}.{key}" if path else str(key)
+                result.extend(self._walk_string_paths(item, child_path))
+            return result
+        return []
+
+    @staticmethod
+    def _schema_type_map(schema: dict[str, Any] | None) -> dict[str, str]:
+        result = {}
+        if not isinstance(schema, dict):
+            return result
+        for key, value in schema.items():
+            if isinstance(value, dict):
+                result[str(key)] = normalize_schema_type(value.get("type") or value.get("schema_type"))
+            else:
+                result[str(key)] = normalize_schema_type(value)
+        return result
+
+    @staticmethod
+    def _normalize_declared_schema(schema: dict[str, Any] | None) -> dict[str, str]:
+        return AgentValidationService._schema_type_map(schema)
+
+    def _begin_output_schema(self, component_id: str) -> dict[str, str]:
+        params = self._params(component_id)
+        inputs = params.get("inputs") or {}
+        if isinstance(inputs, dict):
+            items = [
+                {"key": key, **(value if isinstance(value, dict) else {"type": value})}
+                for key, value in inputs.items()
+            ]
+        elif isinstance(inputs, list):
+            items = [item for item in inputs if isinstance(item, dict)]
+        else:
+            items = []
+
+        schema = {}
+        for item in items:
+            key = str(item.get("key") or item.get("name") or "").strip()
+            if not key:
+                continue
+            input_type = normalize_schema_type(item.get("type"))
+            lower_type = str(item.get("type") or "").lower()
+            if "file" in lower_type or input_type == SCHEMA_TYPE_FILE_ASSET:
+                schema[key] = SCHEMA_TYPE_STRING
+                schema[f"{key}_text"] = SCHEMA_TYPE_STRING
+                schema[f"{key}_files"] = f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_FILE_ASSET}>"
+                schema[f"{key}_file_assets"] = f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_FILE_ASSET}>"
+                schema[f"{key}_file_texts"] = f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_TEXT_DOCUMENT}>"
+                schema[f"{key}_file_chunks"] = f"{SCHEMA_TYPE_ARRAY}<{SCHEMA_TYPE_TEXT_CHUNK}>"
+            else:
+                schema[key] = input_type
+        return schema
+
+    def _component_input_schema(self, component_id: str) -> dict[str, str]:
+        name = self._component_name(component_id).lower()
+        schema = dict(self.DEFAULT_INPUT_SCHEMAS.get(name, {}))
+        params = self._params(component_id)
+        declared = params.get("input_schema")
+        schema.update(self._normalize_declared_schema(declared))
+        return {key: normalize_schema_type(value) for key, value in schema.items()}
+
+    def _component_output_schema(self, component_id: str) -> dict[str, str]:
+        name = self._component_name(component_id).lower()
+        schema = dict(self.DEFAULT_OUTPUT_SCHEMAS.get(name, {}))
+        if name in {"begin", "userfillup"}:
+            schema.update(self._begin_output_schema(component_id))
+        params = self._params(component_id)
+        declared = params.get("output_schema")
+        outputs = params.get("outputs")
+        schema.update(self._normalize_declared_schema(declared))
+        schema.update(self._schema_type_map(outputs))
+        return {key: normalize_schema_type(value) for key, value in schema.items()}
+
+    @staticmethod
+    def _root_path_name(path: str) -> str:
+        return re.split(r"[.\[]", path or "", maxsplit=1)[0]
+
+    def _target_input_name(self, component_id: str, path: str) -> str:
+        root = self._root_path_name(path)
+        if root == "prompts":
+            return "prompts"
+        if root == "tools":
+            return "tools"
+        if root == "outputs":
+            return ""
+        if root == "content":
+            return "content"
+        if root == "input_files":
+            return "input_files"
+        if root == "arguments":
+            return "arguments"
+        if root:
+            return root
+        name = self._component_name(component_id).lower()
+        if name in self.TEXT_INPUT_COMPONENTS:
+            return "content"
+        return ""
+
+    @staticmethod
+    def _array_inner(type_name: str) -> str:
+        normalized = normalize_schema_type(type_name)
+        prefix = f"{SCHEMA_TYPE_ARRAY}<"
+        if normalized.startswith(prefix) and normalized.endswith(">"):
+            return normalized[len(prefix):-1]
+        return ""
+
+    @classmethod
+    def _type_base(cls, type_name: str) -> str:
+        normalized = normalize_schema_type(type_name)
+        return cls._array_inner(normalized) or normalized
+
+    @classmethod
+    def _is_array_type(cls, type_name: str) -> bool:
+        return normalize_schema_type(type_name).startswith(f"{SCHEMA_TYPE_ARRAY}<")
+
+    @classmethod
+    def _is_text_prompt_blocked(cls, source_type: str) -> bool:
+        source_base = cls._type_base(source_type)
+        return source_base in cls.NON_TEXT_PROMPT_TYPES
+
+    @classmethod
+    def _types_compatible(cls, source_type: str, target_type: str, target_component: str, target_input: str) -> tuple[bool, str]:
+        source_type = normalize_schema_type(source_type)
+        target_type = normalize_schema_type(target_type)
+        source_base = cls._type_base(source_type)
+        target_base = cls._type_base(target_type)
+        target_component = (target_component or "").lower()
+
+        if target_type == SCHEMA_TYPE_ANY or source_type == SCHEMA_TYPE_ANY:
+            return True, ""
+        if source_type == target_type:
+            return True, ""
+
+        if target_component in {"agent", "agentwithtools", "llm", "categorize", "rewritequestion"} and target_input in cls.LLM_PROMPT_PARAMS:
+            if cls._is_text_prompt_blocked(source_type):
+                return False, "Artifact/File/Audio/AgentRun data cannot be injected directly into an LLM prompt. Parse or summarize it into text first."
+
+        if target_type == SCHEMA_TYPE_STRING:
+            if cls._is_text_prompt_blocked(source_type):
+                return False, "This target expects text. Parse the file/artifact/audio into text before connecting it."
+            return True, ""
+
+        if target_base == SCHEMA_TYPE_FILE_ASSET:
+            if source_base == SCHEMA_TYPE_FILE_ASSET:
+                return True, ""
+            return False, "This input expects uploaded file assets. Use Begin file assets or an upstream file-producing node."
+
+        if target_base in {SCHEMA_TYPE_TEXT_DOCUMENT, SCHEMA_TYPE_TEXT_CHUNK}:
+            if source_base == target_base:
+                return True, ""
+            if source_base == SCHEMA_TYPE_FILE_ASSET:
+                return False, "FileAsset cannot be used as parsed text. Insert FileParser before this node."
+            return False, "This input expects parsed document text or chunks. Use a parser node first."
+
+        if target_base == SCHEMA_TYPE_AUDIO_ASSET:
+            if source_base == SCHEMA_TYPE_AUDIO_ASSET:
+                return True, ""
+            return False, "This input expects audio. Use an audio input or TTS node output."
+
+        if target_base == SCHEMA_TYPE_NUMBER:
+            if source_base == SCHEMA_TYPE_NUMBER:
+                return True, ""
+            return False, "This input expects a numeric value. Add an explicit calculation or parsing node before connecting."
+
+        if target_base == SCHEMA_TYPE_BOOLEAN:
+            if source_base == SCHEMA_TYPE_BOOLEAN:
+                return True, ""
+            return False, "This input expects a boolean value. Add an explicit conversion node before connecting."
+
+        if target_base in {SCHEMA_TYPE_JSON, SCHEMA_TYPE_TABLE_DATA, SCHEMA_TYPE_SQL_RESULT, SCHEMA_TYPE_ARTIFACT}:
+            if source_base == target_base:
+                return True, ""
+            return False, f"This input expects {target_type}. Add a node that outputs {target_type} before connecting."
+
+        if cls._is_array_type(target_type):
+            if cls._is_array_type(source_type) and source_base == target_base:
+                return True, ""
+            return False, f"This input expects {target_type}, but the source outputs {source_type}."
+
+        return source_base == target_base, ""
+
+    def _validate_type_compatibility(self) -> None:
+        known = set(self.components.keys())
+        warned_missing_schema: set[tuple[str, str, str]] = set()
+
+        for target_id in self.components:
+            target_params = self._params(target_id)
+            target_name = self._component_name(target_id)
+            target_schema = self._component_input_schema(target_id)
+            for path, text in self._walk_string_paths(target_params):
+                for ref in self.VARIABLE_REF_RE.findall(text):
+                    if "@" not in ref:
+                        continue
+                    source_id, source_output = ref.split("@", 1)
+                    if source_id in {"sys", "item", "index"} or source_id not in known:
+                        continue
+
+                    target_input = self._target_input_name(target_id, path)
+                    if not target_input:
+                        continue
+
+                    source_schema = self._component_output_schema(source_id)
+                    source_type = source_schema.get(source_output)
+                    target_type = target_schema.get(target_input)
+
+                    if not source_type or not target_type:
+                        key = (target_id, source_id, source_output)
+                        if key not in warned_missing_schema:
+                            warned_missing_schema.add(key)
+                            missing = []
+                            if not source_type:
+                                missing.append(f"source output `{source_id}@{source_output}`")
+                            if not target_type:
+                                missing.append(f"target input `{target_id}.{target_input}`")
+                            self._add(
+                                AgentValidationIssue.WARNING,
+                                "missing_port_schema",
+                                "Cannot validate type compatibility because schema is missing for "
+                                + " and ".join(missing)
+                                + ". Existing workflow is kept compatible.",
+                                target_id,
+                            )
+                        continue
+
+                    compatible, suggestion = self._types_compatible(
+                        source_type,
+                        target_type,
+                        target_name,
+                        target_input,
+                    )
+                    if compatible:
+                        continue
+                    self._add(
+                        AgentValidationIssue.ERROR,
+                        "incompatible_connection_type",
+                        (
+                            f"Incompatible variable connection: source `{source_id}@{source_output}` "
+                            f"({source_type}) -> target `{target_id}.{target_input}` ({target_type}). "
+                            f"{suggestion}"
+                        ).strip(),
+                        target_id,
+                    )
+
     def _validate_sql(self) -> None:
         for component_id in self.components:
             if self._component_name(component_id).lower() != "exesql":
@@ -289,6 +1301,14 @@ class AgentValidationService:
             try:
                 prepare_readonly_sqls(str(sql))
             except Exception as exc:
+                if self.VARIABLE_REF_RE.fullmatch(str(sql).strip()):
+                    self._add(
+                        AgentValidationIssue.WARNING,
+                        "dynamic_sql_runtime_validation",
+                        "ExeSQL SQL is provided by a variable and will be validated as read-only at runtime.",
+                        component_id,
+                    )
+                    continue
                 self._add(
                     AgentValidationIssue.ERROR,
                     "unsafe_sql",
